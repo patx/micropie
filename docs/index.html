@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="https://pythonhosted.org/pickleDB/favicon.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Playwrite+VN:wght@100..400&display=swap" rel="stylesheet">
+    <title>MicroPie - An actual micro web framework</title>
+    <style>
+        .logo {
+            width: 800px;
+            margin: 40px auto;
+            font-family: "Playwrite VN", "Helvetica", sans-serif;
+            font-size: 100px
+        }
+        .body {
+            font-family: "Helvetica", sans-serif;
+            width: 540px;
+            margin: 40px auto;
+        }
+        img.c1 {
+            position: absolute;
+            top: 0;
+            right: 0;
+            border: 0;
+        }
+        span.c2 {
+            color: #8F5902;
+        }
+        span.c9 {
+            color: #B22222;
+        }
+        a {
+            color: #B22222;
+            border-bottom: 1px dotted #008000;
+            text-decoration: none;
+        }
+        a:hover {
+            color: #B22222;
+            border-bottom: 1px solid #008000;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">
+        <img src="logo.png" alt="MicroPie logo" width=150px height=150px> MicroPie
+    </div>
+    <div class="body">
+        <h1>Welcome</h1>
+        <p><strong>MicroPie is an ultra-lightweight Python web framework</strong> that gets out of your way, letting you build dynamic, fast, and scalable web apps with ease. With built-in Jinja2 templates, simple routing, and zero bloat, it’s the perfect choice for developers who value speed and simplicity. It was inspired by <a href="http://redis.io/">CherryPy</a> and is licensed under the BSD three-clause license.</p>
+
+        <h2>MicroPie is Fun</h2>
+        <pre><code>
+<span class="c2">from</span> MicroPie <span class="c2">import</span> Server
+
+<span class="c2">class</span> MyApp(<span class="c9">Server</span>):
+
+    <span class="c2">def</span> index(<span class="c9">self</span>):
+        return <span class="c9">'Hello World!</span>
+
+MyApp().run()
+        </code></pre>
+
+        <h2>And Easy to Install</h2>
+        <pre><code>
+<span class="c2">$</span> pip install <span class="c9">micropie</span>
+        </code></pre>
+
+        <h2>More Information</h2>
+        <p> MicroPie was written by <a href="http://patx.github.io">Harrison Erd</a>. If you would like to file an issue report or fork the project, check out the <a href="https://github.com/patx/micropie">Github project page</a>. You can view examples and documentation <a href="https://github.com/patx/micropie">here</a>. You can also take a look at MicroPie <a href="https://pypi.python.org/pypi/MicroPie">on PyPI</a>.</p>
+
+        <a href="https://github.com/patx/pickledb">
+            <img style="position: fixed; top: 0; right: 0; border: 0;" src="https://github.blog/wp-content/uploads/2008/12/forkme_right_red_aa0000.png" alt="Fork me on GitHub">
+        </a>
+    </div>
+</body>
+</html>
+
