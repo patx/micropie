@@ -9,7 +9,7 @@
 - 🔄 **Routing:** Maps URLs to functions automatically.
 - 🔐 **Sessions:** Simple session management using cookies.
 - 🎨 **Templates:** Jinja2 for dynamic HTML pages.
-- ⚡ **Fast & Lightweight:** No unnecessary dependencies.
+- ⚡ **Fast & Lightweight:** No unnecessary dependencies. WSGI support.
 
 ## **Installation**
 
@@ -138,7 +138,7 @@ class MyApp(Server):
         return f"Registered {username} with email {email}"
 ```
 
-### 4. Session Cleanup
+### 4. **Session Cleanup**
 Sessions expire after 8 hours but can be manually cleaned:
 
 ```python
@@ -146,6 +146,34 @@ class MyApp(Server):
     def cleanup_sessions(self):
         super().cleanup_sessions()
 ```
+
+### 5. **WSGI Support**
+MicroPie includes built-in WSGI support via the wsgi_app() method, allowing you to deploy your applications with WSGI-compatible servers like Gunicorn.
+
+#### **Example**
+Create a file named app.py:
+```python
+from MicroPie import Server
+
+class MyApp(Server):
+    def index(self):
+        return "Hello, WSGI World!"
+
+app = MyApp()
+wsgi_application = app.wsgi_app
+```
+
+Run `app.py` with:
+```bash
+gunicorn app:wsgi_application
+```
+
+#### Why Use WSGI?
+WSGI (Web Server Gateway Interface) is the standard Python interface between web servers and web applications. Deploying with a WSGI server like Gunicorn provides benefits such as:
+- Better Performance: Multi-threaded and multi-process capabilities.
+- Scalability: Easily handle multiple requests concurrently.
+- Production Readiness: Designed for high-load environments.
+
 
 ## **API Reference**
 
@@ -168,6 +196,11 @@ Renders a Jinja2 template with provided context variables.
 
 #### validate_request(method)
 Validates incoming requests for both GET and POST methods based on query and body parameters.
+
+#### wsgi_app(environ, start_response)
+- Parses incoming HTTP requests and routes them to appropriate handler methods.
+- Handles both GET and POST requests.
+- Provides response headers and status codes.
 
 ## **Examples**
 [See the examples folder!](https://github.com/patx/micropie/tree/main/examples)

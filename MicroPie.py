@@ -1,10 +1,11 @@
 """
-MicroPie: A simple and lightweight Python micro web framework.
+MicroPie: A simple and lightweight Python micro web framework w/ WSGI support
 https://patx.github.io/micropie
 """
 
 import http.server
 import socketserver
+from urllib.parse import parse_qs
 import time
 import uuid
 import inspect
@@ -280,4 +281,87 @@ class Server:
         except Exception as e:
             print(f"Error during request validation: {e}")
             return False
+
+    def wsgi_app(self, environ, start_response):
+        """
+        WSGI-compatible application wrapper for running MicroPie apps with Gunicorn or other WSGI servers.
+
+        :param environ: WSGI environment dictionary.
+        :param start_response: WSGI start_response function.
+        """
+        path = environ['PATH_INFO'].strip("/")
+        method = environ['REQUEST_METHOD']
+
+        # Default to index if root is accessed
+        if not path:
+            path = "index"
+
+        # Parse query parameters
+        self.query_params = parse_qs(environ['QUERY_STRING'])
+
+        # Split the path to extract potential parameters
+        path_parts = path.split('/')
+
+        # Determine the function name from path, default to index
+        func_name = path_parts[0] if path_parts[0] else "index"
+
+        # Assign request properties to app
+        self.request = method
+        self.path_params = path_parts[1:]  # Exclude the function name
+
+        # Handle POST request body
+        if method == "POST":
+            try:
+                content_length = int(environ.get('CONTENT_LENGTH', 0))
+                body = environ['wsgi.input'].read(content_length) if content_length > 0 else b""
+                post_params = parse_qs(body.decode('utf-8'))
+                self.body_params = {k: v[0] for k, v in post_params.items()}
+            except Exception as e:
+                start_response('400 Bad Request', [('Content-Type', 'text/html')])
+                return [f"400 Bad Request: {str(e)}".encode('utf-8')]
+        else:
+            self.body_params = {}
+
+        try:
+            # Find the function to call or return 404 if not found
+            handler_function = getattr(self, func_name, None)
+            if handler_function:
+                # Get function signature to determine required arguments
+                sig = inspect.signature(handler_function)
+                func_args = []
+
+                for param in sig.parameters.values():
+                    if self.path_params:
+                        func_args.append(self.path_params.pop(0))
+                    elif param.name in self.query_params:
+                        func_args.append(self.query_params[param.name][0])
+                    elif param.name in self.body_params:
+                        func_args.append(self.body_params[param.name])
+                    elif param.default is not param.empty:
+                        func_args.append(param.default)
+                    else:
+                        start_response('400 Bad Request', [('Content-Type', 'text/html')])
+                        return [f"400 Bad Request: Missing required parameter '{param.name}'".encode('utf-8')]
+
+                # Call the handler with the parameters
+                response = handler_function(*func_args)
+
+                # Handle tuple (status, body) response
+                if isinstance(response, tuple) and len(response) == 2:
+                    status, body = response
+                    status = f"{status} Found" if status == 302 else f"{status} OK"
+                else:
+                    status, body = '200 OK', response
+
+                start_response(status, [('Content-Type', 'text/html')])
+                return [body.encode('utf-8')]
+            else:
+                start_response('404 Not Found', [('Content-Type', 'text/html')])
+                return [b'404 Not Found']
+
+        except Exception as e:
+            if not environ.get('gunicorn.error_handled'):
+                start_response('500 Internal Server Error', [('Content-Type', 'text/html')])
+            environ['gunicorn.error_handled'] = True
+            return [f"500 Internal Server Error: {str(e)}".encode('utf-8')]
 
