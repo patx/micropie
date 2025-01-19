@@ -60,7 +60,7 @@ class MyApp(Server):
 
 MicroPie allows passing data using query strings (`?key=value`) and URL path segments.
 
-#### **Query Parameters (GET Requests)**
+#### **Handling GET Requests**
 
 You can pass query parameters via the URL, which will be automatically mapped to method arguments:
 
@@ -73,7 +73,7 @@ class MyApp(Server):
 **Access:**
 - Using query parameters: [http://127.0.0.1:8080/greet?name=Alice](http://127.0.0.1:8080/greet?name=Alice)
   - This will return: `Hello, Alice!`
-- Without query parameters: [http://127.0.0.1:8080/greet](http://127.0.0.1:8080/greet)
+- Using URL path segments: [http://127.0.0.1:8080/greet](http://127.0.0.1:8080/greet)
   - This will return: `Hello, Guest!`
 
 #### **Path Parameters (Dynamic Routing)**
