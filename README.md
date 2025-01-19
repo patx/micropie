@@ -1,35 +1,27 @@
-# MicroPie: A Minimalist Micro Web Framework
+![Logo](https://patx.github.io/micropie/logo2.png)
 
 ## **Introduction**
 
-**MicroPie** is a lightweight Python web framework designed for simplicity and efficiency. It provides a minimal yet powerful toolkit to build dynamic web applications with ease. Featuring built-in support for routing, session management, and Jinja2 template rendering, MicroPie is an excellent choice for developers who want a straightforward and effective web framework.
+**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, and Jinja2 template rendering.
 
-## **Key Features**
-
-- 🚀 **Effortless Setup:** Start building web applications with minimal configuration.
-- 🔄 **Dynamic Routing:** Automatically maps URLs to function handlers.
-- 🛡️ **Built-in Validation:** Validate incoming requests effortlessly.
-- 🔐 **Session Management:** Track user sessions securely.
-- 🎨 **Template Rendering:** Leverage Jinja2 for dynamic HTML generation.
-- ⚡ **Lightweight & Fast:** Zero bloat, quick responses.
-
----
+### **Key Features**
+- 🚀 **Easy Setup:** Minimal configuration required.
+- 🔄 **Routing:** Maps URLs to functions automatically.
+- 🔐 **Sessions:** Simple session management using cookies.
+- 🎨 **Templates:** Jinja2 for dynamic HTML pages.
+- ⚡ **Fast & Lightweight:** No unnecessary dependencies.
 
 ## **Installation**
 
-Install MicroPie easily with pip:
+Install MicroPie with:
 
 ```bash
 pip install micropie
 ```
 
----
-
 ## **Getting Started**
 
-### 1. Create Your First MicroPie App
-
-Save the following code as `server.py`:
+Create a basic MicroPie app in `server.py`:
 
 ```python
 from MicroPie import Server
@@ -47,15 +39,13 @@ Run the server:
 python server.py
 ```
 
-Visit your app at [http://127.0.0.1:8080](http://127.0.0.1:8080). Try adding `?name=Alice` to see dynamic responses.
+Visit your app at [http://127.0.0.1:8080](http://127.0.0.1:8080).
 
----
+## **Core Features**
 
-## **Core Features Explained**
+### **1. Routing**
 
-### **Routing**
-
-MicroPie maps URL paths to methods in your server class:
+Define methods to handle URLs:
 
 ```python
 class MyApp(Server):
@@ -63,13 +53,16 @@ class MyApp(Server):
         return "Hello, world!"
 ```
 
-Access this via: `http://127.0.0.1:8080/hello`
+**Access:**
+- Basic route: [http://127.0.0.1:8080/hello](http://127.0.0.1:8080/hello)
 
----
+### **2. Query and Path Parameters**
 
-### **Handling Query Parameters**
+MicroPie allows passing data using query strings (`?key=value`) and URL path segments.
 
-Query parameters in URLs can be mapped directly to function arguments:
+#### **Query Parameters (GET Requests)**
+
+You can pass query parameters via the URL, which will be automatically mapped to method arguments:
 
 ```python
 class MyApp(Server):
@@ -77,13 +70,48 @@ class MyApp(Server):
         return f"Hello, {name}!"
 ```
 
-Access this via: `http://127.0.0.1:8080/greet?name=Alice`
+**Access:**
+- Using query parameters: [http://127.0.0.1:8080/greet?name=Alice](http://127.0.0.1:8080/greet?name=Alice)
+  - This will return: `Hello, Alice!`
+- Without query parameters: [http://127.0.0.1:8080/greet](http://127.0.0.1:8080/greet)
+  - This will return: `Hello, Guest!`
 
----
+#### **Path Parameters (Dynamic Routing)**
 
-### **Handling POST Requests**
+You can also pass parameters directly in the URL path instead of query strings:
 
-Form data sent via POST requests is parsed and mapped to function arguments:
+```python
+class MyApp(Server):
+    def greet(self, name):
+        return f"Hello, {name}!"
+```
+
+**Access:**
+- Using path parameters: [http://127.0.0.1:8080/greet/Alice](http://127.0.0.1:8080/greet/Alice)
+  - This will return: `Hello, Alice!`
+- Another example: [http://127.0.0.1:8080/greet/John](http://127.0.0.1:8080/greet/John)
+  - This will return: `Hello, John!`
+
+#### **Using Both Query and Path Parameters Together**
+
+```python
+class MyApp(Server):
+    def profile(self, user_id):
+        age = self.query_params.get('age', ['Unknown'])[0]
+        return f"User ID: {user_id}, Age: {age}"
+```
+
+**Access:**
+- [http://127.0.0.1:8080/profile/123?age=25](http://127.0.0.1:8080/profile/123?age=25)
+  - Returns: `User ID: 123, Age: 25`
+- [http://127.0.0.1:8080/profile/456](http://127.0.0.1:8080/profile/456)
+  - Returns: `User ID: 456, Age: Unknown`
+
+### **3. Handling POST Requests**
+
+MicroPie supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments.
+
+#### **Example 1: Handling Form Submission with Default Values**
 
 ```python
 class MyApp(Server):
@@ -91,7 +119,7 @@ class MyApp(Server):
         return f"Form submitted by: {username}"
 ```
 
-Alternatively, access raw body parameters:
+#### **Example 2: Accessing Raw POST Data**
 
 ```python
 class MyApp(Server):
@@ -100,100 +128,18 @@ class MyApp(Server):
         return f"Submitted by: {username}"
 ```
 
----
-
-### **Session Management**
-
-MicroPie provides simple session handling:
+#### **Example 3: Handling Multiple POST Parameters**
 
 ```python
 class MyApp(Server):
-    def login(self):
-        self.session['user'] = 'Alice'
-        return "User logged in."
-
-    def profile(self):
-        user = self.session.get('user', 'Guest')
-        return f"Welcome, {user}!"
+    def register(self):
+        username = self.body_params.get('username', ['Guest'])[0]
+        email = self.body_params.get('email', ['No Email'])[0]
+        return f"Registered {username} with email {email}"
 ```
 
-Sessions are tracked using cookies and have a default expiration of 8 hours.
-
----
-
-### **Template Rendering**
-
-Use Jinja2 templates for dynamic HTML responses:
-
-Create `templates/index.html`:
-
-```html
-<!DOCTYPE html>
-<html>
-<body>
-    <h1>Hello, {{ name }}!</h1>
-</body>
-</html>
-```
-
-Render it in your app:
-
-```python
-class MyApp(Server):
-    def index(self):
-        return self.render_template("index.html", name="MicroPie")
-```
-
----
-
-### **Redirecting Users**
-
-Redirect users to a different route easily:
-
-```python
-class MyApp(Server):
-    def old_page(self):
-        return self.redirect("/new-page")
-
-    def new_page(self):
-        return "Welcome to the new page!"
-```
-
----
-
-### **Request Validation**
-
-MicroPie includes basic request validation:
-
-```python
-class MyApp(Server):
-    def validate_request(self, method):
-        if method == "GET" and "name" not in self.query_params:
-            return False
-        return True
-```
-
----
-
-## **Advanced Features**
-
-### **Path Parameters**
-
-Extract URL segments dynamically:
-
-```python
-class MyApp(Server):
-    def user(self, user_id):
-        return f"User ID: {user_id}"
-```
-
-Access via: `http://127.0.0.1:8080/user/123`
-
----
-
-### **Cleanup Expired Sessions**
-
-Sessions are automatically cleared after timeout:
+### 4. Session Cleanup
+Sessions expire after 8 hours but can be manually cleaned:
 
 ```python
 class MyApp(Server):
@@ -201,62 +147,24 @@ class MyApp(Server):
         super().cleanup_sessions()
 ```
 
----
+## API Reference
 
-## **API Documentation**
+### Class: Server
 
-### **Class: `Server`**
+#### run(host='127.0.0.1', port=8080)
+Starts the HTTP server with the specified host and port.
 
-#### `run(host='127.0.0.1', port=8080)`
-Starts the server.
+#### get_session(request_handler)
+Retrieves or creates a session for the current request. Sessions are managed via cookies.
 
-#### `render_template(template_name, **context)`
-Renders an HTML template with provided data.
+#### cleanup_sessions()
+Removes expired sessions that have surpassed the timeout period.
 
-#### `redirect(location)`
-Redirects the client to a new URL.
+#### redirect(location)
+Returns a 302 redirect response to the specified URL.
 
-#### `get_session(request_handler)`
-Retrieves or creates a session for the client.
+#### render_template(name, **args)
+Renders a Jinja2 template with provided context variables.
 
-#### `validate_request(method)`
-Validates incoming GET/POST requests.
-
----
-
-## **Examples**
-
-### Handling Form Submissions
-
-```python
-class MyApp(Server):
-    def submit(self):
-        return '''<form method="POST">
-                    <input name="username" />
-                    <button type="submit">Submit</button>
-                  </form>'''
-```
-
-### Custom 404 Handler
-
-```python
-class MyApp(Server):
-    def not_found(self):
-        return "Page not found!", 404
-```
-
----
-
-## **Why Choose MicroPie?**
-
-- Ideal for quick prototyping and lightweight web services.
-- No unnecessary dependencies.
-- Intuitive and developer-friendly API.
-
----
-
-## **License**
-
-MicroPie is licensed under the BSD 3-Clause License.
-
-
+#### validate_request(method)
+Validates incoming requests for both GET and POST methods based on query and body parameters.

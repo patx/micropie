@@ -1,36 +1,72 @@
 """
-MicroPie: A simple and lightweight Python micro webframework.
+MicroPie: A simple and lightweight Python micro web framework.
 https://patx.github.io/micropie
 """
+
 import http.server
 import socketserver
-from urllib.parse import parse_qs, urlparse
-from jinja2 import Environment, FileSystemLoader
-import uuid
 import time
+import uuid
 import inspect
+from urllib.parse import parse_qs, urlparse
+
+from jinja2 import Environment, FileSystemLoader
+
 
 class Server:
+    """
+    A lightweight server class providing basic routing, session handling, and
+    template rendering using Jinja2. This class uses an internally defined
+    request handler to manage GET and POST requests.
+    """
+
     SESSION_TIMEOUT = 8 * 3600  # 8 hours
+
     def __init__(self):
+        """
+        Initialize the Server instance with default settings, Jinja2 environment,
+        and session storage.
+        """
         self.handlers = {}
         self.env = Environment(loader=FileSystemLoader("templates"))
-        self.sessions = {}  # Store session data
+        self.sessions = {}
 
     def run(self, host="127.0.0.1", port=8080):
-        """Start the HTTP server."""
-        # Define the handler class dynamically
+        """
+        Start the HTTP server, binding it to the specified host and port.
+
+        :param host: The hostname or IP address to bind the server to.
+        :param port: The port number to listen on.
+        """
+
         class DynamicRequestHandler(http.server.SimpleHTTPRequestHandler):
+            """
+            A dynamically generated request handler that uses the Server instance
+            for routing and request processing.
+            """
+
             def do_GET(self):
-                """Handle GET requests."""
+                """
+                Handle GET requests by dispatching to the appropriate server
+                method.
+                """
                 self._handle_request("GET")
 
             def do_POST(self):
-                """Handle POST requests."""
+                """
+                Handle POST requests by dispatching to the appropriate server
+                method.
+                """
                 self._handle_request("POST")
 
             def _handle_request(self, method):
-                # Access the server instance (available after initialization)
+                """
+                Main request handling method that parses the URL path, queries
+                the Server instance to find the appropriate function, and invokes
+                it with the correct arguments.
+
+                :param method: The HTTP method (GET or POST) used for this request.
+                """
                 instance = self.server.instance
 
                 parsed_path = urlparse(self.path)
@@ -42,11 +78,13 @@ class Server:
                     instance.session = instance.get_session(self)
                     instance.request = method
                     instance.query_params = parse_qs(parsed_path.query)
-                    instance.path_params = path_parts[1:]  # Path segments after the function name
+                    instance.path_params = path_parts[1:]
+                    instance.body_params = {}
 
-                    instance.body_params = {}  # Ensure body_params is always initialized
                     if method == "POST":
-                        content_length = int(self.headers.get("Content-Length", 0))
+                        content_length = int(
+                            self.headers.get("Content-Length", 0)
+                        )
                         body = self.rfile.read(content_length).decode("utf-8")
                         instance.body_params = parse_qs(body)
 
@@ -56,7 +94,11 @@ class Server:
 
                     try:
                         func_args = self._get_func_args(
-                            func, instance.query_params, instance.body_params, instance.path_params, method
+                            func,
+                            instance.query_params,
+                            instance.body_params,
+                            instance.path_params,
+                            method
                         )
                         response = func(*func_args)
                         self._send_response(response)
@@ -66,11 +108,24 @@ class Server:
                 else:
                     self.send_error(404, "Not Found")
 
-            def _get_func_args(self, func, query_params, body_params, path_params, method):
+            def _get_func_args(self, func, query_params, body_params,
+                               path_params, method):
+                """
+                Build the argument list for the function being invoked based on
+                the function's signature, path parameters, query parameters,
+                and body parameters.
+
+                :param func: The function (endpoint) to be invoked.
+                :param query_params: A dictionary of query parameters for GET requests.
+                :param body_params: A dictionary of body parameters for POST requests.
+                :param path_params: Remaining path segments for dynamic URL segments.
+                :param method: The HTTP method (GET or POST) used for this request.
+                :return: A list of arguments to pass to the function.
+                """
                 sig = inspect.signature(func)
                 args = []
                 for param in sig.parameters.values():
-                    if path_params:  # Handle path parameters
+                    if path_params:
                         args.append(path_params.pop(0))
                     elif method == "GET" and param.name in query_params:
                         args.append(query_params[param.name][0])
@@ -79,11 +134,19 @@ class Server:
                     elif param.default is not param.empty:
                         args.append(param.default)
                     else:
-                        raise ValueError(f"Missing required parameter: {param.name}")
+                        raise ValueError(
+                            f"Missing required parameter: {param.name}"
+                        )
                 return args
 
             def _send_response(self, response):
-                """Send the response to the client."""
+                """
+                Send the appropriate HTTP response back to the client based on
+                the content returned by the handler function.
+
+                :param response: The content returned by the handler function. Can
+                                be a string or a (status_code, body) tuple.
+                """
                 try:
                     if isinstance(response, str):
                         self.send_response(200)
@@ -102,10 +165,10 @@ class Server:
                     print(f"Error sending response: {e}")
                     self.send_error(500, f"Internal Server Error: {e}")
 
-        # Bind the instance to the handler and start the server
         handler = DynamicRequestHandler
+
         with socketserver.TCPServer((host, port), handler) as httpd:
-            httpd.instance = self  # Attach the instance to the server
+            httpd.instance = self
             print(f"Serving on {host}:{port}")
             try:
                 httpd.serve_forever()
@@ -113,13 +176,22 @@ class Server:
                 print("\nShutting down...")
 
     def get_session(self, request_handler):
-        """Retrieve the session for the current client, creating one if necessary."""
+        """
+        Retrieve the session for the current client, creating one if necessary.
+
+        :param request_handler: The request handler instance managing the current
+                                request. Used to read and set cookies.
+        :return: The session dictionary associated with the current client.
+        """
         cookie = request_handler.headers.get('Cookie')
         session_id = None
 
         # Extract session ID from cookies
         if cookie:
-            cookies = {item.split('=')[0].strip(): item.split('=')[1].strip() for item in cookie.split(';')}
+            cookies = {
+                item.split('=')[0].strip(): item.split('=')[1].strip()
+                for item in cookie.split(';')
+            }
             session_id = cookies.get('session_id')
 
         # Create a new session if one doesn't exist
@@ -144,34 +216,65 @@ class Server:
         return session
 
     def cleanup_sessions(self):
-        """Clean up expired sessions."""
+        """
+        Clean up expired sessions by removing those that have not been accessed
+        within the SESSION_TIMEOUT period.
+        """
         now = time.time()
-        self.sessions = {sid: data for sid, data in self.sessions.items() if data.get('last_access', now) + self.SESSION_TIMEOUT > now}
+        self.sessions = {
+            sid: data for sid, data in self.sessions.items()
+            if data.get('last_access', now) + self.SESSION_TIMEOUT > now
+        }
 
     def redirect(self, location):
-        return (302, f"<html><head><meta http-equiv='refresh' content='0;url={location}'></head></html>")
+        """
+        Return a 302 redirect response to the specified location.
+
+        :param location: The URL or path to redirect the client to.
+        :return: A tuple containing the HTTP status code (302) and a minimal
+                 HTML document that redirects to the given location.
+        """
+        return (
+            302,
+            f"<html><head><meta http-equiv='refresh' content='0;url={location}'></head></html>"
+        )
 
     def render_template(self, name, **args):
+        """
+        Render a Jinja2 template by name, passing in any additional arguments
+        as template variables.
+
+        :param name: The name of the template file to render.
+        :param args: Additional keyword arguments to pass to the template.
+        :return: The rendered template as a string.
+        """
         return self.env.get_template(name).render(args)
 
     def validate_request(self, method):
-        """Validate incoming request data."""
+        """
+        Validate incoming request data for both GET and POST methods.
+
+        :param method: The HTTP method of the current request.
+        :return: True if all parameters are valid, False otherwise.
+        """
         try:
-            # Example: Validate query parameters
             if method == "GET":
                 for key, value in self.query_params.items():
-                    if not isinstance(key, str) or not all(isinstance(v, str) for v in value):
+                    if (
+                        not isinstance(key, str)
+                        or not all(isinstance(v, str) for v in value)
+                    ):
                         print(f"Invalid query parameter: {key} -> {value}")
                         return False
 
-            # Example: Validate body parameters for POST
             if method == "POST":
                 for key, value in self.body_params.items():
-                    if not isinstance(key, str) or not all(isinstance(v, str) for v in value):
+                    if (
+                        not isinstance(key, str)
+                        or not all(isinstance(v, str) for v in value)
+                    ):
                         print(f"Invalid body parameter: {key} -> {value}")
                         return False
-
-            # Add header validation logic here if required
 
             return True
         except Exception as e:
