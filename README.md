@@ -173,10 +173,10 @@ Validates incoming requests for both GET and POST methods based on query and bod
 ## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
 
 | Feature             | MicroPie  | Flask     | CherryPy  | Bottle     |
-|--------------------|-----------|-----------|-----------|------------|
-| **Ease of Use**     | Very Easy  | Easy      | Easy      | Very Easy  |
+|--------------------|-----------|-----------|-----------|-------------|
+| **Ease of Use**     | Very Easy  | Easy      | Easy     | Easy       |
 | **Routing**         | Automatic | Manual    | Manual    | Manual     |
-| **Template Engine** | Jinja2     | Jinja2    | Jinja2    | SimpleTpl  |
+| **Template Engine** | Jinja2     | Jinja2    | None     | SimpleTpl  |
 | **Session Handling**| Built-in  | Extension | Built-in  | Plugin     |
 | **Request Handling**| Simple    | Flexible  | Advanced  | Simple     |
 | **Performance**     | High      | High      | Moderate  | High       |
@@ -188,7 +188,6 @@ Validates incoming requests for both GET and POST methods based on query and bod
 | **Plugin Support**  | Limited   | Extensive | Rich      | Limited    |
 | **Community Support**| Small    | Large     | Moderate  | Moderate   |
 | **Deployment**      | Simple    | Moderate  | Moderate  | Simple     |
-| **Best Use Case**   | Micro-apps| Microservices | REST APIs | Lightweight apps |
 
 
 ## **Have Suggestions or Feedback?**
