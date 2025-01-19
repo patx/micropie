@@ -174,23 +174,24 @@ Validates incoming requests for both GET and POST methods based on query and bod
 
 ## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
 
-| Feature             | MicroPie  | Flask     | CherryPy  | Bottle     |
-|--------------------|-----------|-----------|-----------|-------------|
-| **Ease of Use**     | Very Easy  | Easy      | Easy     | Easy       |
-| **Routing**         | Automatic | Manual    | Manual    | Manual     |
-| **Template Engine** | Jinja2     | Jinja2    | None     | SimpleTpl  |
-| **Session Handling**| Built-in  | Extension | Built-in  | Plugin     |
-| **Request Handling**| Simple    | Flexible  | Advanced  | Simple     |
-| **Performance**     | High      | High      | Moderate  | High       |
-| **Scalability**     | Low       | Moderate  | High      | Low        |
-| **Built-in Server** | Yes       | No        | Yes       | Yes        |
-| **WSGI Support**    | Yes       | Yes       | Yes       | Yes        |
-| **Database Support**| No        | Extension | Plugin    | Plugin     |
-| **Middleware**      | Limited   | Extension | Plugin    | Limited    |
-| **Plugin Support**  | Limited   | Extensive | Rich      | Limited    |
-| **Community Support**| Small    | Large     | Moderate  | Moderate   |
-| **Deployment**      | Simple    | Moderate  | Moderate  | Simple     |
+| Feature             | MicroPie  | Flask     | CherryPy  | Bottle     | Django     |
+|--------------------|-----------|-----------|-----------|------------|-------------|
+| **Ease of Use**     | Very Easy  | Easy      | Easy      | Easy       | Moderate  |
+| **Routing**         | Automatic | Manual    | Manual    | Manual     | Automatic  |
+| **Template Engine** | Jinja2     | Jinja2    | None      | SimpleTpl  | Django Templating |
+| **Session Handling**| Built-in  | Extension | Built-in  | Plugin     | Built-in   |
+| **Request Handling**| Simple    | Flexible  | Advanced  | Simple     | Advanced   |
+| **Performance**     | High*     | High      | Moderate  | High       | Moderate   |
+| **Scalability**     | Low       | Moderate  | High      | Low        | High       |
+| **Built-in Server** | Yes       | No        | Yes       | Yes        | Yes        |
+| **WSGI Support**    | Yes       | Yes       | Yes       | Yes        | Yes        |
+| **Database Support**| No        | Extension | Plugin    | Plugin     | Built-in   |
+| **Middleware**      | Limited   | Extension | Plugin    | Limited    | Extensive  |
+| **Plugin Support**  | Limited   | Extensive | Rich      | Limited    | Extensive  |
+| **Community Support**| Small    | Large     | Moderate  | Moderate   | Very Large |
+| **Deployment**      | Simple    | Moderate  | Moderate  | Simple     | Complex    |
 
+*Note that while MicroPie is high-performing for lightweight applications, it may not scale well for complex, high-traffic web applications due to the lack of advanced features such as asynchronous request handling and database connection pooling, which are found in frameworks like Django and Flask.
 
 ## **Have Suggestions or Feedback?**
 Please submit your ideas or report any issues via our [GitHub repo](https://github.com/patx/micropie/issues).
