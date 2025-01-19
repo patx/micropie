@@ -1,4 +1,4 @@
-![Logo](https://patx.github.io/micropie/logo2.png)
+[![Logo](https://patx.github.io/micropie/logo2.png)](https://patx.github.io/micropie)
 
 ## **Introduction**
 
@@ -168,3 +168,29 @@ Renders a Jinja2 template with provided context variables.
 
 #### validate_request(method)
 Validates incoming requests for both GET and POST methods based on query and body parameters.
+
+
+## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
+
+| Feature             | MicroPie  | Flask     | CherryPy  | Bottle     |
+|--------------------|-----------|-----------|-----------|------------|
+| **Ease of Use**     | Very Easy  | Easy      | Easy      | Very Easy  |
+| **Routing**         | Automatic | Manual    | Manual    | Manual     |
+| **Template Engine** | Jinja2     | Jinja2    | Jinja2    | SimpleTpl  |
+| **Session Handling**| Built-in  | Extension | Built-in  | Plugin     |
+| **Request Handling**| Simple    | Flexible  | Advanced  | Simple     |
+| **Performance**     | High      | High      | Moderate  | High       |
+| **Scalability**     | Low       | Moderate  | High      | Low        |
+| **Built-in Server** | Yes       | No        | Yes       | Yes        |
+| **WSGI Support**    | Yes       | Yes       | Yes       | Yes        |
+| **Database Support**| No        | Extension | Plugin    | Plugin     |
+| **Middleware**      | Limited   | Extension | Plugin    | Limited    |
+| **Plugin Support**  | Limited   | Extensive | Rich      | Limited    |
+| **Community Support**| Small    | Large     | Moderate  | Moderate   |
+| **Deployment**      | Simple    | Moderate  | Moderate  | Simple     |
+| **Best Use Case**   | Micro-apps| Microservices | REST APIs | Lightweight apps |
+
+
+## **Have Suggestions or Feedback?**
+Please submit your ideas or report any issues via our [GitHub repo](https://github.com/patx/micropie/issues).
+
