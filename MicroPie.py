@@ -8,10 +8,10 @@ from urllib.parse import parse_qs, urlparse
 from jinja2 import Environment, FileSystemLoader
 import uuid
 import time
+import inspect
 
 class Server:
     SESSION_TIMEOUT = 8 * 3600  # 8 hours
-
     def __init__(self):
         self.handlers = {}
         self.env = Environment(loader=FileSystemLoader("templates"))
@@ -55,13 +55,32 @@ class Server:
                         return
 
                     try:
-                        response = func()
+                        # Extract method arguments dynamically
+                        func_args = self._get_func_args(func, instance.query_params, instance.body_params, method)
+                        response = func(*func_args)
                         self._send_response(response)
                     except Exception as e:
                         print(f"Error in handling request: {e}")
                         self.send_error(500, f"Internal Server Error: {e}")
                 else:
                     self.send_error(404, "Not Found")
+
+            def _get_func_args(self, func, query_params, body_params, method):
+                """
+                Maps query parameters and/or body parameters to function arguments.
+                """
+                sig = inspect.signature(func)
+                args = []
+                for param in sig.parameters.values():
+                    if method == "GET" and param.name in query_params:
+                        args.append(query_params[param.name][0])  # Get the first value for the parameter
+                    elif method == "POST" and param.name in body_params:
+                        args.append(body_params[param.name][0])  # Get the first value for the parameter
+                    elif param.default is not param.empty:  # Check for default value
+                        args.append(param.default)
+                    else:
+                        raise ValueError(f"Missing required parameter: {param.name}")
+                return args
 
             def do_GET(self):
                 self._handle_request("GET")
@@ -155,4 +174,3 @@ class Server:
         except Exception as e:
             print(f"Error during request validation: {e}")
             return False
-
