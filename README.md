@@ -147,7 +147,7 @@ class MyApp(Server):
         super().cleanup_sessions()
 ```
 
-## API Reference
+## **API Reference**
 
 ### Class: Server
 
@@ -169,6 +169,8 @@ Renders a Jinja2 template with provided context variables.
 #### validate_request(method)
 Validates incoming requests for both GET and POST methods based on query and body parameters.
 
+## **Examples**
+[See the examples folder!](https://github.com/patx/micropie/tree/main/examples)
 
 ## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
 
