@@ -100,6 +100,24 @@ class Server:
 
                 parsed_path = urlparse(self.path)
                 path_parts = parsed_path.path.strip("/").split("/")
+
+                # Check if the request is for static files
+                if path_parts[0] == "static":
+                    file_path = "/".join(path_parts)
+                    static_file_path = f"static/{'/'.join(path_parts[1:])}"
+
+                    # Serve the static file if it exists
+                    try:
+                        with open(static_file_path, "rb") as file:
+                            self.send_response(200)
+                            self.send_header("Content-Type", self.guess_type(file_path))
+                            self.end_headers()
+                            self.wfile.write(file.read())
+                        return
+                    except FileNotFoundError:
+                        self.send_error(404, "Static file not found")
+                        return
+
                 func_name = path_parts[0] or "index"
                 func = getattr(instance, func_name, None)
 
