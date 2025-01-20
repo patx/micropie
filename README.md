@@ -9,7 +9,7 @@
 - 🔄 **Routing:** Maps URLs to functions automatically.
 - 🔐 **Sessions:** Simple session management using cookies.
 - 🎨 **Templates:** Jinja2 for dynamic HTML pages.
-- 📂 Static Files: Serve static files like CSS, JS, and images from the `static` directory.
+- 📂 **Static Files:** Serve static files like CSS, JS, and images from the `static` directory.
 - ⚡ **Fast & Lightweight:** No unnecessary dependencies.
 - 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn or paste.
 
