@@ -2,16 +2,17 @@
 
 ## **Introduction**
 
-**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, and Jinja2 template rendering.
+**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, WSGI support, and Jinja2 template rendering.
 
 ### **Key Features**
-- 🚀 **Easy Setup:** Minimal configuration required.
-- 🔄 **Routing:** Maps URLs to functions automatically.
-- 🔐 **Sessions:** Simple session management using cookies.
-- 🎨 **Templates:** Jinja2 for dynamic HTML pages.
-- 📂 **Static Files:** Serve static files like CSS, JS, and images from the `static` directory.
-- ⚡ **Fast & Lightweight:** No unnecessary dependencies.
-- 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn or paste.
+*"Fast, efficient, and deliciously simple."*
+
+- 🚀 **Easy Setup:** Minimal configuration required. Our setup is so simple, you’ll have time for dessert.
+- 🔄 **Routing:** Maps URLs to functions automatically. So easy, even your grandma could do it (probably).
+- 🔐 **Sessions:** Simple session management using cookies. Your web app shouldn't weigh more than your lunch.
+- 🎨 **Templates:** Jinja2 for dynamic HTML pages serving lightweight apps with a side of efficiency.
+- ⚡ **Fast & Lightweight:** No unnecessary dependencies. Life’s too short for bloated frameworks.
+- 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn making web development easy as... pie!
 
 ## **Installation**
 
@@ -46,9 +47,7 @@ Visit your app at [http://127.0.0.1:8080](http://127.0.0.1:8080).
 ## **Core Features**
 
 ### **1. Routing**
-
 Define methods to handle URLs:
-
 ```python
 class MyApp(Server):
     def hello(self):
