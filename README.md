@@ -9,7 +9,8 @@
 - 🔄 **Routing:** Maps URLs to functions automatically.
 - 🔐 **Sessions:** Simple session management using cookies.
 - 🎨 **Templates:** Jinja2 for dynamic HTML pages.
-- ⚡ **Fast & Lightweight:** No unnecessary dependencies. WSGI support.
+- ⚡ **Fast & Lightweight:** No unnecessary dependencies.
+- 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn or paste.
 
 ## **Installation**
 
@@ -21,7 +22,7 @@ pip install micropie
 
 ## **Getting Started**
 
-Create a basic MicroPie app in `server.py`:
+Create a basic MicroPie app in `app.py`:
 
 ```python
 from MicroPie import Server
@@ -36,7 +37,7 @@ MyApp().run()
 Run the server:
 
 ```bash
-python server.py
+python app.py
 ```
 
 Visit your app at [http://127.0.0.1:8080](http://127.0.0.1:8080).
