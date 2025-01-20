@@ -250,7 +250,7 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 | **Template Engine** | Jinja2     | Jinja2    | None      | SimpleTpl  | Django Templating |
 | **Session Handling**| Built-in  | Extension | Built-in  | Plugin     | Built-in   |
 | **Request Handling**| Simple    | Flexible  | Advanced  | Simple     | Advanced   |
-| **Performance**     | High*     | High      | Moderate  | High       | Moderate   |
+| **Performance**     | High [^1] | High     | Moderate   | High       | Moderate   |
 | **Scalability**     | Low       | Moderate  | High      | Low        | High       |
 | **Built-in Server** | Yes       | No        | Yes       | Yes        | Yes        |
 | **WSGI Support**    | Yes       | Yes       | Yes       | Yes        | Yes        |
@@ -260,7 +260,7 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 | **Community Support**| Small    | Large     | Moderate  | Moderate   | Very Large |
 | **Deployment**      | Simple    | Moderate  | Moderate  | Simple     | Complex    |
 
-*Note that while MicroPie is high-performing for lightweight applications, it may not scale well for complex, high-traffic web applications due to the lack of advanced features such as asynchronous request handling and database connection pooling, which are found in frameworks like Django and Flask.
+[^1]: *Note that while MicroPie is high-performing for lightweight applications, it may not scale well for complex, high-traffic web applications due to the lack of advanced features such as asynchronous request handling and database connection pooling, which are found in frameworks like Django and Flask.*
 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!
