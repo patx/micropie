@@ -111,7 +111,7 @@ class MyApp(Server):
 
 MicroPie supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments.
 
-#### **Example 1: Handling Form Submission with Default Values**
+#### **Handling Form Submission with Default Values**
 
 ```python
 class MyApp(Server):
@@ -119,7 +119,7 @@ class MyApp(Server):
         return f"Form submitted by: {username}"
 ```
 
-#### **Example 2: Accessing Raw POST Data**
+#### **Accessing Raw POST Data**
 
 ```python
 class MyApp(Server):
@@ -128,7 +128,7 @@ class MyApp(Server):
         return f"Submitted by: {username}"
 ```
 
-#### **Example 3: Handling Multiple POST Parameters**
+#### **Handling Multiple POST Parameters**
 
 ```python
 class MyApp(Server):
