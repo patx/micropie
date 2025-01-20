@@ -165,6 +165,53 @@ WSGI (Web Server Gateway Interface) is the standard Python interface between web
 - Scalability: Easily handle multiple requests concurrently.
 - Production Readiness: Designed for high-load environments.
 
+### **5. Handling Sessions**
+MicroPie has built in session handling:
+```python
+class MyApp(Server):
+
+    def index(self):
+        # Initialize or increment visit count in session
+        if 'visits' not in self.session:
+            self.session['visits'] = 1
+        else:
+            self.session['visits'] += 1
+
+        return f"Welcome! You have visited this page {self.session['visits']} times."
+
+MyApp().run()
+```
+
+### **6. Jinja2 Built In**
+MicroPie has jinja2 template engine built in. You can use it with the `render_template` method. You can also implement any other template engine you would like.
+
+#### **`app.py`**
+Save the following as `app.py`:
+```python
+class MyApp(Server):
+    def index(self):
+        # Pass data to the template for rendering
+        return self.render_template("index.html", title="Welcome", message="Hello from MicroPie!")
+
+MyApp().run(port=8080)
+```
+
+#### **HTML**
+In order to use the `render_template` method you must put your HTML template files in a directory at the same level as `app.py` titled `templates`. Save the following as `templates/index.html`:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+</head>
+<body>
+    <h1>{{ message }}</h1>
+    <p>This page is rendered using Jinja2 templates.</p>
+</body>
+</html>
+```
 
 ## **API Reference**
 
