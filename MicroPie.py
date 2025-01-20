@@ -8,15 +8,15 @@ Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.
+   this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its
-contributors may be used to endorse or promote products derived from this
-software without specific prior written permission.
+   contributors may be used to endorse or promote products derived from this
+   software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
 IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
@@ -33,7 +33,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import http.server
 import socketserver
-from urllib.parse import parse_qs
 import time
 import uuid
 import inspect
@@ -329,6 +328,14 @@ class Server:
             return False
 
     def wsgi_app(self, environ, start_response):
+        """
+        A WSGI-compatible application method that processes incoming requests,
+        manages sessions, and dispatches to the correct handler function.
+
+        :param environ: A dictionary containing CGI-style environment variables.
+        :param start_response: A callback function for starting the response.
+        :return: An iterable of bytes, which represents the response body.
+        """
         path = environ['PATH_INFO'].strip("/")
         method = environ['REQUEST_METHOD']
 
@@ -346,7 +353,16 @@ class Server:
 
         # Mock request handler with necessary methods to simulate HTTP request object
         class MockRequestHandler:
+            """
+            A mock request handler class used within the WSGI application to
+            simulate some of the methods needed for handling cookies and headers.
+            """
+
             def __init__(self, environ):
+                """
+                Initialize the MockRequestHandler using the WSGI environ object
+                to extract header information and cookies.
+                """
                 self.environ = environ
                 self.headers = {
                     key[5:].replace('_', '-').lower(): value
@@ -356,6 +372,10 @@ class Server:
                 self._headers_to_send = []
 
             def _parse_cookies(self):
+                """
+                Parse any cookies from the HTTP_COOKIE environment variable and
+                return a dictionary mapping cookie names to their values.
+                """
                 cookies = {}
                 if 'HTTP_COOKIE' in self.environ:
                     cookie_header = self.environ['HTTP_COOKIE']
@@ -367,13 +387,24 @@ class Server:
                 return cookies
 
             def send_response(self, code):
-                # Here we append 'Status' so the final status can be picked up by start_response
+                """
+                Prepare an HTTP status to be returned in the response. For WSGI,
+                we store these as headers to be added by start_response.
+                """
                 self._headers_to_send.append(('Status', f'{code} OK'))
 
             def send_header(self, key, value):
+                """
+                Collect a single header (key-value pair) to include in the HTTP
+                response. These will be passed to start_response eventually.
+                """
                 self._headers_to_send.append((key, value))
 
             def end_headers(self):
+                """
+                Placeholder for ending headers, included for API consistency
+                with SimpleHTTPRequestHandler.
+                """
                 pass
 
         # Create a mock request handler to manage headers/cookies

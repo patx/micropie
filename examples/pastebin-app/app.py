@@ -39,7 +39,7 @@ class Root(Server):
 # Create a instance of our MicroPie App
 app = Root()
 
-# Run with `gunicorn app-wsgi:wsgi_app`
+# Run with `gunicorn app:wsgi_app`
 wsgi_app = app.wsgi_app
 
 # Run with `python3 app.py`

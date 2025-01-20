@@ -138,8 +138,9 @@ class ToDoApp(Server):
 
 app = ToDoApp()
 
+wsgi_app = app.wsgi_app
+
 if __name__ == "__main__":
     app.run()
-else:
-    wsgi_app = app.wsgi_app
+
 

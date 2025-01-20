@@ -222,12 +222,12 @@ MicroPie can serve static files (such as CSS, JavaScript, and images) from a sta
 - Create a directory named `static` in the same location as your MicroPie application.
 - Place your static files (e.g., style.css, script.js, logo.png) inside the static directory.
 
-#### **Accessing Static Files**
+#### **Accessing Static Files with `run()`**
 Static files can be accessed via the `/static/` URL path. For example, if you have a file named `style.css` in the `static` directory, you can access it using:
 ```
 http://127.0.0.1:8080/static/style.css
 ```
-
+Note that this feature is only available for the default `http.server` and does not currently work with the `wsgi_app` method. An easy work around is to use something like ([like GitHub Pages](https://pages.github.com/)) to serve your static content, and keep everything secure.
 
 ## **API Reference**
 
