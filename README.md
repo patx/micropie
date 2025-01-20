@@ -9,6 +9,7 @@
 - 🔄 **Routing:** Maps URLs to functions automatically.
 - 🔐 **Sessions:** Simple session management using cookies.
 - 🎨 **Templates:** Jinja2 for dynamic HTML pages.
+- 📂 Static Files: Serve static files like CSS, JS, and images from the `static` directory.
 - ⚡ **Fast & Lightweight:** No unnecessary dependencies.
 - 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn or paste.
 
@@ -213,6 +214,20 @@ In order to use the `render_template` method you must put your HTML template fil
 </body>
 </html>
 ```
+
+### **7. Serving Static Files**
+MicroPie can serve static files (such as CSS, JavaScript, and images) from a static directory.
+
+#### **Setup**
+- Create a directory named `static` in the same location as your MicroPie application.
+- Place your static files (e.g., style.css, script.js, logo.png) inside the static directory.
+
+#### **Accessing Static Files**
+Static files can be accessed via the `/static/` URL path. For example, if you have a file named `style.css` in the `static` directory, you can access it using:
+```
+http://127.0.0.1:8080/static/style.css
+```
+
 
 ## **API Reference**
 
