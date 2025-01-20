@@ -138,16 +138,7 @@ class MyApp(Server):
         return f"Registered {username} with email {email}"
 ```
 
-### 4. **Session Cleanup**
-Sessions expire after 8 hours but can be manually cleaned:
-
-```python
-class MyApp(Server):
-    def cleanup_sessions(self):
-        super().cleanup_sessions()
-```
-
-### 5. **WSGI Support**
+### 4. **WSGI Support**
 MicroPie includes built-in WSGI support via the wsgi_app() method, allowing you to deploy your applications with WSGI-compatible servers like Gunicorn.
 
 #### **Example**
@@ -201,7 +192,7 @@ Validates incoming requests for both GET and POST methods based on query and bod
 WSGI-compliant method for parsing requests and returning responses. Ideal for production deployment using WSGI servers.
 
 ## **Examples**
-Check out the [See the examples folder!](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, session usage, and form handling.
+Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, session usage, websockets and form handling.
 
 ## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
 
