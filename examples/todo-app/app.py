@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-A ToDo Application using the MicroPie framework and KenobiDB.
+A ToDo List Example Application using the MicroPie framework and pickleDB.
 """
 
 import os

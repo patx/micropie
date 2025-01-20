@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""circuits-pastebin
-
+"""
     A simple no frills pastebin using MicroPie, pickleDB, and pygments.
 """
 
