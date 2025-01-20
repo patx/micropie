@@ -198,12 +198,10 @@ Renders a Jinja2 template with provided context variables.
 Validates incoming requests for both GET and POST methods based on query and body parameters.
 
 #### wsgi_app(environ, start_response)
-- Parses incoming HTTP requests and routes them to appropriate handler methods.
-- Handles both GET and POST requests.
-- Provides response headers and status codes.
+WSGI-compliant method for parsing requests and returning responses. Ideal for production deployment using WSGI servers.
 
 ## **Examples**
-[See the examples folder!](https://github.com/patx/micropie/tree/main/examples)
+Check out the [See the examples folder!](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, session usage, and form handling.
 
 ## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
 
@@ -226,6 +224,7 @@ Validates incoming requests for both GET and POST methods based on query and bod
 
 *Note that while MicroPie is high-performing for lightweight applications, it may not scale well for complex, high-traffic web applications due to the lack of advanced features such as asynchronous request handling and database connection pooling, which are found in frameworks like Django and Flask.
 
-## **Have Suggestions or Feedback?**
-Please submit your ideas or report any issues via our [GitHub repo](https://github.com/patx/micropie/issues).
+## **Suggestions or Feedback?**
+We welcome suggestions, bug reports, and pull requests!
+- File issues or feature requests [here](https://github.com/patx/micropie/issues).
 

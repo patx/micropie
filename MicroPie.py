@@ -283,12 +283,6 @@ class Server:
             return False
 
     def wsgi_app(self, environ, start_response):
-        """
-        WSGI-compatible application wrapper for running MicroPie apps with Gunicorn or other WSGI servers.
-
-        :param environ: WSGI environment dictionary.
-        :param start_response: WSGI start_response function.
-        """
         path = environ['PATH_INFO'].strip("/")
         method = environ['REQUEST_METHOD']
 
@@ -296,31 +290,80 @@ class Server:
         if not path:
             path = "index"
 
-        # Parse query parameters
+        # Parse query parameters from the URL
         self.query_params = parse_qs(environ['QUERY_STRING'])
 
-        # Split the path to extract potential parameters
+        # Extract function name and path parameters
         path_parts = path.split('/')
-
-        # Determine the function name from path, default to index
         func_name = path_parts[0] if path_parts[0] else "index"
-
-        # Assign request properties to app
-        self.request = method
         self.path_params = path_parts[1:]  # Exclude the function name
+
+        # Mock request handler with necessary methods to simulate HTTP request object
+        class MockRequestHandler:
+            def __init__(self, environ):
+                self.environ = environ
+                self.headers = {
+                    key[5:].replace('_', '-').lower(): value
+                    for key, value in environ.items() if key.startswith('HTTP_')
+                }
+                self.cookies = self._parse_cookies()
+                self._headers_to_send = []
+
+            def _parse_cookies(self):
+                cookies = {}
+                if 'HTTP_COOKIE' in self.environ:
+                    cookie_header = self.environ['HTTP_COOKIE']
+                    for cookie in cookie_header.split(";"):
+                        if "=" in cookie:
+                            key, value = cookie.strip().split("=", 1)
+                            cookies[key] = value
+                print("Parsed cookies:", cookies)
+                return cookies
+
+            def send_response(self, code):
+                # Here we append 'Status' so the final status can be picked up by start_response
+                self._headers_to_send.append(('Status', f'{code} OK'))
+
+            def send_header(self, key, value):
+                self._headers_to_send.append((key, value))
+
+            def end_headers(self):
+                pass
+
+        # Create a mock request handler to manage headers/cookies
+        request_handler = MockRequestHandler(environ)
+
+        # Ensure session persistence by properly retrieving or creating a session
+        session_id = request_handler.cookies.get('session_id')
+        if session_id and session_id in self.sessions:
+            self.session = self.sessions[session_id]
+            self.session['last_access'] = time.time()
+            print(f"Using existing session: {session_id}")
+        else:
+            session_id = str(uuid.uuid4())
+            self.session = {"last_access": time.time()}
+            self.sessions[session_id] = self.session
+            request_handler.send_header('Set-Cookie', f'session_id={session_id}; Path=/; HttpOnly')
+            print(f"New session created: {session_id}")
+
+        print(f"Session data after retrieval: {session_id} -> {self.session}")
+
+        # Initialize request-related attributes
+        self.request = method
+        self.body_params = {}
 
         # Handle POST request body
         if method == "POST":
             try:
-                content_length = int(environ.get('CONTENT_LENGTH', 0))
-                body = environ['wsgi.input'].read(content_length) if content_length > 0 else b""
-                post_params = parse_qs(body.decode('utf-8'))
-                self.body_params = {k: v[0] for k, v in post_params.items()}
+                content_length = int(environ.get('CONTENT_LENGTH', 0) or 0)
+                body = environ['wsgi.input'].read(content_length).decode('utf-8', 'ignore')
+                # IMPORTANT: Keep as dict of lists (same as parse_qs in built-in server)
+                self.body_params = parse_qs(body)
+
+                print("POST Data Received:", self.body_params)
             except Exception as e:
                 start_response('400 Bad Request', [('Content-Type', 'text/html')])
                 return [f"400 Bad Request: {str(e)}".encode('utf-8')]
-        else:
-            self.body_params = {}
 
         try:
             # Find the function to call or return 404 if not found
@@ -332,36 +375,43 @@ class Server:
 
                 for param in sig.parameters.values():
                     if self.path_params:
+                        # Pull from the URL path (e.g., /delete/123)
                         func_args.append(self.path_params.pop(0))
                     elif param.name in self.query_params:
+                        # For GET query parameters
                         func_args.append(self.query_params[param.name][0])
                     elif param.name in self.body_params:
-                        func_args.append(self.body_params[param.name])
+                        # For POST body parameters (dict of lists)
+                        func_args.append(self.body_params[param.name][0])
                     elif param.default is not param.empty:
+                        # If the param has a default, use it
                         func_args.append(param.default)
                     else:
+                        # Missing a required parameter
                         start_response('400 Bad Request', [('Content-Type', 'text/html')])
-                        return [f"400 Bad Request: Missing required parameter '{param.name}'".encode('utf-8')]
+                        msg = f"400 Bad Request: Missing required parameter '{param.name}'"
+                        return [msg.encode('utf-8')]
 
                 # Call the handler with the parameters
                 response = handler_function(*func_args)
 
                 # Handle tuple (status, body) response
                 if isinstance(response, tuple) and len(response) == 2:
-                    status, body = response
-                    status = f"{status} Found" if status == 302 else f"{status} OK"
+                    status_code, body = response
+                    status_str = f"{status_code} OK"
+                    if status_code == 302:
+                        status_str = f"{status_code} Found"
                 else:
-                    status, body = '200 OK', response
+                    status_str, body = '200 OK', response
 
-                start_response(status, [('Content-Type', 'text/html')])
+                start_response(status_str, request_handler._headers_to_send + [('Content-Type', 'text/html')])
                 return [body.encode('utf-8')]
             else:
                 start_response('404 Not Found', [('Content-Type', 'text/html')])
                 return [b'404 Not Found']
 
         except Exception as e:
-            if not environ.get('gunicorn.error_handled'):
-                start_response('500 Internal Server Error', [('Content-Type', 'text/html')])
-            environ['gunicorn.error_handled'] = True
+            print(f"Error processing request: {e}")
+            start_response('500 Internal Server Error', [('Content-Type', 'text/html')])
             return [f"500 Internal Server Error: {str(e)}".encode('utf-8')]
 

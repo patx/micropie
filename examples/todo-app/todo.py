@@ -128,8 +128,10 @@ class ToDoApp(Server):
 # ------------------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------------------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app = ToDoApp()
-    app.run(host="0.0.0.0", port=port)
+app = ToDoApp()
+
+if __name__ == "__main__"
+    app.run()
+else:
+    wsgi_app = app.wsgi_app
 
