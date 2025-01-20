@@ -8,9 +8,11 @@ from uuid import uuid4
 from MicroPie import Server  # Import our MicroPie framework
 from pickledb import PickleDB
 
-# ------------------------------------------------------------------------------
-# Database Setup
-# ------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+# Database Setup, for production use a better database like sqlite or kenobi
+# ----------------------------------------------------------------------------
+
 db = PickleDB("todo.db")
 
 def add_item(content, tags):
@@ -41,9 +43,11 @@ def delete_item(item_id):
     db.remove(item_id)
     db.save()
 
-# ------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
 # ToDoApp Class
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+
 class ToDoApp(Server):
     """Our ToDo application, based on the MicroPie Server."""
 
@@ -99,18 +103,20 @@ class ToDoApp(Server):
             )
         return self.redirect("/")
 
-    def delete(self, item_id):
-        """
-        GET /delete/<id> -> Delete an item by id and optionally redirect to a tag.
-        Requires user to be logged in.
+    def delete(self, item_id, redirect_tag=None):
+        """Delete a document
+           id --> the id of the document to be deleted
+           redirect_tag --> if deleted from the tag page redirect back to same
+                            page
         """
         if not self.session.get("logged_in"):
             return self.redirect("/login")
 
-        if item_id:
-            delete_item(item_id)
-
-        return self.redirect("/")
+        delete_item(item_id)
+        if redirect_tag:
+            return self.redirect("/tag/{}".format(redirect_tag))
+        else:
+            return self.redirect("/")
 
     def tag(self, tag_value):
         """
@@ -125,12 +131,14 @@ class ToDoApp(Server):
             tag_items=matching_tags(tag_value),
         )
 
-# ------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
 # Main
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+
 app = ToDoApp()
 
-if __name__ == "__main__"
+if __name__ == "__main__":
     app.run()
 else:
     wsgi_app = app.wsgi_app

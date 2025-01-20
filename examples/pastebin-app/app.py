@@ -35,4 +35,14 @@ class Root(Server):
         db.save()
         return self.redirect("/paste/{0}".format(pid))
 
-Root().run()
+
+# Create a instance of our MicroPie App
+app = Root()
+
+# Run with `gunicorn app-wsgi:wsgi_app`
+wsgi_app = app.wsgi_app
+
+# Run with `python3 app.py`
+if __name__ == "__main__":
+    app.run()
+

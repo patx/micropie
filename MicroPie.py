@@ -44,7 +44,7 @@ from jinja2 import Environment, FileSystemLoader
 
 class Server:
     """
-    A lightweight server class providing basic routing, session handling, and
+    A lightweight class providing basic routing, session handling, and
     template rendering using Jinja2. This class uses an internally defined
     request handler to manage GET and POST requests.
     """
