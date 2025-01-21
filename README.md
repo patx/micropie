@@ -2,7 +2,7 @@
 
 ## **Introduction**
 
-**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, WSGI support, and Jinja2 template rendering.
+**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, WSGI support, and *optional* Jinja2 template rendering.
 
 ### **Key Features**
 *"Fast, efficient, and deliciously simple."*
@@ -14,13 +14,19 @@
 - ⚡ **Fast & Lightweight:** No unnecessary dependencies. Life’s too short for bloated frameworks.
 - 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn making web development easy as... pie!
 
-## **Installation**
-
-Install MicroPie with:
-
+## **Installing MicroPie**
+To install MicroPie with Jinja2 support, run the following command:
 ```bash
 pip install micropie
 ```
+This will install MicroPie along with jinja2 as a dependency, enabling the built-in render_template method. Using Jinja2 is highly recommended for robust template rendering.
+
+### **Minimal Installation (Without Jinja2)**
+If you prefer an ultra-minimalistic setup, you can run MicroPie without installing Jinja2. Simply download the standalone script:
+
+[MicroPie.py](https://github.com/patx/micropie/blob/main/MicroPie.py)
+
+Place the script in your project directory, and you're good to go.
 
 ## **Getting Started**
 

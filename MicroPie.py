@@ -38,7 +38,11 @@ import uuid
 import inspect
 from urllib.parse import parse_qs, urlparse
 
-from jinja2 import Environment, FileSystemLoader
+try:
+    from jinja2 import Environment, FileSystemLoader
+    JINJA_INSTALLED = True
+except ImportError:
+    JINJA_INSTALLED = False
 
 
 class Server:
@@ -56,7 +60,8 @@ class Server:
         and session storage.
         """
         self.handlers = {}
-        self.env = Environment(loader=FileSystemLoader("templates"))
+        if JINJA_INSTALLED:
+            self.env = Environment(loader=FileSystemLoader("templates"))
         self.sessions = {}
 
     def run(self, host="127.0.0.1", port=8080):
@@ -294,7 +299,10 @@ class Server:
         :param args: Additional keyword arguments to pass to the template.
         :return: The rendered template as a string.
         """
-        return self.env.get_template(name).render(args)
+        if JINJA_INSTALLED:
+            return self.env.get_template(name).render(args)
+        else:
+            raise ImportError
 
     def validate_request(self, method):
         """
