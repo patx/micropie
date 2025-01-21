@@ -15,6 +15,7 @@
 - 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn making web development easy as... pie!
 
 ## **Installing MicroPie**
+### **Normal Installation**
 To install MicroPie run the following command:
 ```bash
 pip install micropie
