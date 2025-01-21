@@ -9,8 +9,8 @@
 
 - 🚀 **Easy Setup:** Minimal configuration required. Our setup is so simple, you’ll have time for dessert.
 - 🔄 **Routing:** Maps URLs to functions automatically. So easy, even your grandma could do it (probably).
-- 🔐 **Sessions:** Simple session management using cookies. Your web app shouldn't weigh more than your lunch.
-- 🎨 **Templates:** Jinja2 for dynamic HTML pages serving lightweight apps with a side of efficiency.
+- 🔐 **Sessions:** Simple session management using cookies.
+- 🎨 **Templates:** Jinja2 for dynamic HTML pages.
 - ⚡ **Fast & Lightweight:** No unnecessary dependencies. Life’s too short for bloated frameworks.
 - 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn making web development easy as... pie!
 
@@ -266,13 +266,8 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 | **Session Handling**| Built-in  | Extension | Built-in  | Plugin     | Built-in   |
 | **Request Handling**| Simple    | Flexible  | Advanced  | Simple     | Advanced   |
 | **Performance**     | High [^1] | High     | Moderate   | High       | Moderate   |
-| **Scalability**     | Low       | Moderate  | High      | Low        | High       |
 | **Built-in Server** | Yes       | No        | Yes       | Yes        | Yes        |
 | **WSGI Support**    | Yes       | Yes       | Yes       | Yes        | Yes        |
-| **Database Support**| No        | Extension | Plugin    | Plugin     | Built-in   |
-| **Middleware**      | Limited   | Extension | Plugin    | Limited    | Extensive  |
-| **Plugin Support**  | Limited   | Extensive | Rich      | Limited    | Extensive  |
-| **Community Support**| Small    | Large     | Moderate  | Moderate   | Very Large |
 | **Deployment**      | Simple    | Moderate  | Moderate  | Simple     | Complex    |
 
 [^1]: *Note that while MicroPie is high-performing for lightweight applications, it may not scale well for complex, high-traffic web applications due to the lack of advanced features such as asynchronous request handling and database connection pooling, which are found in frameworks like Django and Flask.*
