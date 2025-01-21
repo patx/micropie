@@ -19,14 +19,14 @@ To install MicroPie with Jinja2 support, run the following command:
 ```bash
 pip install micropie
 ```
-This will install MicroPie along with jinja2 as a dependency, enabling the built-in `render_template` method. Using Jinja2 is highly recommended for robust template rendering.
+This will install MicroPie along with `jinja2` as a dependency, enabling the built-in `render_template` method. Using Jinja2 is highly recommended for robust template rendering.
 
 ### **Minimal Installation (Without Jinja2)**
-If you prefer an ultra-minimalistic setup, you can run MicroPie without installing Jinja2. Simply download the standalone script:
+If you prefer an ultra-minimalistic setup, you can run MicroPie without installing Jinja. Simply download the standalone script:
 
 [MicroPie.py](https://github.com/patx/micropie/blob/main/MicroPie.py)
 
-Place the script in your project directory, and you're good to go.
+Place the script in your project directory, and you're good to go. Please note you will not be able to use the `render_template` method. It will raise an `ImportError`, unless you have Jinja installed via `pip install jinja2`.
 
 ## **Getting Started**
 
