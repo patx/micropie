@@ -15,11 +15,11 @@
 - 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn making web development easy as... pie!
 
 ## **Installing MicroPie**
-To install MicroPie with Jinja2 support, run the following command:
+To install MicroPie run the following command:
 ```bash
 pip install micropie
 ```
-This will install MicroPie along with `jinja2` as a dependency, enabling the built-in `render_template` method. Using Jinja2 is highly recommended for robust template rendering.
+This will install MicroPie along with `jinja2` as a dependency, enabling the built-in `render_template` method. This is the recommended way to install this framework.
 
 ### **Minimal Installation (Without Jinja2)**
 If you prefer an ultra-minimalistic setup, you can run MicroPie without installing Jinja. Simply download the standalone script:
