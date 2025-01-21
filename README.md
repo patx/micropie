@@ -22,7 +22,7 @@ pip install micropie
 ```
 This will install MicroPie along with `jinja2` as a dependency, enabling the built-in `render_template` method. This is the recommended way to install this framework.
 
-### **Minimal Installation (Without Jinja2)**
+### **Minimal Installation**
 If you prefer an ultra-minimalistic setup, you can run MicroPie without installing Jinja. Simply download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
@@ -191,7 +191,7 @@ MyApp().run()
 ```
 
 ### **6. Jinja2 Built In**
-MicroPie has jinja2 template engine built in. You can use it with the `render_template` method. You can also implement any other template engine you would like.
+MicroPie has Jinja template engine built in. You can use it with the `render_template` method. You can also implement any other template engine you would like.
 
 #### **`app.py`**
 Save the following as `app.py`:
