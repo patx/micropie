@@ -2,7 +2,7 @@
 
 ## **Introduction**
 
-**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, WSGI support, and *optional* Jinja2 template rendering.
+**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, WSGI support, and Jinja2 template rendering.
 
 ### **Key Features**
 *"Fast, efficient, and deliciously simple."*
