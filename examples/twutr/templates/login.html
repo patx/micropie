@@ -1,0 +1,80 @@
+{% extends 'layout.html' %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<h2>Login</h2>
+
+<div class="form-container">
+    <form action="/login" method="post">
+        <input id="username" type="text" name="username" placeholder="Username" required>
+        <input id="password" type="password" name="password" placeholder="Password" required>
+        <button id="submit-btn" type="submit">Login</button>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+        width: 100%;
+        padding: 15px;
+        font-size: 18px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        outline: none;
+        transition: border-color 0.3s ease;
+    }
+
+    input:focus {
+        border-color: #007bff;
+    }
+
+    #submit-btn {
+        padding: 15px;
+        font-size: 18px;
+        border: none;
+        border-radius: 8px;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.3s ease;
+        width: 100%;
+    }
+
+    #submit-btn:hover {
+        background-color: #0056b3;
+    }
+
+    /* Responsive Design for Mobile */
+    @media (max-width: 600px) {
+        h2 {
+            font-size: 22px;
+            text-align: center;
+        }
+
+        .form-container {
+            width: 90%;
+            max-width: 100%;
+            padding: 0 10px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        #submit-btn {
+            font-size: 16px;
+            padding: 12px;
+        }
+    }
+</style>
+{% endblock %}
+

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MiniTwit{% endblock %}</title>
+    {% block extra_css %}{% endblock %}
+
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f9f9f9;
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px;
+        }
+
+        /* Container to hold main content and navigation */
+        .container {
+            display: flex;
+            align-items: flex-start;
+            gap: 40px; /* Space between content and nav */
+            max-width: 1000px; /* Limiting total width */
+            width: 100%;
+        }
+
+        /* Navigation styles */
+        .nav-container {
+            width: 200px; /* Fixed width for nav */
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        nav {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        nav a {
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 18px;
+            transition: color 0.3s ease;
+        }
+
+        nav a:hover {
+            color: #000;
+        }
+
+        /* Main content styles */
+        main {
+            flex: 3; /* Takes three times more space than nav */
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        h1 {
+            text-align: right;
+        }
+
+        ul {
+            list-style: none;
+        }
+
+        ul li {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+        }
+
+        ul li:last-child {
+            border-bottom: none;
+        }
+
+        ul li h3 {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        ul li small {
+            color: #888;
+            font-size: 14px;
+        }
+
+        a.button {
+            display: inline-block;
+            padding: 10px 20px;
+            border: 1px solid #333;
+            color: #333;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 16px;
+            transition: background 0.3s ease, color 0.3s ease;
+            text-align: center;
+        }
+
+        a.button:hover {
+            background: #333;
+            color: #fff;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        footer {
+            margin-top: 40px;
+            font-size: 14px;
+            color: #aaa;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <main>
+        <h1>twutr</h1>
+            {% block content %}{% endblock %}
+        </main>
+
+        <div class="nav-container">
+<nav>
+    {% if session['logged_in'] %}
+        <a href="/">Home</a>
+        <a href="/user/{{ session['user_id'] }}">My Profile</a>
+        <a href="/public">Public Timeline</a>
+        <a href="/logout">Logout</a>
+    {% else %}
+        <a href="/public">Public Timeline</a>
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    {% endif %}
+</nav>
+        </div>
+    </div>
+</body>
+</html>

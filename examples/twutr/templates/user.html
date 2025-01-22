@@ -1,0 +1,23 @@
+{% extends 'layout.html' %}
+{% block title %}User Timeline{% endblock %}
+{% block content %}
+<h2>{{ username }}</h2>
+
+<p>
+    <a href="/list_followers/{{ username }}">{{ followers|length }} Followers</a> |
+    <a href="/list_following/{{ username }}">{{ following_count }} Following</a>
+{% if session['logged_in'] and following is not none %}
+    {% if following %}
+        | <a href="/unfollow/{{ username }}">Unfollow</a>
+    {% else %}
+        | <a href="/follow/{{ username }}">Follow</a>
+    {% endif %}
+{% endif %}
+</p>
+
+<ul>
+    {% for message in messages %}
+        <li><h3>{{ message[0] }}</h3> <small>{{ message[1] }}</small></li>
+    {% endfor %}
+</ul>
+{% endblock %}

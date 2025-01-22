@@ -1,0 +1,10 @@
+{% extends 'layout.html' %}
+{% block title %}Public Timeline{% endblock %}
+{% block content %}
+<h2>Public Timeline</h2>
+<ul>
+    {% for message in messages %}
+        <li><h3>{{ message[1] }}</h3> <a href="/user/{{ message[0] }}">{{ message[0] }}</a> <small>@ {{ message[2] }}</small></li>
+    {% endfor %}
+</ul>
+{% endblock %}

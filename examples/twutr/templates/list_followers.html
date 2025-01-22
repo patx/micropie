@@ -1,0 +1,13 @@
+{% extends 'layout.html' %}
+{% block title %}{{ username }}'s Followers{% endblock %}
+{% block content %}
+<h2>{{ username }}'s Followers</h2>
+
+<ul>
+    {% for follower in followers %}
+        <li><a href="/user/{{ follower }}">{{ follower }}</a></li>
+    {% endfor %}
+</ul>
+
+<p><a href="/user/{{ username }}">Back to profile</a></p>
+{% endblock %}
