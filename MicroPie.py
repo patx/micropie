@@ -338,12 +338,10 @@ class Server:
     def wsgi_app(self, environ, start_response):
         """
         A WSGI-compatible application method that processes incoming requests,
-        manages sessions, and dispatches to the correct handler function.
-
-        :param environ: A dictionary containing CGI-style environment variables.
-        :param start_response: A callback function for starting the response.
-        :return: An iterable of bytes, which represents the response body.
+        manages sessions, and dispatches to the correct handler function,
+        now supporting streaming/generator responses.
         """
+
         path = environ['PATH_INFO'].strip("/")
         method = environ['REQUEST_METHOD']
 
@@ -391,7 +389,6 @@ class Server:
                         if "=" in cookie:
                             key, value = cookie.strip().split("=", 1)
                             cookies[key] = value
-                print("Parsed cookies:", cookies)
                 return cookies
 
             def send_response(self, code):
@@ -399,7 +396,9 @@ class Server:
                 Prepare an HTTP status to be returned in the response. For WSGI,
                 we store these as headers to be added by start_response.
                 """
-                self._headers_to_send.append(('Status', f'{code} OK'))
+                # We won't set 'Status' here because we can do it directly
+                # in start_response. But we could store the code if needed.
+                pass
 
             def send_header(self, key, value):
                 """
@@ -431,7 +430,8 @@ class Server:
             request_handler.send_header('Set-Cookie', f'session_id={session_id}; Path=/; HttpOnly')
             print(f"New session created: {session_id}")
 
-        print(f"Session data after retrieval: {session_id} -> {self.session}")
+        # Print for debug
+        print(f"Session data: {session_id} -> {self.session}")
 
         # Initialize request-related attributes
         self.request = method
@@ -442,10 +442,9 @@ class Server:
             try:
                 content_length = int(environ.get('CONTENT_LENGTH', 0) or 0)
                 body = environ['wsgi.input'].read(content_length).decode('utf-8', 'ignore')
-                # IMPORTANT: Keep as dict of lists (same as parse_qs in built-in server)
+                # parse_qs returns dict of lists
                 self.body_params = parse_qs(body)
-
-                print("POST Data Received:", self.body_params)
+                print("POST data:", self.body_params)
             except Exception as e:
                 start_response('400 Bad Request', [('Content-Type', 'text/html')])
                 return [f"400 Bad Request: {str(e)}".encode('utf-8')]
@@ -453,47 +452,81 @@ class Server:
         try:
             # Find the function to call or return 404 if not found
             handler_function = getattr(self, func_name, None)
-            if handler_function:
-                # Get function signature to determine required arguments
-                sig = inspect.signature(handler_function)
-                func_args = []
-
-                for param in sig.parameters.values():
-                    if self.path_params:
-                        # Pull from the URL path (e.g., /delete/123)
-                        func_args.append(self.path_params.pop(0))
-                    elif param.name in self.query_params:
-                        # For GET query parameters
-                        func_args.append(self.query_params[param.name][0])
-                    elif param.name in self.body_params:
-                        # For POST body parameters (dict of lists)
-                        func_args.append(self.body_params[param.name][0])
-                    elif param.default is not param.empty:
-                        # If the param has a default, use it
-                        func_args.append(param.default)
-                    else:
-                        # Missing a required parameter
-                        start_response('400 Bad Request', [('Content-Type', 'text/html')])
-                        msg = f"400 Bad Request: Missing required parameter '{param.name}'"
-                        return [msg.encode('utf-8')]
-
-                # Call the handler with the parameters
-                response = handler_function(*func_args)
-
-                # Handle tuple (status, body) response
-                if isinstance(response, tuple) and len(response) == 2:
-                    status_code, body = response
-                    status_str = f"{status_code} OK"
-                    if status_code == 302:
-                        status_str = f"{status_code} Found"
-                else:
-                    status_str, body = '200 OK', response
-
-                start_response(status_str, request_handler._headers_to_send + [('Content-Type', 'text/html')])
-                return [body.encode('utf-8')]
-            else:
+            if not handler_function:
                 start_response('404 Not Found', [('Content-Type', 'text/html')])
                 return [b'404 Not Found']
+
+            # Build the function args from the signature
+            sig = inspect.signature(handler_function)
+            func_args = []
+
+            for param in sig.parameters.values():
+                if self.path_params:
+                    # Pull from /path/remaining
+                    func_args.append(self.path_params.pop(0))
+                elif param.name in self.query_params:
+                    # For GET query parameters
+                    func_args.append(self.query_params[param.name][0])
+                elif param.name in self.body_params:
+                    # For POST body parameters
+                    func_args.append(self.body_params[param.name][0])
+                elif param.default is not param.empty:
+                    func_args.append(param.default)
+                else:
+                    # Missing a required parameter
+                    start_response('400 Bad Request', [('Content-Type', 'text/html')])
+                    msg = f"400 Bad Request: Missing required parameter '{param.name}'"
+                    return [msg.encode('utf-8')]
+
+            # Call the actual endpoint
+            response = handler_function(*func_args)
+
+            # Decide if it's (status, body) or just body
+            if isinstance(response, tuple) and len(response) == 2:
+                status_code, response_body = response
+            else:
+                status_code, response_body = 200, response
+
+            # Convert status_code -> "XXX <Message>"
+            if status_code == 302:
+                status_str = "302 Found"
+            elif status_code == 404:
+                status_str = "404 Not Found"
+            elif status_code == 500:
+                status_str = "500 Internal Server Error"
+            else:
+                status_str = f"{status_code} OK"
+
+            # Attach any headers the user set
+            headers = request_handler._headers_to_send
+            # If you want text/html by default, add it if user didn't
+            if not any(h[0].lower() == 'content-type' for h in headers):
+                headers.append(('Content-Type', 'text/html; charset=utf-8'))
+
+            # --- NEW STREAMING LOGIC ---
+            # Check if the response is a generator or an iterable (non-string).
+            if hasattr(response_body, '__iter__') and not isinstance(response_body, (bytes, str)):
+                # It's a streaming response. We'll return the generator
+                start_response(status_str, headers)
+
+                # Return the generator in a form that yields bytes.
+                def byte_stream(gen):
+                    for chunk in gen:
+                        if isinstance(chunk, str):
+                            yield chunk.encode('utf-8')
+                        else:
+                            yield chunk
+                return byte_stream(response_body)
+            else:
+                # Normal string/bytes response
+                if isinstance(response_body, str):
+                    response_body = response_body.encode('utf-8')
+                elif not isinstance(response_body, (bytes, bytearray)):
+                    # If it's some other object, string-ify it
+                    response_body = str(response_body).encode('utf-8')
+
+                start_response(status_str, headers)
+                return [response_body]
 
         except Exception as e:
             print(f"Error processing request: {e}")

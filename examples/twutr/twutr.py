@@ -324,6 +324,8 @@ class Twutr(Server):
             self.session.clear()
         return self.redirect('/public')
 
+app = Twutr()
+wsgi_app = app.wsgi_app
 
 if __name__ == "__main__":
     Twutr().run()
