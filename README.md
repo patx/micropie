@@ -235,6 +235,48 @@ http://127.0.0.1:8080/static/style.css
 ```
 Note that this feature is only available for the default `run` method which uses `http.server` and does not currently work with the `wsgi_app` method. An easy work around is to use something like [GitHub Pages](https://pages.github.com/) to serve your static content and keep everything secure. You can also implement static files with other servers like gunicorn + nginx.
 
+### **8. Streaming Responses and WebSockets**
+
+#### **Streaming Response Support**
+MicroPie provides support for streaming responses, allowing you to send data to the client in chunks instead of all at once. This is particularly useful for scenarios where data is generated or processed over time, such as live feeds, large file downloads, or incremental data generation.
+
+#### How It Works
+Streaming is supported through the `wsgi_app` method, making it compatible with WSGI servers like **Gunicorn**. When a route handler returns a generator or an iterable (excluding strings), MicroPie automatically streams the response to the client. *Note, streaming is only supported via WSGI:* The built-in `run` method, which relies on Python's `http.server`, does not support streaming responses. Using the built-in server will result in the entire response being buffered before being sent to the client. *Session handling remains functional* when using streaming responses via WSGI, ensuring persistent state across streamed requests.
+
+With the following saved as `app.py`:
+```python
+import time
+from MicroPie import Server
+
+class Root(Server):
+
+    def index(self):
+        def generator():
+            for i in range(1, 6):
+                yield f"Chunk {i}\n"
+                time.sleep(1)  # Simulate slow processing or data generation
+        return generator()
+
+app = Root()
+wsgi_app = app.wsgi_app
+```
+Run your application with `gunicorn app:wsgi_app`. For best performance with streaming, consider tuning Gunicorn settings such as worker types (e.g., `--worker-class gevent`) to handle long-lived connections efficiently.
+
+#### **WebSockets Integration**
+MicroPie applications can seamlessly integrate **WebSockets** by running a separate WebSocket server using Python’s `websockets` library. This enables real-time, bidirectional communication between clients and the server, independent of the HTTP server being used. To get started with WebSockets in MicroPie, ensure you have the `websockets` package installed `pip install websockets`.
+
+#### How It Works
+
+- **The HTTP server (MicroPie)** handles regular web requests and serves the frontend.
+- **A separate WebSocket server** runs concurrently to handle real-time communication.
+- Clients connect to the WebSocket server via the frontend and exchange messages asynchronously.
+- Since the WebSocket server operates separately, it works regardless of whether the MicroPie HTTP server is running via the built-in `run` method (using `http.server`) or a production-grade WSGI server such as **Gunicorn**.
+- **Threading Considerations:** Since the WebSocket server runs in a separate thread, developers should handle shared resources carefully to avoid concurrency issues.
+- **Port Management:** The WebSocket server must run on a different port than the HTTP server to avoid conflicts.
+- **Client Compatibility:** Ensure that clients support WebSockets when implementing features relying on real-time communication.
+
+**For a full example showing `websockets` and MicroPie check out the [chatroom example](https://github.com/patx/micropie/tree/main/examples/chatroom).**
+
 ## **API Reference**
 
 ### Class: Server
@@ -261,15 +303,15 @@ Validates incoming requests for both GET and POST methods based on query and bod
 WSGI-compliant method for parsing requests and returning responses. Ideal for production deployment using WSGI servers.
 
 ## **Examples**
-Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, session usage, websockets and form handling.
+Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, session usage, websockets, streaming and form handling.
 
 ## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
 
 | Feature             | MicroPie  | Flask     | CherryPy  | Bottle     | Django     |
-|--------------------|-----------|-----------|-----------|------------|-------------|
-| **Ease of Use**     | Very Easy  | Easy      | Easy      | Easy       | Moderate  |
+|---------------------|-----------|-----------|-----------|------------|------------|
+| **Ease of Use**     | Very Easy | Easy      | Easy      | Easy       | Moderate   |
 | **Routing**         | Automatic | Manual    | Manual    | Manual     | Automatic  |
-| **Template Engine** | Jinja2     | Jinja2    | None      | SimpleTpl  | Django Templating |
+| **Template Engine** | Jinja2    | Jinja2    | None      | SimpleTpl  | Django Templating |
 | **Session Handling**| Built-in  | Extension | Built-in  | Plugin     | Built-in   |
 | **Request Handling**| Simple    | Flexible  | Advanced  | Simple     | Advanced   |
 | **Performance**     | High [^1] | High     | Moderate   | High       | Moderate   |
