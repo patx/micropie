@@ -170,6 +170,7 @@ class Twutr(Server):
         """Displays a specific user's messages."""
         logged_in = self.session.get('logged_in')
         current_user = self.session.get('user_id')
+        username = escape(username)
 
         # Determine if current_user is following, is the same user, or is not logged in
         if not logged_in or not current_user:
@@ -205,7 +206,9 @@ class Twutr(Server):
         if not self.session.get('logged_in'):
             return self.redirect('/login')
 
+        username = escape(username)
         current_user = self.session.get('user_id')
+
         if username == current_user:
             return "You cannot follow yourself"
 
@@ -218,12 +221,13 @@ class Twutr(Server):
             return self.redirect('/login')
 
         current_user = self.session.get('user_id')
-        update_follow_relationship(current_user, username, follow=False)
+        update_follow_relationship(current_user, escape(username), follow=False)
 
         return self.redirect(f'/user/{username}')
 
     def list_followers(self, username):
         """Displays the list of followers for a given user."""
+        username = escape(username)
         user_data = get_user_data(username)
         if not user_data:
             return "User not found", 404
@@ -238,6 +242,7 @@ class Twutr(Server):
 
     def list_following(self, username):
         """Displays the list of users that a given user is following."""
+        username = escape(username)
         user_data = get_user_data(username)
         if not user_data:
             return "User not found", 404
@@ -280,8 +285,8 @@ class Twutr(Server):
             return self.redirect('/')
 
         if self.request == 'POST':
-            username = self.body_params.get('username', [''])[0].strip()
-            password = self.body_params.get('password', [''])[0].strip()
+            username = escape(self.body_params.get('username', [''])[0].strip())
+            password = escape(self.body_params.get('password', [''])[0].strip())
 
             if not username or not password:
                 return self.render_template('login.html', error="Fields cannot be empty", session=self.session)
@@ -302,19 +307,23 @@ class Twutr(Server):
             return self.redirect('/')
 
         if self.request == 'POST':
-            username = self.body_params.get('username', [''])[0].strip()
-            password = self.body_params.get('password', [''])[0].strip()
+            username = escape(self.body_params.get('username', [''])[0].strip())
+            password = escape(self.body_params.get('password', [''])[0].strip())
 
-            if username and password:
-                db.set(username, {
-                    'username': username,
-                    'password': password,
-                    'messages': [],
-                    'followers': [],
-                    'following': []
-                })
-                db.save()
-                return self.redirect('/login')
+            if not username or not password:
+                return self.render_template('login.html', error="Fields cannot be empty", session=self.session)
+            if db.get(username):
+                return self.render_template('register.html', session=self.session, error="Username already taken.")
+
+            db.set(username, {
+                'username': username,
+                'password': password,
+                'messages': [],
+                'followers': [],
+                'following': []
+            })
+            db.save()
+            return self.redirect('/login')
 
         return self.render_template('register.html', session=self.session)
 
