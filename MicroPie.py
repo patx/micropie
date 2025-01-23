@@ -2,7 +2,7 @@
 MicroPie: A simple Python ultra-micro web framework with WSGI
 support. https://patx.github.io/micropie
 
- Copyright Harrison Erd
+Copyright Harrison Erd
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -69,9 +69,16 @@ class Server:
         self.path_params = []
         self.session = {}
 
+        # For WSGI usage, we store environ & start_response here, if needed.
+        self.environ = None
+        self.start_response = None
+
     def run(self, host="127.0.0.1", port=8080):
         """
         Start the built-in HTTP server, binding to the specified host and port.
+
+        NOTE: This built-in server does not handle partial-content streaming
+        (Range requests) by default. It's for basic usage and testing.
         """
 
         class DynamicRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -174,9 +181,13 @@ class Server:
             def _send_response(self, response):
                 """
                 Send HTTP response based on the handler function return value.
+
+                This built-in server does *not* support custom headers or partial
+                content by default. If you need that, run under WSGI mode.
                 """
                 try:
                     if isinstance(response, str):
+                        # String response defaults to 200 + text/html
                         self.send_response(200)
                         self.send_header("Content-Type", "text/html")
                         self.end_headers()
@@ -184,12 +195,16 @@ class Server:
                     elif (
                         isinstance(response, tuple) and len(response) == 2
                     ):
+                        # (status, body)
                         status, body = response
                         self.send_response(status)
                         self.send_header("Content-Type", "text/html")
                         self.end_headers()
-                        self.wfile.write(body.encode("utf-8"))
+                        if isinstance(body, str):
+                            body = body.encode("utf-8")
+                        self.wfile.write(body)
                     else:
+                        # We only handle str or (status, body) here
                         self.send_error(500, "Invalid response format")
                 except Exception as e:
                     print(f"Error sending response: {e}")
@@ -310,7 +325,16 @@ class Server:
         A WSGI-compatible application method that processes incoming requests,
         manages sessions, dispatches to the correct handler function,
         and supports streaming/generator responses.
+
+        IMPORTANT:
+          - If your route returns (status, body, extra_headers), we handle them
+            in a single call to start_response.
+          - Do NOT call `start_response` in your handler.
         """
+
+        # Store environ & start_response on self, if your route needs them
+        self.environ = environ
+        self.start_response = start_response
 
         path = environ["PATH_INFO"].strip("/")
         method = environ["REQUEST_METHOD"]
@@ -326,7 +350,7 @@ class Server:
         func_name = path_parts[0]
         self.path_params = path_parts[1:]
 
-        # Mock request handler to manage headers and cookies
+        # Mock request handler for session cookies
         class MockRequestHandler:
             def __init__(self, environ):
                 self.environ = environ
@@ -349,7 +373,7 @@ class Server:
                 return cookies
 
             def send_response(self, code):
-                pass  # Not setting status here; done in start_response
+                pass  # We'll do final start_response in wsgi_app
 
             def send_header(self, key, value):
                 self._headers_to_send.append((key, value))
@@ -379,6 +403,7 @@ class Server:
         self.request = method
         self.body_params = {}
 
+        # Handle POST body
         if method == "POST":
             try:
                 content_length = int(environ.get("CONTENT_LENGTH", 0) or 0)
@@ -419,50 +444,67 @@ class Server:
         try:
             response = handler_function(*func_args)
 
-            if isinstance(response, tuple) and len(response) == 2:
-                status_code, response_body = response
-            else:
-                status_code, response_body = 200, response
+            # By default, assume 200, no extra headers
+            status_code = 200
+            response_body = response
+            extra_headers = []
 
-            # Convert code to standard string
+            # If the handler returned a tuple, unpack
+            if isinstance(response, tuple):
+                if len(response) == 2:
+                    # (status, body)
+                    status_code, response_body = response
+                elif len(response) == 3:
+                    # (status, body, extra_headers)
+                    status_code, response_body, extra_headers = response
+                else:
+                    start_response("500 Internal Server Error", [("Content-Type", "text/html")])
+                    return [b"500 Internal Server Error: Invalid response tuple"]
+
+            # Convert status_code to WSGI status
             status_map = {
+                206: "206 Partial Content",
                 302: "302 Found",
                 404: "404 Not Found",
                 500: "500 Internal Server Error",
             }
             status_str = status_map.get(status_code, f"{status_code} OK")
 
+            # Combine final headers
             headers = request_handler._headers_to_send
+            headers.extend(extra_headers)
+
+            # Ensure at least one Content-Type header is present
             if not any(h[0].lower() == "content-type" for h in headers):
                 headers.append(("Content-Type", "text/html; charset=utf-8"))
 
-            # Handle streaming (generator) response
-            if (
-                hasattr(response_body, "__iter__")
-                and not isinstance(response_body, (bytes, str))
-            ):
-                start_response(status_str, headers)
+            # Call start_response exactly once
+            start_response(status_str, headers)
 
+            # If response_body is a generator/iterable, yield pieces
+            if hasattr(response_body, "__iter__") and not isinstance(response_body, (bytes, str)):
                 def byte_stream(gen):
                     for chunk in gen:
                         if isinstance(chunk, str):
                             yield chunk.encode("utf-8")
                         else:
                             yield chunk
-
                 return byte_stream(response_body)
 
-            # Handle standard response
+            # Otherwise, convert str to bytes
             if isinstance(response_body, str):
                 response_body = response_body.encode("utf-8")
-            elif not isinstance(response_body, (bytes, bytearray)):
-                response_body = str(response_body).encode("utf-8")
 
-            start_response(status_str, headers)
             return [response_body]
 
         except Exception as e:
             print(f"Error processing request: {e}")
-            start_response("500 Internal Server Error", [("Content-Type", "text/html")])
+            # If an exception happened *after* start_response, we can't call it again
+            # but we'll try to handle gracefully:
+            try:
+                start_response("500 Internal Server Error", [("Content-Type", "text/html")])
+            except:
+                # We may get "headers already set" here, but let's log and ignore
+                pass
             return [f"500 Internal Server Error: {str(e)}".encode("utf-8")]
 
