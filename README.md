@@ -16,7 +16,7 @@
 
 ## **Installing MicroPie**
 ### **Normal Installation**
-To install MicroPie run the following command:
+To install MicroPie [from the PyPI](https://pypi.org/project/MicroPie/) run the following command:
 ```bash
 pip install micropie
 ```
