@@ -1,7 +1,7 @@
 import os
 from MicroPie import Server
 
-VIDEO_PATH = "path/to/your/video.mp4"
+VIDEO_PATH = "video.mp4"
 
 class VideoStreamer(Server):
     def index(self):

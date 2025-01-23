@@ -32,6 +32,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import http.server
+import os
 import socketserver
 import time
 import uuid
@@ -93,6 +94,40 @@ class Server:
             def do_POST(self):
                 self._handle_request("POST")
 
+            def _serve_static_file(self, path_parts):
+                """
+                Serve static files securely from the 'static' directory.
+
+                :param path_parts: List of path segments for the requested file.
+                """
+                # Resolve the absolute paths for security checks
+                static_dir = os.path.abspath("static")
+                safe_path = os.path.abspath(os.path.join(static_dir, *path_parts[1:]))
+
+                # Prevent directory traversal by ensuring requested path stays inside static/
+                if not safe_path.startswith(static_dir):
+                    self.send_error(403, "Forbidden")
+                    return
+
+                # Check if the file exists and serve it
+                if not os.path.isfile(safe_path):
+                    self.send_error(404, "Static file not found")
+                    return
+
+                try:
+                    # Set appropriate caching headers
+                    self.send_response(200)
+                    self.send_header("Content-Type", self.guess_type(safe_path))
+                    self.send_header("Cache-Control", "public, max-age=86400")  # 1-day cache
+                    self.end_headers()
+
+                    with open(safe_path, "rb") as file:
+                        self.wfile.write(file.read())
+
+                except IOError as e:
+                    print(f"Error handling request: {e}")
+                    self.send_error(500, f"Internal Server Error: {e}")
+
             def _handle_request(self, method):
                 instance = self.server.instance
                 parsed_path = urlparse(self.path)
@@ -100,21 +135,8 @@ class Server:
 
                 # Serve static files if requested
                 if path_parts[0] == "static":
-                    file_path = "/".join(path_parts)
-                    static_file_path = f"static/{'/'.join(path_parts[1:])}"
-                    try:
-                        with open(static_file_path, "rb") as file:
-                            self.send_response(200)
-                            self.send_header(
-                                "Content-Type",
-                                self.guess_type(file_path)
-                            )
-                            self.end_headers()
-                            self.wfile.write(file.read())
-                        return
-                    except FileNotFoundError:
-                        self.send_error(404, "Static file not found")
-                        return
+                    self._serve_static_file(path_parts)
+                    return
 
                 func_name = path_parts[0] or "index"
                 func = getattr(instance, func_name, None)
@@ -152,13 +174,13 @@ class Server:
                     self._send_response(response)
                 except Exception as e:
                     print(f"Error handling request: {e}")
-                    self.send_error(500, f"Internal Server Error: {e}")
+                    self.send_error(500, f"Internal Server Error")
 
             def _get_func_args(self, func, query_params, body_params,
                                path_params, method):
                 """
-                Build the argument list for the function based on its signature,
-                using path, query, and body parameters as needed.
+                Build the argument list for the function based on its
+                signature, using path, query, and body parameters as needed.
                 """
                 sig = inspect.signature(func)
                 args = []
@@ -182,8 +204,8 @@ class Server:
                 """
                 Send HTTP response based on the handler function return value.
 
-                This built-in server does *not* support custom headers or partial
-                content by default. If you need that, run under WSGI mode.
+                This built-in server does *not* support custom headers or
+                partial content by default. For that, run under WSGI mode.
                 """
                 try:
                     if isinstance(response, str):
@@ -208,13 +230,13 @@ class Server:
                         self.send_error(500, "Invalid response format")
                 except Exception as e:
                     print(f"Error sending response: {e}")
-                    self.send_error(500, f"Internal Server Error: {e}")
+                    self.send_error(500, f"Internal Server Error")
 
         handler = DynamicRequestHandler
 
         with socketserver.TCPServer((host, port), handler) as httpd:
             httpd.instance = self
-            print(f"Serving on {host}:{port}")
+            print(f"Serving on http://{host}:{port}")
             try:
                 httpd.serve_forever()
             except KeyboardInterrupt:
@@ -242,10 +264,10 @@ class Server:
             self.sessions[session_id] = {"last_access": time.time()}
             request_handler.send_response(200)
             request_handler.send_header(
-                "Set-Cookie", f"session_id={session_id}; Path=/"
+                "Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"
             )
             request_handler.end_headers()
-            print(f"New session created: {session_id}")
+            #print(f"New session created: {session_id}")  # DEBUG
 
         # Update last access
         session = self.sessions.get(session_id)
@@ -256,7 +278,7 @@ class Server:
             session = {"last_access": time.time()}
             self.sessions[session_id] = session
 
-        print(f"Session data: {session_id} -> {session}")
+        #print(f"Session data: {session_id} -> {session}") # DEBUG
         return session
 
     def cleanup_sessions(self):
@@ -394,7 +416,7 @@ class Server:
             self.session = {"last_access": time.time()}
             self.sessions[session_id] = self.session
             request_handler.send_header(
-                "Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly"
+                "Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict;"
             )
             print(f"New session created: {session_id}")
 

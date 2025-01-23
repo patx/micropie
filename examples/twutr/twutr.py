@@ -315,7 +315,7 @@ class Twutr(Server):
             if db.get(username):
                 return self.render_template('register.html', session=self.session, error="Username already taken.")
 
-            db.set(username, {
+            db.set(str(username), {
                 'username': username,
                 'password': password,
                 'messages': [],
