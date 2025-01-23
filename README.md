@@ -1,4 +1,4 @@
-[![Logo](https://patx.github.io/micropie/logo2.png)](https://patx.github.io/micropie)
+[![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## **Introduction**
 
