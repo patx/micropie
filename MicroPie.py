@@ -528,5 +528,5 @@ class Server:
             except:
                 # We may get "headers already set" here, but let's log and ignore
                 pass
-            return [f"500 Internal Server Error: {str(e)}".encode("utf-8")]
+            return ["500 Internal Server Error:"]
 
