@@ -10,7 +10,6 @@ class VideoStreamer(Server):
             <html>
             <body>
             <center>
-            <h1>Star Wars: Revenge of the Sith (III) Stream</h1>
                 <video width="640" height="360" controls>
                     <source src="/stream" type="video/mp4">
                     Your browser does not support the video tag. Use Chrome for best results.
@@ -83,9 +82,3 @@ app = VideoStreamer()
 
 # The WSGI entry point Gunicorn will look for
 wsgi_app = app.wsgi_app
-
-if __name__ == "__main__":
-    # Optional: run a simple server (no partial-content).
-    # For partial-content, run via: gunicorn app:wsgi_app
-    app.run(port=8080)
-
