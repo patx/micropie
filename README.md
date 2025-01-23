@@ -307,17 +307,18 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 
 ## **Feature Comparison: MicroPie, Flask, CherryPy, and Bottle**
 
-| Feature             | MicroPie  | Flask     | CherryPy  | Bottle     | Django     |
-|---------------------|-----------|-----------|-----------|------------|------------|
-| **Ease of Use**     | Very Easy | Easy      | Easy      | Easy       | Moderate   |
-| **Routing**         | Automatic | Manual    | Manual    | Manual     | Automatic  |
-| **Template Engine** | Jinja2    | Jinja2    | None      | SimpleTpl  | Django Templating |
-| **Session Handling**| Built-in  | Extension | Built-in  | Plugin     | Built-in   |
-| **Request Handling**| Simple    | Flexible  | Advanced  | Simple     | Advanced   |
-| **Performance**     | High [^1] | High     | Moderate   | High       | Moderate   |
-| **Built-in Server** | Yes       | No        | Yes       | Yes        | Yes        |
-| **WSGI Support**    | Yes       | Yes       | Yes       | Yes        | Yes        |
-| **Deployment**      | Simple    | Moderate  | Moderate  | Simple     | Complex    |
+| Feature             | MicroPie  | Flask      | CherryPy  | Bottle     | Django            | FastAPI    |
+|---------------------|-----------|------------|-----------|------------|-------------------|------------|
+| **Ease of Use**     | Very Easy | Easy       | Easy      | Easy       | Moderate          | Moderate   |
+| **Routing**         | Automatic | Manual     | Manual    | Manual     | Automatic         | Automatic  |
+| **Template Engine** | Jinja2    | Jinja2     | None      | SimpleTpl  | Django Templating | Jinja2     |
+| **Session Handling**| Built-in  | Extension  | Built-in  | Plugin     | Built-in          | Extension  |
+| **Request Handling**| Simple    | Flexible   | Advanced  | Simple     | Advanced          | Advanced   |
+| **Performance**     | High [^1] | High       | Moderate  | High       | Moderate          | Very High  |
+| **WSGI Support**    | Yes       | Yes        | Yes       | Yes        | Yes               | No (ASGI)  |
+| **Async Support**   | No        | No (Quart) | No        | No         | Limited           | Yes        |
+| **Deployment**      | Simple    | Moderate   | Moderate  | Simple     | Complex           | Moderate   |
+
 
 [^1]: *Note that while MicroPie is high-performing for lightweight applications, it may not scale well for complex, high-traffic web applications due to the lack of advanced features such as asynchronous request handling and database connection pooling, which are found in frameworks like Django and Flask. To achieve similiar performance with MicroPie use `gunicorn` with `gevent`.*
 
