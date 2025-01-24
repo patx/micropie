@@ -337,5 +337,5 @@ app = Twutr()
 wsgi_app = app.wsgi_app
 
 if __name__ == "__main__":
-    Twutr().run()
+    app.run()
 

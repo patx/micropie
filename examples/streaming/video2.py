@@ -34,3 +34,6 @@ class VideoStreamer(Server):
 
 app = VideoStreamer()
 wsgi_app = app.wsgi_app
+
+if __name__ == "__main__":
+    app.run()

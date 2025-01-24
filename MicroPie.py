@@ -31,13 +31,12 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-import http.server
-import os
-import socketserver
+
+from wsgiref.simple_server import make_server
 import time
 import uuid
 import inspect
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs
 
 try:
     from jinja2 import Environment, FileSystemLoader
@@ -64,183 +63,24 @@ class Server:
             self.env = Environment(loader=FileSystemLoader("templates"))
 
         self.sessions = {}
-        self.request = None
         self.query_params = {}
         self.body_params = {}
         self.path_params = []
         self.session = {}
-
-        # For WSGI usage, we store environ & start_response here, if needed.
         self.environ = None
         self.start_response = None
 
     def run(self, host="127.0.0.1", port=8080):
         """
-        Start the built-in HTTP server, binding to the specified host and port.
-
-        NOTE: This built-in server does not handle partial-content streaming
-        (Range requests) by default. It's for basic usage and testing.
+        Use Python's built-in WSGI server (wsgiref) for local development,
+        reusing the WSGI app to avoid duplication.
         """
-
-        class DynamicRequestHandler(http.server.SimpleHTTPRequestHandler):
-            """
-            A dynamically generated request handler that dispatches to the
-            Server instance's methods for routing and request processing.
-            """
-
-            def do_GET(self):
-                self._handle_request("GET")
-
-            def do_POST(self):
-                self._handle_request("POST")
-
-            def _serve_static_file(self, path_parts):
-                """
-                Serve static files securely from the 'static' directory.
-
-                :param path_parts: List of path segments for the requested file.
-                """
-                # Resolve the absolute paths for security checks
-                static_dir = os.path.abspath("static")
-                safe_path = os.path.abspath(os.path.join(static_dir, *path_parts[1:]))
-
-                # Prevent directory traversal by ensuring requested path stays inside static/
-                if not safe_path.startswith(static_dir):
-                    self.send_error(403, "Forbidden")
-                    return
-
-                # Check if the file exists and serve it
-                if not os.path.isfile(safe_path):
-                    self.send_error(404, "Static file not found")
-                    return
-
-                try:
-                    # Set appropriate caching headers
-                    self.send_response(200)
-                    self.send_header("Content-Type", self.guess_type(safe_path))
-                    self.send_header("Cache-Control", "public, max-age=86400")  # 1-day cache
-                    self.end_headers()
-
-                    with open(safe_path, "rb") as file:
-                        self.wfile.write(file.read())
-
-                except IOError as e:
-                    print(f"Error handling request: {e}")
-                    self.send_error(500, f"Internal Server Error: {e}")
-
-            def _handle_request(self, method):
-                instance = self.server.instance
-                parsed_path = urlparse(self.path)
-                path_parts = parsed_path.path.strip("/").split("/")
-
-                # Serve static files if requested
-                if path_parts[0] == "static":
-                    self._serve_static_file(path_parts)
-                    return
-
-                func_name = path_parts[0] or "index"
-                func = getattr(instance, func_name, None)
-
-                if not func:
-                    self.send_error(404, "Not Found")
-                    return
-
-                instance.session = instance.get_session(self)
-                instance.request = method
-                instance.query_params = parse_qs(parsed_path.query)
-                instance.path_params = path_parts[1:]
-                instance.body_params = {}
-
-                if method == "POST":
-                    content_length = int(
-                        self.headers.get("Content-Length", 0)
-                    )
-                    body = self.rfile.read(content_length).decode("utf-8")
-                    instance.body_params = parse_qs(body)
-
-                if not instance.validate_request(method):
-                    self.send_error(400, "Invalid Request")
-                    return
-
-                try:
-                    func_args = self._get_func_args(
-                        func,
-                        instance.query_params,
-                        instance.body_params,
-                        instance.path_params,
-                        method
-                    )
-                    response = func(*func_args)
-                    self._send_response(response)
-                except Exception as e:
-                    print(f"Error handling request: {e}")
-                    self.send_error(500, f"Internal Server Error")
-
-            def _get_func_args(self, func, query_params, body_params,
-                               path_params, method):
-                """
-                Build the argument list for the function based on its
-                signature, using path, query, and body parameters as needed.
-                """
-                sig = inspect.signature(func)
-                args = []
-
-                for param in sig.parameters.values():
-                    if path_params:
-                        args.append(path_params.pop(0))
-                    elif method == "GET" and param.name in query_params:
-                        args.append(query_params[param.name][0])
-                    elif method == "POST" and param.name in body_params:
-                        args.append(body_params[param.name][0])
-                    elif param.default is not param.empty:
-                        args.append(param.default)
-                    else:
-                        raise ValueError(
-                            f"Missing required parameter: {param.name}"
-                        )
-                return args
-
-            def _send_response(self, response):
-                """
-                Send HTTP response based on the handler function return value.
-
-                This built-in server does *not* support custom headers or
-                partial content by default. For that, run under WSGI mode.
-                """
-                try:
-                    if isinstance(response, str):
-                        # String response defaults to 200 + text/html
-                        self.send_response(200)
-                        self.send_header("Content-Type", "text/html")
-                        self.end_headers()
-                        self.wfile.write(response.encode("utf-8"))
-                    elif (
-                        isinstance(response, tuple) and len(response) == 2
-                    ):
-                        # (status, body)
-                        status, body = response
-                        self.send_response(status)
-                        self.send_header("Content-Type", "text/html")
-                        self.end_headers()
-                        if isinstance(body, str):
-                            body = body.encode("utf-8")
-                        self.wfile.write(body)
-                    else:
-                        # We only handle str or (status, body) here
-                        self.send_error(500, "Invalid response format")
-                except Exception as e:
-                    print(f"Error sending response: {e}")
-                    self.send_error(500, f"Internal Server Error")
-
-        handler = DynamicRequestHandler
-
-        with socketserver.TCPServer((host, port), handler) as httpd:
-            httpd.instance = self
-            print(f"Serving on http://{host}:{port}")
+        print(f"Serving on http://{host}:{port}")
+        with make_server(host, port, self.wsgi_app) as httpd:
             try:
                 httpd.serve_forever()
             except KeyboardInterrupt:
-                print("\nShutting down...")
+                print("\nShutting down server...")
 
     def get_session(self, request_handler):
         """
@@ -313,6 +153,33 @@ class Server:
         if not JINJA_INSTALLED:
             raise ImportError("Jinja2 is not installed.")
         return self.env.get_template(name).render(kwargs)
+
+    def serve_static(self, filepath):
+        """
+        Serve a static file securely from the 'static' directory.
+
+        This function ensures that only files within the 'static' directory
+        can be served, preventing access to other parts of the filesystem.
+
+        Parameters:
+        - filepath: The requested file path relative to the 'static' directory.
+
+        Example usage in route definition:
+        def static(self, filename):
+            return self.serve_static(filename)
+        """
+        safe_root = os.path.abspath("static")
+        requested_file = os.path.abspath(os.path.join("static", filepath))
+        if not requested_file.startswith(safe_root):
+            return 403, "403 Forbidden"
+        if not os.path.isfile(requested_file):
+            return 404, "404 Not Found"
+        content_type, _ = mimetypes.guess_type(requested_file)
+        if not content_type:
+            content_type = "application/octet-stream"
+        with open(requested_file, "rb") as f:
+            content = f.read()
+        return 200, content, [("Content-Type", content_type)]
 
     def validate_request(self, method):
         """

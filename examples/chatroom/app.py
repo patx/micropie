@@ -2,7 +2,6 @@ import asyncio
 import websockets
 import multiprocessing
 from MicroPie import Server
-from gunicorn.app.wsgiapp import run as gunicorn_run
 
 # Store connected WebSocket clients
 connected_clients = set()
@@ -70,19 +69,9 @@ def start_websocket_server():
     """Runs the WebSocket server with asyncio.run() in a separate thread."""
     asyncio.run(websocket_server())
 
-def start_gunicorn_server():
-    """Starts the Gunicorn server programmatically."""
-    import sys
-    sys.argv = [
-        "gunicorn",
-        "-w", "4",  # Number of workers
-        "-b", "127.0.0.1:8080",  # Bind to localhost:8080
-        "app:wsgi_app"  # Module:variable format for WSGI app
-    ]
-    gunicorn_run()
-
 # Create WSGI app for Gunicorn
 app = MyApp()
+
 wsgi_app = app.wsgi_app
 
 if __name__ == "__main__":
@@ -95,8 +84,8 @@ if __name__ == "__main__":
     print("WebSocket server running on ws://localhost:8765")
 
     # Start the Gunicorn server in a separate process
-    gunicorn_process = multiprocessing.Process(target=start_gunicorn_server)
-    gunicorn_process.start()
+    wsgi_process = multiprocessing.Process(target=app.run())
+    wsgi_process.start()
 
-    gunicorn_process.join()  # Keep the main process alive
+    wsgi_process.join()  # Keep the main process alive
 

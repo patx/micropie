@@ -221,11 +221,16 @@ In order to use the `render_template` method you must put your HTML template fil
 </html>
 ```
 
-### **7. Serving Static Files with `run()`**
-MicroPie can serve static files (such as CSS, JavaScript, and images) from a static directory.
+### **7. Serving Static Files**
+MicroPie can serve static files (such as CSS, JavaScript, and images) from a static directory using the built in `serve_static` method. To do this you must define a route you would like to serve your static files from. For example:
+```python
+class Root(Server):
+    def static(self, filename):
+        return self.serve_static(filename)
+```
 
 #### **Setup**
-- Create a directory named `static` in the same location as your MicroPie application.
+- Create a directory named `static` in the same location as your MicroPie application. For saftey the `serve_static` method will only work if `filename` is in the `static` directory.
 - Place your static files (e.g., style.css, script.js, logo.png) inside the static directory.
 
 #### **Accessing Static Files**
@@ -233,7 +238,6 @@ Static files can be accessed via the `/static/` URL path. For example, if you ha
 ```
 http://127.0.0.1:8080/static/style.css
 ```
-Note that this feature is only available for the default `run` method which uses `http.server` and does not currently work with the `wsgi_app` method. An easy work around is to use something like [GitHub Pages](https://pages.github.com/) to serve your static content and keep everything secure. You can also implement static files with other servers like gunicorn + nginx.
 
 ### **8. Streaming Responses and WebSockets**
 
@@ -241,7 +245,7 @@ Note that this feature is only available for the default `run` method which uses
 MicroPie provides support for streaming responses, allowing you to send data to the client in chunks instead of all at once. This is particularly useful for scenarios where data is generated or processed over time, such as live feeds, large file downloads, or incremental data generation.
 
 #### How It Works
-Streaming is supported through the `wsgi_app` method, making it compatible with WSGI servers like **Gunicorn**. When a route handler returns a generator or an iterable (excluding strings), MicroPie automatically streams the response to the client. *Note, streaming is only supported via WSGI:* The built-in `run` method, which relies on Python's `http.server`, does not support streaming responses. Using the built-in server will result in the entire response being buffered before being sent to the client. *Session handling remains functional* when using streaming responses via WSGI, ensuring persistent state across streamed requests.
+Streaming is supported through the `wsgi_app` method, making it compatible with WSGI servers like **Gunicorn** or the built in `run` method. When a route handler returns a generator or an iterable (excluding strings), MicroPie automatically streams the response to the client.
 
 With the following saved as `app.py`:
 ```python
@@ -270,7 +274,6 @@ MicroPie applications can seamlessly integrate **WebSockets** by running a separ
 - **The HTTP server (MicroPie)** handles regular web requests and serves the frontend.
 - **A separate WebSocket server** runs concurrently to handle real-time communication.
 - Clients connect to the WebSocket server via the frontend and exchange messages asynchronously.
-- Since the WebSocket server operates separately, it works regardless of whether the MicroPie HTTP server is running via the built-in `run` method (using `http.server`) or a production-grade WSGI server such as **Gunicorn**.
 - **Threading Considerations:** Since the WebSocket server runs in a separate thread, developers should handle shared resources carefully to avoid concurrency issues.
 - **Port Management:** The WebSocket server must run on a different port than the HTTP server to avoid conflicts.
 - **Client Compatibility:** Ensure that clients support WebSockets when implementing features relying on real-time communication.
@@ -282,7 +285,7 @@ MicroPie applications can seamlessly integrate **WebSockets** by running a separ
 ### Class: Server
 
 #### run(host='127.0.0.1', port=8080)
-Starts the HTTP server with the specified host and port.
+Starts the WSGI server with the specified host and port.
 
 #### get_session(request_handler)
 Retrieves or creates a session for the current request. Sessions are managed via cookies.
@@ -301,6 +304,9 @@ Validates incoming requests for both GET and POST methods based on query and bod
 
 #### wsgi_app(environ, start_response)
 WSGI-compliant method for parsing requests and returning responses. Ideal for production deployment using WSGI servers.
+
+#### serve_static(filename)
+Serve static files from the `static` directory.
 
 ## **Examples**
 Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, session usage, websockets, streaming and form handling.

@@ -15,4 +15,4 @@ class Root(Server):
         return generator()
 
 app = Root()
-wsgi_app = app.wsgi_app
+app.run()
