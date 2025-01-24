@@ -115,6 +115,33 @@ class MyApp(Server):
 - [http://127.0.0.1:8080/profile/456](http://127.0.0.1:8080/profile/456)
   - Returns: `User ID: 456, Age: Unknown`
 
+#### **Other Considerations for GET requests**
+In **MicroPie**, the `index` method serves as the default route handler, which behaves differently compared to other route methods such as `greet` or any custom-defined handlers.
+
+##### Key Differences:
+
+1. **Default Handling:**  
+   - When the root URL (`/`) is accessed, the framework automatically maps the request to the `index` method.  
+   - Other methods (e.g., `greet`) must be explicitly accessed via their route, such as `/greet`.
+
+2. **URL Parameter Handling:**  
+   - The `index` method does **not** receive URL path parameters in the same way as other route methods.  
+   - Instead, it primarily relies on query parameters (e.g., `/index?name=John`).  
+   - Other methods can accept parameters directly from the URL path (e.g., `/greet/John`).
+
+##### Example Usage:
+
+| URL                  | Method Called             | Notes                                  |
+|--------------------- |--------------------------|----------------------------------------|
+| `/`                  | `index()`                 | Default route, no path parameters.    |
+| `/index?name=John`   | `index(name="John")`       | Query parameters work.                 |
+| `/greet/John`        | `greet("John")`            | Path parameters are passed correctly.  |
+| `/<dynamic_path>`    | **Not supported**          | Will result in a 404 error.            |
+
+**Note:** Dynamic paths such as `/<dynamic_path>` will not work with the `index` method. Instead, they should be explicitly handled using dedicated route methods.
+
+By understanding this distinction, you can structure your routes effectively when using MicroPie.
+
 ### **3. Handling POST Requests**
 
 MicroPie supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments.
