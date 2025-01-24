@@ -210,36 +210,25 @@ class Server:
             return False
 
     def wsgi_app(self, environ, start_response):
-        """
-        A WSGI-compatible application method that processes incoming requests,
-        manages sessions, dispatches to the correct handler function,
-        and supports streaming/generator responses.
-
-        IMPORTANT:
-          - If your route returns (status, body, extra_headers), we handle them
-            in a single call to start_response.
-          - Do NOT call `start_response` in your handler.
-        """
-
-        # Store environ & start_response on self, if your route needs them
         self.environ = environ
         self.start_response = start_response
 
         path = environ["PATH_INFO"].strip("/")
         method = environ["REQUEST_METHOD"]
 
-        # Default to "index" if root is accessed
-        if not path:
-            path = "index"
+        # Default to index if no path or leading path segment doesn't match a method
+        path_parts = path.split("/") if path else []
+        func_name = path_parts[0] if path_parts else "index"
+        self.path_params = path_parts[1:] if len(path_parts) > 1 else []
+
+        # Special case: If the first segment doesn't match a function, assume index
+        if not hasattr(self, func_name):
+            self.path_params = path_parts
+            func_name = "index"
 
         # Parse query parameters
         self.query_params = parse_qs(environ["QUERY_STRING"])
 
-        path_parts = path.split("/")
-        func_name = path_parts[0]
-        self.path_params = path_parts[1:]
-
-        # Mock request handler for session cookies
         class MockRequestHandler:
             def __init__(self, environ):
                 self.environ = environ
@@ -262,7 +251,7 @@ class Server:
                 return cookies
 
             def send_response(self, code):
-                pass  # We'll do final start_response in wsgi_app
+                pass
 
             def send_header(self, key, value):
                 self._headers_to_send.append((key, value))
@@ -272,12 +261,10 @@ class Server:
 
         request_handler = MockRequestHandler(environ)
 
-        # Ensure session persistence
         session_id = request_handler.cookies.get("session_id")
         if session_id and session_id in self.sessions:
             self.session = self.sessions[session_id]
             self.session["last_access"] = time.time()
-            print(f"Using existing session: {session_id}")
         else:
             session_id = str(uuid.uuid4())
             self.session = {"last_access": time.time()}
@@ -285,22 +272,15 @@ class Server:
             request_handler.send_header(
                 "Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict;"
             )
-            print(f"New session created: {session_id}")
-
-        print(f"Session data: {session_id} -> {self.session}")
 
         self.request = method
         self.body_params = {}
 
-        # Handle POST body
         if method == "POST":
             try:
                 content_length = int(environ.get("CONTENT_LENGTH", 0) or 0)
-                body = environ["wsgi.input"].read(content_length).decode(
-                    "utf-8", "ignore"
-                )
+                body = environ["wsgi.input"].read(content_length).decode("utf-8", "ignore")
                 self.body_params = parse_qs(body)
-                print("POST data:", self.body_params)
             except Exception as e:
                 start_response("400 Bad Request", [("Content-Type", "text/html")])
                 return [f"400 Bad Request: {str(e)}".encode("utf-8")]
@@ -311,7 +291,6 @@ class Server:
             start_response("404 Not Found", [("Content-Type", "text/html")])
             return [b"404 Not Found"]
 
-        # Build function arguments
         sig = inspect.signature(handler_function)
         func_args = []
 
@@ -329,28 +308,21 @@ class Server:
                 start_response("400 Bad Request", [("Content-Type", "text/html")])
                 return [msg.encode("utf-8")]
 
-        # Invoke the handler
         try:
             response = handler_function(*func_args)
-
-            # By default, assume 200, no extra headers
             status_code = 200
             response_body = response
             extra_headers = []
 
-            # If the handler returned a tuple, unpack
             if isinstance(response, tuple):
                 if len(response) == 2:
-                    # (status, body)
                     status_code, response_body = response
                 elif len(response) == 3:
-                    # (status, body, extra_headers)
                     status_code, response_body, extra_headers = response
                 else:
                     start_response("500 Internal Server Error", [("Content-Type", "text/html")])
                     return [b"500 Internal Server Error: Invalid response tuple"]
 
-            # Convert status_code to WSGI status
             status_map = {
                 206: "206 Partial Content",
                 302: "302 Found",
@@ -358,19 +330,13 @@ class Server:
                 500: "500 Internal Server Error",
             }
             status_str = status_map.get(status_code, f"{status_code} OK")
-
-            # Combine final headers
             headers = request_handler._headers_to_send
             headers.extend(extra_headers)
-
-            # Ensure at least one Content-Type header is present
             if not any(h[0].lower() == "content-type" for h in headers):
                 headers.append(("Content-Type", "text/html; charset=utf-8"))
 
-            # Call start_response exactly once
             start_response(status_str, headers)
 
-            # If response_body is a generator/iterable, yield pieces
             if hasattr(response_body, "__iter__") and not isinstance(response_body, (bytes, str)):
                 def byte_stream(gen):
                     for chunk in gen:
@@ -380,7 +346,6 @@ class Server:
                             yield chunk
                 return byte_stream(response_body)
 
-            # Otherwise, convert str to bytes
             if isinstance(response_body, str):
                 response_body = response_body.encode("utf-8")
 
@@ -388,12 +353,9 @@ class Server:
 
         except Exception as e:
             print(f"Error processing request: {e}")
-            # If an exception happened *after* start_response, we can't call it again
-            # but we'll try to handle gracefully:
             try:
                 start_response("500 Internal Server Error", [("Content-Type", "text/html")])
             except:
-                # We may get "headers already set" here, but let's log and ignore
                 pass
-            return ["500 Internal Server Error:"]
+            return [b"500 Internal Server Error"]
 
