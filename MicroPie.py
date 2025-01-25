@@ -36,6 +36,8 @@ from wsgiref.simple_server import make_server
 import time
 import uuid
 import inspect
+import os
+import mimetypes
 from urllib.parse import parse_qs
 
 try:
@@ -210,6 +212,16 @@ class Server:
             return False
 
     def wsgi_app(self, environ, start_response):
+        """
+        A WSGI-compatible application method that processes incoming requests,
+        manages sessions, dispatches to the correct handler function,
+        and supports streaming/generator responses.
+        IMPORTANT:
+          - If your route returns (status, body, extra_headers), we handle them
+            in a single call to start_response.
+          - Do NOT call `start_response` in your handler.
+
+        """
         self.environ = environ
         self.start_response = start_response
 
@@ -221,10 +233,13 @@ class Server:
         func_name = path_parts[0] if path_parts else "index"
         self.path_params = path_parts[1:] if len(path_parts) > 1 else []
 
+        # Get the handler function
+        handler_function = getattr(self, func_name, None)
+
         # Special case: If the first segment doesn't match a function, assume index
-        if not hasattr(self, func_name):
+        if not handler_function:
             self.path_params = path_parts
-            func_name = "index"
+            handler_function = getattr(self, "index", None)
 
         # Parse query parameters
         self.query_params = parse_qs(environ["QUERY_STRING"])
@@ -285,12 +300,7 @@ class Server:
                 start_response("400 Bad Request", [("Content-Type", "text/html")])
                 return [f"400 Bad Request: {str(e)}".encode("utf-8")]
 
-        # Find the requested handler
-        handler_function = getattr(self, func_name, None)
-        if not handler_function:
-            start_response("404 Not Found", [("Content-Type", "text/html")])
-            return [b"404 Not Found"]
-
+        # Check if the handler function requires arguments
         sig = inspect.signature(handler_function)
         func_args = []
 
@@ -307,6 +317,11 @@ class Server:
                 msg = f"400 Bad Request: Missing required parameter '{param.name}'"
                 start_response("400 Bad Request", [("Content-Type", "text/html")])
                 return [msg.encode("utf-8")]
+
+        # If the index method does not take any arguments and the path is not empty, return 404
+        if handler_function == getattr(self, "index", None) and not func_args and path:
+            start_response("404 Not Found", [("Content-Type", "text/html")])
+            return [b"404 Not Found"]
 
         try:
             response = handler_function(*func_args)
@@ -358,4 +373,3 @@ class Server:
             except:
                 pass
             return [b"500 Internal Server Error"]
-

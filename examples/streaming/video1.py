@@ -81,7 +81,7 @@ class VideoStreamer(Server):
 app = VideoStreamer()
 
 # The WSGI entry point Gunicorn will look for
-wsgi_app = app.wsgi_apps
+wsgi_app = app.wsgi_app
 
 if __name__ == "__main__":
     app.run()

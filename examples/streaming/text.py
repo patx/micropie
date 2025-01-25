@@ -2,6 +2,7 @@ import time
 from MicroPie import Server
 
 class Root(Server):
+
     def index(self):
         # Normal, immediate response (non-streaming)
         return "Hello from index!"
