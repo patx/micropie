@@ -1,9 +1,4 @@
 """
-MicroPie
---------
-
-MicroPie is lightweight, fast, and simple micro WSGI framework inspired by CherryPy. And it's BSD licensed!
-
 
 MicroPie is Fun
 ```````````````
@@ -20,14 +15,6 @@ MicroPie is Fun
     MyApp().run()
 
 
-And Easy to Install
-```````````````````
-
-::
-
-    $ pip install micropie
-
-
 Links
 `````
 
@@ -38,7 +25,7 @@ Links
 from distutils.core import setup
 
 setup(name="MicroPie",
-    version="0.5",
+    version="0.6",
     description="A ultra micro web framework w/ Jinja2.",
     long_description=__doc__,
     author="Harrison Erd",
