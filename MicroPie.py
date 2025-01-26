@@ -1,37 +1,3 @@
-"""
-MicroPie: A simple Python ultra-micro web framework with WSGI
-support. https://patx.github.io/micropie
-
-Copyright Harrison Erd
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice,
-   this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from this
-   software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-"""
-
-
 from wsgiref.simple_server import make_server
 import time
 import uuid
@@ -39,6 +5,7 @@ import inspect
 import os
 import mimetypes
 from urllib.parse import parse_qs
+from typing import Optional, Dict, Any, Union, Tuple, List
 
 try:
     from jinja2 import Environment, FileSystemLoader
@@ -48,35 +15,21 @@ except ImportError:
 
 
 class Server:
-    """
-    A lightweight class providing basic routing, session handling, and
-    template rendering using Jinja2 if installed. This class offers both a
-    built-in HTTP server mode and a WSGI-compatible application method.
-    """
+    SESSION_TIMEOUT: int = 8 * 3600  # 8 hours
 
-    SESSION_TIMEOUT = 8 * 3600  # 8 hours
-
-    def __init__(self):
-        """
-        Initialize the Server instance with an optional Jinja2 environment and
-        a session store.
-        """
+    def __init__(self) -> None:
         if JINJA_INSTALLED:
             self.env = Environment(loader=FileSystemLoader("templates"))
 
-        self.sessions = {}
-        self.query_params = {}
-        self.body_params = {}
-        self.path_params = []
-        self.session = {}
-        self.environ = None
-        self.start_response = None
+        self.sessions: Dict[str, Dict[str, Any]] = {}
+        self.query_params: Dict[str, List[str]] = {}
+        self.body_params: Dict[str, List[str]] = {}
+        self.path_params: List[str] = []
+        self.session: Dict[str, Any] = {}
+        self.environ: Optional[Dict[str, Any]] = None
+        self.start_response: Optional[Any] = None
 
-    def run(self, host="127.0.0.1", port=8080):
-        """
-        Use Python's built-in WSGI server (wsgiref) for local development,
-        reusing the WSGI app to avoid duplication.
-        """
+    def run(self, host: str = "127.0.0.1", port: int = 8080) -> None:
         print(f"Serving on http://{host}:{port}")
         with make_server(host, port, self.wsgi_app) as httpd:
             try:
@@ -84,15 +37,10 @@ class Server:
             except KeyboardInterrupt:
                 print("\nShutting down server...")
 
-    def get_session(self, request_handler):
-        """
-        Retrieve or create a session for the current client, setting necessary
-        cookies if a new session is created.
-        """
+    def get_session(self, request_handler: Any) -> Dict[str, Any]:
         cookie = request_handler.headers.get("Cookie")
         session_id = None
 
-        # Extract session ID from cookies if present
         if cookie:
             cookies = {
                 item.split("=")[0].strip(): item.split("=")[1].strip()
@@ -100,7 +48,6 @@ class Server:
             }
             session_id = cookies.get("session_id")
 
-        # Create a new session if needed
         if not session_id or session_id not in self.sessions:
             session_id = str(uuid.uuid4())
             self.sessions[session_id] = {"last_access": time.time()}
@@ -109,24 +56,17 @@ class Server:
                 "Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"
             )
             request_handler.end_headers()
-            #print(f"New session created: {session_id}")  # DEBUG
 
-        # Update last access
         session = self.sessions.get(session_id)
         if session:
             session["last_access"] = time.time()
         else:
-            # Should rarely happen unless manually removed
             session = {"last_access": time.time()}
             self.sessions[session_id] = session
 
-        #print(f"Session data: {session_id} -> {session}") # DEBUG
         return session
 
-    def cleanup_sessions(self):
-        """
-        Remove sessions not accessed within SESSION_TIMEOUT.
-        """
+    def cleanup_sessions(self) -> None:
         now = time.time()
         self.sessions = {
             sid: data
@@ -134,10 +74,7 @@ class Server:
             if data.get("last_access", now) + self.SESSION_TIMEOUT > now
         }
 
-    def redirect(self, location):
-        """
-        Return a 302 redirect response to the specified location.
-        """
+    def redirect(self, location: str) -> Tuple[int, str]:
         return (
             302,
             (
@@ -147,29 +84,12 @@ class Server:
             ),
         )
 
-    def render_template(self, name, **kwargs):
-        """
-        Render a Jinja2 template if jinja2 is installed; otherwise raise
-        an ImportError.
-        """
+    def render_template(self, name: str, **kwargs: Any) -> str:
         if not JINJA_INSTALLED:
             raise ImportError("Jinja2 is not installed.")
         return self.env.get_template(name).render(kwargs)
 
-    def serve_static(self, filepath):
-        """
-        Serve a static file securely from the 'static' directory.
-
-        This function ensures that only files within the 'static' directory
-        can be served, preventing access to other parts of the filesystem.
-
-        Parameters:
-        - filepath: The requested file path relative to the 'static' directory.
-
-        Example usage in route definition:
-        def static(self, filename):
-            return self.serve_static(filename)
-        """
+    def serve_static(self, filepath: str) -> Union[Tuple[int, str], Tuple[int, bytes, List[Tuple[str, str]]]]:
         safe_root = os.path.abspath("static")
         requested_file = os.path.abspath(os.path.join("static", filepath))
         if not requested_file.startswith(safe_root):
@@ -183,10 +103,7 @@ class Server:
             content = f.read()
         return 200, content, [("Content-Type", content_type)]
 
-    def validate_request(self, method):
-        """
-        Validate incoming request data for both GET and POST.
-        """
+    def validate_request(self, method: str) -> bool:
         try:
             if method == "GET":
                 for key, value in self.query_params.items():
@@ -211,40 +128,27 @@ class Server:
             print(f"Error during request validation: {e}")
             return False
 
-    def wsgi_app(self, environ, start_response):
-        """
-        A WSGI-compatible application method that processes incoming requests,
-        manages sessions, dispatches to the correct handler function,
-        and supports streaming/generator responses.
-        IMPORTANT:
-          - If your route returns (status, body, extra_headers), we handle them
-            in a single call to start_response.
-          - Do NOT call `start_response` in your handler.
-        """
+    def wsgi_app(self, environ: Dict[str, Any], start_response: Any) -> List[bytes]:
         self.environ = environ
         self.start_response = start_response
 
         path = environ["PATH_INFO"].strip("/")
         method = environ["REQUEST_METHOD"]
 
-        # Default to index if no path or leading path segment doesn't match a method
         path_parts = path.split("/") if path else []
         func_name = path_parts[0] if path_parts else "index"
         self.path_params = path_parts[1:] if len(path_parts) > 1 else []
 
-        # Get the handler function
         handler_function = getattr(self, func_name, None)
 
-        # Special case: If the first segment doesn't match a function, assume index
         if not handler_function:
             self.path_params = path_parts
             handler_function = getattr(self, "index", None)
 
-        # Parse query parameters
         self.query_params = parse_qs(environ["QUERY_STRING"])
 
         class MockRequestHandler:
-            def __init__(self, environ):
+            def __init__(self, environ: Dict[str, Any]) -> None:
                 self.environ = environ
                 self.headers = {
                     key[5:].replace("_", "-").lower(): value
@@ -252,9 +156,9 @@ class Server:
                     if key.startswith("HTTP_")
                 }
                 self.cookies = self._parse_cookies()
-                self._headers_to_send = []
+                self._headers_to_send: List[Tuple[str, str]] = []
 
-            def _parse_cookies(self):
+            def _parse_cookies(self) -> Dict[str, str]:
                 cookies = {}
                 if "HTTP_COOKIE" in self.environ:
                     cookie_header = self.environ["HTTP_COOKIE"]
@@ -264,13 +168,13 @@ class Server:
                             cookies[k] = v
                 return cookies
 
-            def send_response(self, code):
+            def send_response(self, code: int) -> None:
                 pass
 
-            def send_header(self, key, value):
+            def send_header(self, key: str, value: str) -> None:
                 self._headers_to_send.append((key, value))
 
-            def end_headers(self):
+            def end_headers(self) -> None:
                 pass
 
         request_handler = MockRequestHandler(environ)
@@ -289,29 +193,23 @@ class Server:
 
         self.request = method
         self.body_params = {}
-        self.files = {}  # Initialize files dictionary
+        self.files = {}
 
         if method == "POST":
             try:
-                # Determine the content type
                 content_type = environ.get("CONTENT_TYPE", "")
                 content_length = int(environ.get("CONTENT_LENGTH", 0) or 0)
+                body = environ["wsgi.input"].read(content_length)
 
-                # Read the request body
-                body = environ['wsgi.input'].read(content_length)
-
-                if 'multipart/form-data' in content_type:
-                    # Parse multipart/form-data
+                if "multipart/form-data" in content_type:
                     self.parse_multipart(body, content_type)
                 else:
-                    # Handle application/x-www-form-urlencoded
                     body_str = body.decode("utf-8", "ignore")
                     self.body_params = parse_qs(body_str)
             except Exception as e:
                 start_response("400 Bad Request", [("Content-Type", "text/html")])
                 return [f"400 Bad Request: {str(e)}".encode("utf-8")]
 
-        # Check if the handler function requires arguments
         sig = inspect.signature(handler_function)
         func_args = []
 
@@ -333,7 +231,6 @@ class Server:
                 start_response("400 Bad Request", [("Content-Type", "text/html")])
                 return [msg.encode("utf-8")]
 
-        # If the index method does not take any arguments and the path is not empty, return 404
         if handler_function == getattr(self, "index", None) and not func_args and path:
             start_response("404 Not Found", [("Content-Type", "text/html")])
             return [b"404 Not Found"]
@@ -368,7 +265,7 @@ class Server:
             start_response(status_str, headers)
 
             if hasattr(response_body, "__iter__") and not isinstance(response_body, (bytes, str)):
-                def byte_stream(gen):
+                def byte_stream(gen: Any) -> Any:
                     for chunk in gen:
                         if isinstance(chunk, str):
                             yield chunk.encode("utf-8")
@@ -389,15 +286,7 @@ class Server:
                 pass
             return [b"500 Internal Server Error"]
 
-    def parse_multipart(self, body, content_type):
-        """
-        Custom parser for multipart/form-data.
-
-        Parameters:
-        - body: The raw request body as bytes.
-        - content_type: The Content-Type header value.
-        """
-        # Extract boundary
+    def parse_multipart(self, body: bytes, content_type: str) -> None:
         boundary = None
         parts = content_type.split(";")
         for part in parts:
@@ -410,11 +299,9 @@ class Server:
             raise ValueError("Boundary not found in Content-Type header.")
 
         boundary_bytes = boundary.encode("utf-8")
-        # The boundary might be prefixed with '--' in the actual data
         delimiter = b'--' + boundary_bytes
         end_delimiter = b'--' + boundary_bytes + b'--'
 
-        # Split the body by the delimiter
         sections = body.split(delimiter)
         for section in sections:
             if not section or section == b'--' or section == b'--\r\n':
@@ -426,11 +313,10 @@ class Server:
             if section == b'--':
                 continue
 
-            # Split headers and content
             try:
                 headers, content = section.split(b'\r\n\r\n', 1)
             except ValueError:
-                continue  # Invalid section, skip
+                continue
 
             headers = headers.decode("utf-8", "ignore").split("\r\n")
             header_dict = {}
@@ -439,7 +325,6 @@ class Server:
                     key, value = header.split(':', 1)
                     header_dict[key.strip().lower()] = value.strip()
 
-            # Parse Content-Disposition
             disposition = header_dict.get("content-disposition", "")
             disposition_parts = disposition.split(";")
             disposition_dict = {}
@@ -452,7 +337,6 @@ class Server:
             filename = disposition_dict.get("filename")
 
             if filename:
-                # It's a file upload
                 file_content_type = header_dict.get("content-type", "application/octet-stream")
                 file_data = content
                 self.files[name] = {
@@ -461,10 +345,8 @@ class Server:
                     'data': file_data
                 }
             elif name:
-                # It's a regular form field
                 value = content.decode("utf-8", "ignore")
                 if name in self.body_params:
                     self.body_params[name].append(value)
                 else:
                     self.body_params[name] = [value]
-
