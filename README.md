@@ -309,7 +309,7 @@ WSGI-compliant method for parsing requests and returning responses. Ideal for pr
 Serve static files from the `static` directory.
 
 ## **Examples**
-Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, file uploads, session usage, websockets, streaming and form handling.
+Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, custom HTTP request handling, file uploads, session usage, websockets, streaming and form handling.
 
 ## **Feature Comparison**
 
