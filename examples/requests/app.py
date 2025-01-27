@@ -3,19 +3,19 @@ from MicroPie import Server
 # Request handlers defined outside the class
 
 def get_handler():
-    return b"Hello, GET request received!"  # Convert to bytes
+    return b"Hello, GET request received!"
 
 def post_handler():
-    return b"Hello, POST request received!"  # Convert to bytes
+    return b"Hello, POST request received!"
 
 def put_handler():
-    return b"Hello, PUT request received!"  # Convert to bytes
+    return b"Hello, PUT request received!"
 
 def patch_handler():
-    return b"Hello, PATCH request received!"  # Convert to bytes
+    return b"Hello, PATCH request received!"
 
 def delete_handler():
-    return b"Hello, DELETE request received!"  # Convert to bytes
+    return b"Hello, DELETE request received!"
 
 def head_handler():
     # Return status 200 with empty body and proper headers

@@ -67,7 +67,8 @@ class ToDoApp(Server):
             if self.users.get(username) == password:
                 self.session.update({"logged_in": True, "username": username})
                 return self.redirect("/")
-            return self.render_template("login.html", error="Invalid credentials")
+            return self.render_template("login.html",
+                                        error="Invalid credentials")
 
     def logout(self):
         """GET /logout -> Clear session and redirect to login."""

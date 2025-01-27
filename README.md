@@ -90,7 +90,7 @@ You can also pass parameters directly in the URL path instead of query strings:
 
 ```python
 class MyApp(Server):
-    def greet(self, name):
+    def greet(self, name="Guest"):
         return f"Hello, {name}!"
 ```
 

@@ -178,8 +178,7 @@ class Server:
             self.path_params = path_parts
             handler_function = getattr(self, "index", None)
 
-        self.query_params = parse_qs(environ.get("QUERY_STRING", ""))
-
+        self.query_params = parse_qs(environ["QUERY_STRING"])
 
         class MockRequestHandler:
             def __init__(self, environ: Dict[str, Any]) -> None:

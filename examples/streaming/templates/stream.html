@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming: {{ username }}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <h1>Streaming as {{ username }}</h1>
+    <video id="webcam" autoplay playsinline></video>
+
+    <script>
+        const socket = io();
+        const username = "{{ username }}";
+        socket.emit('join', { username: username });
+
+        async function startWebcam() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            document.getElementById('webcam').srcObject = stream;
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            setInterval(() => {
+                context.drawImage(document.getElementById('webcam'), 0, 0, canvas.width, canvas.height);
+                let frame = canvas.toDataURL('image/webp');
+                socket.emit('stream', { username: username, frame: frame });
+            }, 100);
+        }
+
+        startWebcam();
+    </script>
+</body>
+</html>
+
