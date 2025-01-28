@@ -9,7 +9,7 @@ watchers: Dict[str, Set[Any]] = {}
 class MyApp(Server):
 
     async def index(self):
-        return self.render_template("index.html")
+        return self.render_template("index_stream.html")
 
     async def submit(self, username: str, action: str):
         if username:
@@ -73,8 +73,3 @@ class MyApp(Server):
 
 # Create the ASGI app
 app = MyApp()
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000, reload=True)
-

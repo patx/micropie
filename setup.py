@@ -12,7 +12,7 @@ MicroPie is Fun
         def index(self):
             return 'Hello world!'
 
-    MyApp().run()
+    app = MyApp()  # Run with `uvicorn app:app`
 
 
 Links
@@ -25,7 +25,7 @@ Links
 from distutils.core import setup
 
 setup(name="MicroPie",
-    version="0.7",
+    version="0.8",
     description="A ultra micro web framework w/ Jinja2.",
     long_description=__doc__,
     author="Harrison Erd",

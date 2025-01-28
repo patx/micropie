@@ -288,14 +288,15 @@ class Server:
 
     async def _send_response(
         self,
-        send: Any,
+        send,
         status_code: int,
-        body: Union[str, bytes, Any],
-        extra_headers: List[Tuple[str, str]] = None
-    ) -> None:
+        body,
+        extra_headers=None
+    ):
         if extra_headers is None:
             extra_headers = []
 
+        # Common HTTP status text
         status_map = {
             200: "200 OK",
             206: "206 Partial Content",
@@ -304,12 +305,15 @@ class Server:
             404: "404 Not Found",
             500: "500 Internal Server Error",
         }
+        # Fallback if not in map
         status_text = status_map.get(status_code, f"{status_code} OK")
 
+        # Ensure there's a Content-Type unless already provided
         has_content_type = any(h[0].lower() == "content-type" for h in extra_headers)
         if not has_content_type:
             extra_headers.append(("Content-Type", "text/html; charset=utf-8"))
 
+        # Send the initial response start
         await send({
             "type": "http.response.start",
             "status": status_code,
@@ -318,25 +322,61 @@ class Server:
             ],
         })
 
-        response_body = b""
+        #
+        # -- Begin CHUNKED/STREAMING logic --
+        #
+        # 1) Check if body is an async generator (has __aiter__)
+        if hasattr(body, "__aiter__"):
+            async for chunk in body:
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8")
+                await send({
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": True
+                })
+            # Send a final empty chunk to mark the end
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False
+            })
+            return
+
+        # 2) Check if body is a *sync* generator (has __iter__) and
+        #    is not a plain string/bytes
         if hasattr(body, "__iter__") and not isinstance(body, (bytes, str)):
             for chunk in body:
                 if isinstance(chunk, str):
-                    response_body += chunk.encode("utf-8")
-                else:
-                    response_body += chunk
+                    chunk = chunk.encode("utf-8")
+                await send({
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": True
+                })
+            # Send a final empty chunk
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False
+            })
+            return
+
+        #
+        # -- Fallback for normal (non-generator) body --
+        #
+        if isinstance(body, str):
+            response_body = body.encode("utf-8")
+        elif isinstance(body, bytes):
+            response_body = body
         else:
-            if isinstance(body, str):
-                response_body = body.encode("utf-8")
-            elif isinstance(body, bytes):
-                response_body = body
-            else:
-                response_body = str(body).encode("utf-8")
+            # Convert anything else to string then to bytes
+            response_body = str(body).encode("utf-8")
 
         await send({
             "type": "http.response.body",
             "body": response_body,
-            "more_body": False,
+            "more_body": False
         })
 
     def cleanup_sessions(self) -> None:

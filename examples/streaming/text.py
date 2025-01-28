@@ -18,6 +18,3 @@ class Root(Server):
 
 
 app = Root()
-wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
-if __name__ == "__main__":
-    app.run()  # Run with `python3 text.py`
