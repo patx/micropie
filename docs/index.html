@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href="https://cherrypy.dev/images/favicon.gif" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <title>MicroPie - An ultra-micro Python web framework</title>
+    <title>MicroPie - An ultra-micro Python ASGI web framework</title>
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -107,7 +107,7 @@
         <div class="logo">
             <img src="logo.png" alt="MicroPie logo">
         </div>
-        <p><strong>MicroPie is an ultra-lightweight Python web framework</strong> that gets out of your way, letting you build fast and dynamic web apps with ease.
+        <p><strong>MicroPie is an ultra-lightweight ASGI Python web framework</strong> that gets out of your way, letting you build fast and dynamic web apps with ease.
         Inspired by <a href="https://cherrypy.dev/">CherryPy</a> and licensed under the BSD three-clause license.</p>
 
         <h2>MicroPie is Fun</h2>
@@ -116,10 +116,10 @@
 
 <span class="c2">class</span> MyApp(<span class="c9">Server</span>):
 
-    <span class="c2">def</span> index(<span class="c9">self</span>):
+    <span class="c2">async def</span> index(<span class="c9">self</span>):
         return <span class="c9">'Hello World!'</span>
 
-MyApp().run()
+app = MyApp()  <small><em># Run with `uvicorn app:app`</em></small>
         </code></pre>
 
         <h2> And Easy to Install</h2>
