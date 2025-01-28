@@ -5,7 +5,7 @@
 **MicroPie** is a lightweight, modern Python web framework that supports both synchronous and asynchronous web applications. Designed with flexibility and simplicity in mind, MicroPie enables you to handle high-concurrency HTTP applications with ease while allowing easy and natural integration with external tools like Socket.IO for real-time communication.
 
 ### **Key Features**
-- 🚀 **Async & Sync Support:** Define routes as asynchronous or synchronous functions to suit your application needs.
+- 🚀 **Async & Sync Support:** Define routes as asynchronous or synchronous functions to suit your application's needs.
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
 - 🔒 **Sessions:** Simple session management using cookies.
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
@@ -79,7 +79,7 @@ class MyApp(Server):
 Pass data through query strings or URL path segments, automatically mapped to method arguments.
 ```python
 class MyApp(Server):
-    def greet(self, name="Guest"):
+    def async greet(self, name="Guest"):
         return f"Hello, {name}!"
 ```
 
@@ -116,7 +116,7 @@ class MyApp(Server):
 ```
 
 ### **5. Static File Serving**
-Here again, like Websockets, MiroPie does not have a built in static file protocal. While MicroPie does not natively support static files, if you need them, you can easily integrate dedicated libraries like **ServeStatic** ot **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/serve_static](https://github.com/patx/micropie/tree/main/examples/serve_static) to see this in action.
+Here again, like Websockets, MiroPie does not have a built in static file method. While MicroPie does not natively support static files, if you need them, you can easily integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/serve_static](https://github.com/patx/micropie/tree/main/examples/serve_static) to see this in action.
 
 
 ### **6. Streaming Responses**
