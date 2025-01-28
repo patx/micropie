@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <title>Streaming: {{ username }}</title>
+</head>
+<body>
+  <h1>Streaming as {{ username }}</h1>
+  <video id="webcam" autoplay playsinline></video>
+
+<script>
+  const username = "{{ username }}";
+  const socket = io();
+
+  // Join the room as a streamer
+  socket.emit("join_room", { username });
+
+  socket.on("connect", () => {
+    console.log("Connected as streamer for", username);
+    startWebcam();
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Disconnected");
+  });
+
+  async function startWebcam() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const videoElement = document.getElementById("webcam");
+      videoElement.srcObject = stream;
+
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      const track = stream.getVideoTracks()[0];
+      const settings = track.getSettings();
+      canvas.width = settings.width || 640;
+      canvas.height = settings.height || 480;
+
+      setInterval(() => {
+        context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        const frameDataUrl = canvas.toDataURL("image/webp");
+
+        // Send frame to server
+        socket.emit("stream_frame", { username, frame: frameDataUrl });
+      }, 100);
+    } catch (err) {
+      console.error("Error accessing webcam:", err);
+    }
+  }
+</script>
+
+</body>
+</html>
+

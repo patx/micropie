@@ -220,60 +220,20 @@ http://127.0.0.1:8080/static/style.css
 ### **7. Streaming Responses**
 MicroPie provides support for streaming responses, allowing you to send data to the client in chunks instead of all at once. This is particularly useful for scenarios where data is generated or processed over time, such as live feeds, large file downloads, or incremental data generation.
 
-With the following saved as `app.py`:
-```python
-import time
-
-class Root(Server):
-
-    def index(self):
-        def generator():
-            for i in range(1, 6):
-                yield f"Chunk {i}\n"
-                time.sleep(1)  # Simulate slow processing or data generation
-        return generator()
-
-app = Root()
-```
+Check out the `streaming` folder in the `examples` to see MicroPie's streaming responses in action.
 
 
 ### **8. WebSockets**
-MicroPie offers extremely basic built-in WebSocket support for real-time communication. WebSocket routes are defined with methods starting with `websocket_`. Create a simple WebSocket echo server:
-```python
-class MyApp(Server):
-    async def websocket_echo(self, scope, receive, send):
-        await send({"type": "websocket.accept"})
-        try:
-            while True:
-                message = await receive()
-                if message["type"] == "websocket.receive":
-                    await send({"type": "websocket.send", "text": message["text"]})
-                elif message["type"] == "websocket.disconnect":
-                    break
-        except Exception as e:
-            print(f"WebSocket error: {e}")
-            await send({"type": "websocket.close", "code": 1011})
+MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. If you need WebSocket functionality, you’ll need to either:
 
-app = MyApp()
-```
+- Write or integrate your own custom ASGI WebSocket handler, or
+- Use a dedicated library such as Socket.IO or channels with your ASGI server alongside MicroPie.
 
-Save the above code as app.py, then run it with uvicorn:
-```python
-uvicorn app:app
-```
-Connect to the WebSocket server using a WebSocket client (e.g., websocat):
-```python
-websocat ws://127.0.0.1:8000/echo
-```
-Type messages in the client to see the server echo them back in real time.
-
+Check out the `socketio` folder in the `examples` on this repo to see Socket.io integration.
 
 ## **API Reference**
 
 ### Class: Server
-
-#### get_session(request_handler)
-Retrieves or creates a session for the current request. Sessions are managed via cookies.
 
 #### cleanup_sessions()
 Removes expired sessions that have surpassed the timeout period.
@@ -288,13 +248,13 @@ Renders a Jinja2 template with provided context variables.
 Serve static files from the `static` directory.
 
 ## **Examples**
-Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including:
+Check out the [examples folder](https://github.com/patx/micropie/tree/development/examples) for more advanced usage, including:
 - Template rendering
 - Custom HTTP request handling
 - File uploads
 - Session usage
-- Websockets
-- Streaming
+- Websockets with Socket.io
+- Async Streaming
 - Form handling.
 
 ## **Feature Comparison**
@@ -310,6 +270,7 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 | **WSGI Support**    | No (ASGI) | Yes        | Yes       | Yes        | Yes               | No (ASGI)  |
 | **Async Support**   | Yes       | No (Quart) | No        | No         | Limited           | Yes        |
 | **Deployment**      | Simple    | Moderate   | Moderate  | Simple     | Complex           | Moderate   |
+| **Built-in Server** | No        | No         | Yes       | Yes        | Yes               | No         |
 
 
 ## **Suggestions or Feedback?**

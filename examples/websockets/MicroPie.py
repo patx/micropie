@@ -66,7 +66,29 @@ class Server:
     async def asgi_app(self, scope: Dict[str, Any], receive: Any, send: Any) -> None:
         """ASGI application entrypoint for both HTTP and WebSockets."""
 
-        if scope["type"] == "http":
+        if scope["type"] == "websocket":
+            # Example approach for route-based WebSocket handler lookup:
+            path = scope["path"].lstrip("/")
+            self.scope = scope
+            path_parts = path.split("/") if path else []
+            func_name = path_parts[0] if path_parts else "default"
+            self.path_params = path_parts[1:] if len(path_parts) > 1 else []
+
+            # Use a naming convention such as websocket_<func_name>.
+            ws_handler_name = f"websocket_{func_name}"
+            handler_function = getattr(self, ws_handler_name, None)
+
+            if not handler_function:
+                await self._websocket_default(scope, receive, send)
+                return
+
+            try:
+                await handler_function(scope, receive, send)
+            except Exception:
+                await send({"type": "websocket.close", "code": 1011})
+            return
+
+        elif scope["type"] == "http":
             self.scope = scope
             method = scope["method"]
             path = scope["path"].lstrip("/")
@@ -186,8 +208,11 @@ class Server:
                 body=response_body,
                 extra_headers=extra_headers
             )
-        else:
-            pass
+
+    async def _websocket_default(self, scope: Dict[str, Any], receive: Any, send: Any):
+        """Default WebSocket handler if no match is found."""
+        await send({"type": "websocket.accept"})
+        await send({"type": "websocket.close", "code": 1000})
 
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
         cookies: Dict[str, str] = {}
@@ -297,6 +322,9 @@ class Server:
             ],
         })
 
+        #
+        # -- Begin CHUNKED/STREAMING logic --
+        #
         # 1) Check if body is an async generator (has __aiter__)
         if hasattr(body, "__aiter__"):
             async for chunk in body:
@@ -334,6 +362,9 @@ class Server:
             })
             return
 
+        #
+        # -- Fallback for normal (non-generator) body --
+        #
         if isinstance(body, str):
             response_body = body.encode("utf-8")
         elif isinstance(body, bytes):
@@ -386,4 +417,26 @@ class Server:
         with open(requested_file, "rb") as f:
             content = f.read()
         return 200, content, [("Content-Type", content_type)]
+
+    def validate_request(self, method: str) -> bool:
+        try:
+            if method == "GET":
+                for key, value in self.query_params.items():
+                    if (
+                        not isinstance(key, str)
+                        or not all(isinstance(v, str) for v in value)
+                    ):
+                        return False
+
+            if method == "POST":
+                for key, value in self.body_params.items():
+                    if (
+                        not isinstance(key, str)
+                        or not all(isinstance(v, str) for v in value)
+                    ):
+                        return False
+
+            return True
+        except:
+            return False
 

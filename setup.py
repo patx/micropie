@@ -5,7 +5,7 @@ MicroPie is Fun
 
 ::
 
-    from MicroPie import Server
+    from MicroPie import
 
     class MyApp(Server):
 
