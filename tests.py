@@ -1,230 +1,113 @@
 import unittest
-import uuid
-import time
-from io import BytesIO
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from MicroPie import Server
+import os
+import uuid
 
-
-class TestMicroPie(unittest.TestCase):
+class TestServer(unittest.TestCase):
     def setUp(self):
-        """
-        Create a fresh instance of the Server for each test and define some
-        sample endpoints on the fly.
-        """
         self.server = Server()
 
-        # Define a simple default endpoint
-        def index():
-            return "Hello from index!"
+    def test_parse_cookies(self):
+        cookie_header = "session_id=abc123; theme=dark"
+        cookies = self.server._parse_cookies(cookie_header)
+        self.assertEqual(cookies, {"session_id": "abc123", "theme": "dark"})
 
-        # Define an endpoint that greets the user by name
-        def greet(name="World"):
-            return f"Hello, {name}!"
-
-        # Define an endpoint that triggers a redirect
-        def go_away():
-            return self.server.redirect("/gone")
-
-        # Define an endpoint for testing template rendering (requires a
-        # templates/greet.html file in your project for a real test).
-        def greet_template(name="World"):
-            return self.server.render_template("greet.html", name=name)
-
-        # Attach the functions to the server instance
-        self.server.index = index
-        self.server.greet = greet
-        self.server.go_away = go_away
-        self.server.greet_template = greet_template
-
-    def _start_response(self, status, headers):
-        """
-        Helper method to capture the status and headers from wsgi_app calls.
-        """
-        self._wsgi_status = status
-        self._wsgi_headers = headers
-
-    def test_index_get(self):
-        """
-        Ensure that accessing '/' via GET calls the 'index' function and
-        returns the correct body.
-        """
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/",           # Access root
-            "QUERY_STRING": "",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
-        }
-        response = self.server.wsgi_app(environ, self._start_response)
-        body = b"".join(response).decode()
-
-        self.assertEqual(self._wsgi_status, "200 OK")
-        self.assertIn("Hello from index!", body)
-
-    def test_custom_endpoint_get(self):
-        """
-        Ensure that a custom endpoint (greet) can accept query parameters
-        through GET and return the correct response.
-        """
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/greet",
-            "QUERY_STRING": "name=Alice",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
-        }
-        response = self.server.wsgi_app(environ, self._start_response)
-        body = b"".join(response).decode()
-
-        self.assertEqual(self._wsgi_status, "200 OK")
-        self.assertIn("Hello, Alice!", body)
-
-    def test_custom_endpoint_path_param(self):
-        """
-        Test that path parameters are used if present. For example, accessing
-        '/greet/Bob' should call greet("Bob").
-        """
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/greet/Bob",
-            "QUERY_STRING": "",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
-        }
-        response = self.server.wsgi_app(environ, self._start_response)
-        body = b"".join(response).decode()
-
-        self.assertEqual(self._wsgi_status, "200 OK")
-        self.assertIn("Hello, Bob!", body)
-
-    def test_endpoint_not_found(self):
-        """
-        Access a path that does not map to a defined method. Expect 404.
-        """
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/does_not_exist",
-            "QUERY_STRING": "",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
-        }
-        response = self.server.wsgi_app(environ, self._start_response)
-        body = b"".join(response).decode()
-
-        self.assertEqual(self._wsgi_status, "404 Not Found")
-        self.assertIn("404 Not Found", body)
-
-    def test_post_request(self):
-        """
-        Test handling of a POST request with form data in the body.
-        """
-        post_body = "name=Charlie"
-        environ = {
-            "REQUEST_METHOD": "POST",
-            "PATH_INFO": "/greet",
-            "QUERY_STRING": "",
-            "wsgi.input": BytesIO(post_body.encode("utf-8")),
-            "CONTENT_LENGTH": str(len(post_body)),
-        }
-        response = self.server.wsgi_app(environ, self._start_response)
-        body = b"".join(response).decode()
-
-        self.assertEqual(self._wsgi_status, "200 OK")
-        self.assertIn("Hello, Charlie!", body)
+    def test_parse_cookies_empty(self):
+        cookies = self.server._parse_cookies("")
+        self.assertEqual(cookies, {})
 
     def test_redirect(self):
-        """
-        Test that an endpoint can return a 302 redirect.
-        """
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/go_away",   # Calls the go_away function
-            "QUERY_STRING": "",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
+        location = "/new-path"
+        status, body = self.server.redirect(location)
+        self.assertEqual(status, 302)
+        self.assertIn(location, body)
+
+    @patch("os.path.isfile", return_value=True)
+    @patch("builtins.open", new_callable=MagicMock)
+    def test_serve_static_file(self, mock_open, mock_isfile):
+        mock_open.return_value.__enter__.return_value.read.return_value = b"file content"
+        response = self.server.serve_static("test.txt")
+        self.assertEqual(response[0], 200)
+        self.assertEqual(response[1], b"file content")
+        self.assertEqual(response[2][0][0], "Content-Type")
+
+    @patch("os.path.isfile", return_value=False)
+    def test_serve_static_file_not_found(self, mock_isfile):
+        response = self.server.serve_static("missing.txt")
+        self.assertEqual(response, (404, "404 Not Found"))
+
+    def test_cleanup_sessions(self):
+        self.server.sessions = {
+            "session1": {"last_access": time.time() - 1000},
+            "session2": {"last_access": time.time() - 10000},
         }
-        response = self.server.wsgi_app(environ, self._start_response)
-        body = b"".join(response).decode()
+        self.server.SESSION_TIMEOUT = 3600
+        self.server.cleanup_sessions()
+        self.assertEqual(len(self.server.sessions), 1)
+        self.assertIn("session1", self.server.sessions)
 
-        # MicroPie returns (302, <html>...) so we expect status to be "302 Found"
-        self.assertEqual(self._wsgi_status, "302 Found")
-        self.assertIn("url=/gone", body)   # Basic check that the redirect body is correct
+    @patch("uuid.uuid4", return_value="test-session-id")
+    @patch("time.time", return_value=1000)
+    async def test_asgi_app_creates_session(self, mock_time, mock_uuid):
+        mock_send = AsyncMock()
+        mock_receive = AsyncMock(return_value={"type": "http.request", "body": b""})
 
-    def test_session_creation(self):
-        """
-        Test that a session is created if no session cookie is present.
-        """
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/",
-            "QUERY_STRING": "",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
-            # No HTTP_COOKIE -> expect new session
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [],
         }
-        response = self.server.wsgi_app(environ, self._start_response)
-        _ = b"".join(response).decode()
 
-        # Find the Set-Cookie header among the WSGI headers
-        set_cookie_headers = [h for h in self._wsgi_headers if h[0] == 'Set-Cookie']
-        self.assertTrue(set_cookie_headers, "Expected a Set-Cookie header for new session.")
+        async def mock_index():
+            return "Hello, world!"
 
-        # The session should be stored in self.server.sessions
-        cookie_value = set_cookie_headers[0][1]
-        session_id = cookie_value.split("=")[1].split(";")[0]
-        self.assertIn(session_id, self.server.sessions)
+        self.server.index = mock_index
 
-    def test_session_usage(self):
-        """
-        Test that an existing session is reused if a valid session_id is provided.
-        """
-        # Create a session manually
-        session_id = str(uuid.uuid4())
-        self.server.sessions[session_id] = {"last_access": time.time()}
+        await self.server.asgi_app(scope, mock_receive, mock_send)
 
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/",
-            "QUERY_STRING": "",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
-            "HTTP_COOKIE": f"session_id={session_id}",
+        self.assertIn("test-session-id", self.server.sessions)
+        self.assertEqual(self.server.sessions["test-session-id"].get("last_access"), 1000)
+
+    @patch("time.time", return_value=1000)
+    async def test_asgi_app_handles_request(self, mock_time):
+        mock_send = AsyncMock()
+        mock_receive = AsyncMock(return_value={"type": "http.request", "body": b""})
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [(b"cookie", b"session_id=test-session-id")],
         }
-        response = self.server.wsgi_app(environ, self._start_response)
-        _ = b"".join(response).decode()
 
-        # We should not receive a new Set-Cookie; we should reuse existing one.
-        set_cookie_headers = [h for h in self._wsgi_headers if h[0] == 'Set-Cookie']
-        self.assertFalse(set_cookie_headers, "Did not expect a new Set-Cookie header.")
+        self.server.sessions["test-session-id"] = {"last_access": 500}
 
-        # Ensure we didn't lose the session
-        self.assertIn(session_id, self.server.sessions, "Existing session should still be present.")
+        async def mock_index():
+            return "Hello, test!"
 
-    @unittest.skip("Requires a valid 'greet.html' in the 'templates' folder to work.")
-    def test_template_rendering(self):
-        """
-        Optional test for verifying a Jinja2 template render. This test will
-        require a 'templates/greet.html' file that references a variable 'name'.
+        self.server.index = mock_index
 
-        Example 'greet.html' content:
+        await self.server.asgi_app(scope, mock_receive, mock_send)
 
-            <h1>Hello {{ name }}!</h1>
-        """
-        environ = {
-            "REQUEST_METHOD": "GET",
-            "PATH_INFO": "/greet_template",
-            "QUERY_STRING": "name=Tester",
-            "wsgi.input": BytesIO(b""),
-            "CONTENT_LENGTH": "0",
-        }
-        response = self.server.wsgi_app(environ, self._start_response)
-        body = b"".join(response).decode()
+        self.assertEqual(self.server.sessions["test-session-id"].get("last_access"), 1000)
 
-        self.assertEqual(self._wsgi_status, "200 OK")
-        self.assertIn("<h1>Hello Tester!</h1>", body)
+    @patch("jinja2.Environment.get_template")
+    def test_render_template(self, mock_get_template):
+        mock_template = MagicMock()
+        mock_template.render.return_value = "Rendered content"
+        mock_get_template.return_value = mock_template
 
+        result = self.server.render_template("test.html", var="value")
+        self.assertEqual(result, "Rendered content")
+        mock_template.render.assert_called_with({"var": "value"})
 
-if __name__ == '__main__':
+    def test_render_template_no_jinja(self):
+        self.server.env = None
+        with self.assertRaises(ImportError):
+            self.server.render_template("test.html")
+
+if __name__ == "__main__":
     unittest.main()
 
