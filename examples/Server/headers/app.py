@@ -1,5 +1,6 @@
 from MicroPie import Server
 
+
 class Root(Server):
     def index(self):
         headers = [
@@ -12,8 +13,9 @@ class Root(Server):
         ]
         return 200, "hello world", headers
 
-app = Root()
-wsgi_app = app.wsgi_app
 
+
+app = Root()
+wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
 if __name__ == "__main__":
-    app.run()
+    app.run()  # Run with `python3 app.py`

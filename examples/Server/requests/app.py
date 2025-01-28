@@ -28,7 +28,7 @@ def options_handler():
     ]
 
 # Define the custom server application
-class MyApp(Server):
+class Root(Server):
 
     # Handle root URL requests and delegate based on HTTP method
     def index(self):
@@ -61,8 +61,9 @@ class MyApp(Server):
         # Return 405 if the request method is not supported
         return 405, b"405 Method Not Allowed", [("Content-Type", "text/html")]
 
-# Run the web server
-if __name__ == '__main__':
-    app = MyApp()
-    app.run()
 
+
+app = Root()
+wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
+if __name__ == "__main__":
+    app.run()  # Run with `python3 app.py`

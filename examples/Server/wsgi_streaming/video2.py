@@ -3,7 +3,9 @@ from MicroPie import Server
 
 VIDEO_PATH = "video.mp4"
 
+
 class VideoStreamer(Server):
+
     def index(self):
         """Serve the HTML page with a video player."""
         return '''
@@ -32,8 +34,10 @@ class VideoStreamer(Server):
 
         return generator()
 
-app = VideoStreamer()
-wsgi_app = app.wsgi_app
 
+
+
+app = VideoStreamer()
+wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
 if __name__ == "__main__":
-    app.run()
+    app.run()  # Run with `python3 video2.py`

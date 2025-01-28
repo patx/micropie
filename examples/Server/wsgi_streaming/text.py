@@ -15,5 +15,9 @@ class Root(Server):
                 time.sleep(1)  # simulate slow processing or data generation
         return generator()
 
+
+
 app = Root()
-app.run()
+wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
+if __name__ == "__main__":
+    app.run()  # Run with `python3 text.py`

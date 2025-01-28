@@ -69,10 +69,8 @@ def start_websocket_server():
     """Runs the WebSocket server with asyncio.run() in a separate thread."""
     asyncio.run(websocket_server())
 
-# Create WSGI app for Gunicorn
 app = MyApp()
 
-wsgi_app = app.wsgi_app
 
 if __name__ == "__main__":
     import threading

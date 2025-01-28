@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Watching: {{ username }}</title>
+</head>
+<body>
+  <h1>Watching Stream of {{ username }}</h1>
+  <img id="videoFeed" style="width: 100%; max-width: 800px;" />
+
+  <script>
+    const username = "{{ username }}";
+
+    // Create a WebSocket to your /watch/<username> route
+    const ws = new WebSocket(`ws://${window.location.host}/watch/${username}`);
+
+    // Called when the WebSocket connection is established
+    ws.onopen = function () {
+      console.log("Connected as watcher for", username);
+    };
+
+    // Called whenever the server broadcasts a new frame
+    ws.onmessage = function (event) {
+      // Here, event.data is expected to be a dataURL or other string
+      document.getElementById("videoFeed").src = event.data;
+    };
+
+    // Called when the WebSocket is closed (e.g., streamer goes offline)
+    ws.onclose = function () {
+      console.log("WebSocket closed");
+    };
+  </script>
+</body>
+</html>

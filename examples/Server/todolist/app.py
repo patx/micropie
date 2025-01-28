@@ -48,7 +48,7 @@ def delete_item(item_id):
 # ToDoApp Class
 # ----------------------------------------------------------------------------
 
-class ToDoApp(Server):
+class Root(Server):
     """Our ToDo application, based on the MicroPie Server."""
 
     users = {"username": "password"}  # Simple user store
@@ -137,11 +137,7 @@ class ToDoApp(Server):
 # Main
 # ----------------------------------------------------------------------------
 
-app = ToDoApp()
-
-wsgi_app = app.wsgi_app
-
+app = Root()
+wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
 if __name__ == "__main__":
-    app.run()
-
-
+    app.run()  # Run with `python3 app.py`

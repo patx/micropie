@@ -33,12 +33,8 @@ class Root(Server):
             paste_content=db.get(paste_id))
 
 
-# Create a instance of our MicroPie App
+
 app = Root()
-
-# Run with `gunicorn app:wsgi_app`
-wsgi_app = app.wsgi_app
-
-# Run with `python3 app.py`
-if __name__ == '__main__':
-    app.run()
+wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
+if __name__ == "__main__":
+    app.run()  # Run with `python3 app.py`

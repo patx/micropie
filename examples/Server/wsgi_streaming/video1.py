@@ -3,7 +3,9 @@ from MicroPie import Server
 
 VIDEO_PATH = "video.mp4"
 
+
 class VideoStreamer(Server):
+
     def index(self):
         """Serve a simple HTML page with a video player."""
         return '''
@@ -77,11 +79,10 @@ class VideoStreamer(Server):
         ]
         return (200, generator(0, file_size), extra_headers)
 
-# Create your app instance
+
+
+
 app = VideoStreamer()
-
-# The WSGI entry point Gunicorn will look for
-wsgi_app = app.wsgi_app
-
+wsgi_app = app.wsgi_app  # Run with `gunicorn video1:wsgi_app`
 if __name__ == "__main__":
-    app.run()
+    app.run()  # Run with `python3 video1.py`

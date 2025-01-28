@@ -1,6 +1,7 @@
 from MicroPie import Server
 import os, uuid
 
+
 class Root(Server):
 
     def upload_file(self, file):
@@ -55,4 +56,9 @@ class Root(Server):
             "</html>"
         )
 
-Root().run()
+
+
+app = Root()
+wsgi_app = app.wsgi_app  # Run with `gunicorn app:wsgi_app`
+if __name__ == "__main__":
+    app.run()  # Run with `python3 app.py`

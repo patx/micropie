@@ -333,9 +333,9 @@ class Twutr(Server):
             self.session.clear()
         return self.redirect('/public')
 
+
+
 app = Twutr()
-wsgi_app = app.wsgi_app
-
+wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
 if __name__ == "__main__":
-    app.run()
-
+    app.run()  # Run with `python3 twutr.py`
