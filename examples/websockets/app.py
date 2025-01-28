@@ -1,12 +1,12 @@
 from typing import Dict, Set, Any
-from MicroPie import AsyncServer
+from MicroPie import Server
 
 # Keep track of active users (who have "started streaming")
 active_users: Set[str] = set()
 streamers: Dict[str, Set[Any]] = {}
 watchers: Dict[str, Set[Any]] = {}
 
-class MyApp(AsyncServer):
+class MyApp(Server):
 
     async def index(self):
         return self.render_template("index.html")

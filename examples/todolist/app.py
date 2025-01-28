@@ -58,10 +58,10 @@ class Root(Server):
         GET /login -> Display login form
         POST /login -> Authenticate user and set session
         """
-        if self.request == "GET":
+        if self.scope['method'] == "GET":
             return self.render_template("login.html")
 
-        if self.request == "POST":
+        if self.scope['method'] == "POST":
             username = self.body_params.get("username", [""])[0]
             password = self.body_params.get("password", [""])[0]
             if self.users.get(username) == password:
@@ -97,7 +97,7 @@ class Root(Server):
         if not self.session.get("logged_in"):
             return self.redirect("/login")
 
-        if self.request == "POST":
+        if self.scope['method'] == "POST":
             add_item(
                 self.body_params.get("content", [""])[0],
                 self.body_params.get("tags", [""])[0],
@@ -138,6 +138,3 @@ class Root(Server):
 # ----------------------------------------------------------------------------
 
 app = Root()
-wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
-if __name__ == "__main__":
-    app.run()  # Run with `python3 app.py`

@@ -47,8 +47,8 @@ class Root(Server):
         }
 
         # Check if the request method is supported and call the handler
-        if self.request in method_map:
-            response = method_map[self.request]()
+        if self.scope['method'] in method_map:
+            response = method_map[self.scope['method']]()
 
             # Ensure response is formatted correctly for WSGI
             if isinstance(response, tuple):
@@ -64,6 +64,3 @@ class Root(Server):
 
 
 app = Root()
-wsgi_app = app.wsgi_app  # Run with `gunicorn text:wsgi_app`
-if __name__ == "__main__":
-    app.run()  # Run with `python3 app.py`

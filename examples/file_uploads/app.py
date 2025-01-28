@@ -59,6 +59,3 @@ class Root(Server):
 
 
 app = Root()
-wsgi_app = app.wsgi_app  # Run with `gunicorn app:wsgi_app`
-if __name__ == "__main__":
-    app.run()  # Run with `python3 app.py`
