@@ -332,3 +332,5 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 We welcome suggestions, bug reports, and pull requests!
 - File issues or feature requests [here](https://github.com/patx/micropie/issues).
 
+### **Why not ASGI? And Future-Proofing**
+If your looking for async and websockets support with ASGI out of the box, we are working on that! Check out the [development branch](https://github.com/patx/micropie/tree/development). Please note in order to run your apps you will need an external ASGI server like `uvicorn`.
