@@ -60,7 +60,7 @@ Access your app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 ## **Core Features**
 
 ### **1. Flexible Routing**
-MicroPie automatically maps URLs to methods within your `Server` class. Routes can be defined as either synchronous or asynchronous functions, offering unparalleled flexibility.
+MicroPie automatically maps URLs to methods within your `Server` class. Routes can be defined as either synchronous or asynchronous functions, offering good flexibility.
 
 #### **Basic Routing**
 ```python
@@ -116,14 +116,8 @@ class MyApp(Server):
 ```
 
 ### **5. Static File Serving**
-Serve static files such as CSS, JS, and images from a `static` directory.
+Here again, like Websockets, MiroPie does not have a built in static file protocal. While MicroPie does not natively support static files, if you need them, you can easily integrate dedicated libraries like **ServeStatic** ot **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/serve_static](https://github.com/patx/micropie/tree/main/examples/serve_static) to see this in action.
 
-```python
-class MyApp(Server):
-    def static(self, filename):
-        return self.serve_static(filename)
-```
-To serve static files, place your files in the `static` directory and access them via `/static/<filename>`. You can define any route method handler you would like to serve static files, but for security reasons the built-in `serve_static` method will only serve files from the `static` directory.
 
 ### **6. Streaming Responses**
 Support for streaming responses makes it easy to send data in chunks.
@@ -162,7 +156,7 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 - Template rendering
 - Custom HTTP request handling
 - File uploads
-- Serving static content
+- Serving static content with ServeStatic
 - Session usage
 - Websockets with Socket.io
 - Async Streaming

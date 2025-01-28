@@ -371,19 +371,3 @@ class Server:
             raise ImportError("Jinja2 is not installed.")
         return self.env.get_template(name).render(kwargs)
 
-    def serve_static(
-        self, filepath: str
-    ) -> Union[Tuple[int, str], Tuple[int, bytes, List[Tuple[str, str]]]]:
-        safe_root = os.path.abspath("static")
-        requested_file = os.path.abspath(os.path.join("static", filepath))
-        if not requested_file.startswith(safe_root):
-            return 403, "403 Forbidden"
-        if not os.path.isfile(requested_file):
-            return 404, "404 Not Found"
-        content_type, _ = mimetypes.guess_type(requested_file)
-        if not content_type:
-            content_type = "application/octet-stream"
-        with open(requested_file, "rb") as f:
-            content = f.read()
-        return 200, content, [("Content-Type", content_type)]
-
