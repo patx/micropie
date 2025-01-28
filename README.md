@@ -5,11 +5,10 @@
 **MicroPie** is a lightweight, modern Python web framework that supports asynchronous web applications. Designed with flexibility and simplicity in mind, MicroPie enables you to handle high-concurrency HTTP applications with ease while allowing easy and natural integration with external tools like Socket.IO for real-time communication.
 
 ### **Key Features**
-- 🚀 **Async & Sync Support:** Define routes as asynchronous or synchronous functions to suit your application's needs.
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
 - 🔒 **Sessions:** Simple session management using cookies.
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
-- ✨ **ASGI-Powered:** Built for modern web servers like Uvicorn and Daphne, enabling high concurrency.
+- ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
 
 ## **Installing MicroPie**
@@ -76,10 +75,10 @@ class MyApp(Server):
 MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw POST data:
 ```python
 class MyApp(Server):
-    def submit_default_values(self, username="Anonymous"):
+    async def submit_default_values(self, username="Anonymous"):
         return f"Form submitted by: {username}"
 
-    def submit_catch_all(self):
+    async def submit_catch_all(self):
         username = self.body_params.get('username', ['Anonymous'])[0]
         return f"Submitted by: {username}"
 ```
@@ -134,7 +133,7 @@ Built-in session handling simplifies state management:
 
 ```python
 class MyApp(Server):
-    def index(self):
+    async def index(self):
         if "visits" not in self.session:
             self.session["visits"] = 1
         else:
@@ -158,7 +157,7 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 - Session usage
 - Websockets with Socket.io
 - Async Streaming
-- Form handling
+- Form handling and POST requests
 
 
 ## **Why ASGI?**
@@ -178,7 +177,7 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 | **Routing**         | Automatic     | Manual       | Manual     | Manual       | Automatic    | Automatic       |
 | **Template Engine** | Jinja2 (Opt.) | Jinja2       | None       | SimpleTpl    | Django Templating | Jinja2     |
 | **Session Handling**| Simple        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
-| **Async Support**   | Yes           | No (Quart)   | No         | No           | Limited      | Yes             |
+| **Async Support**   | ASGI          | No (Quart)   | No         | No           | Limited      | ASGI            |
 | **Performance**     | Very High     | High         | Moderate   | High         | Moderate     | Extremely High  |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
 
