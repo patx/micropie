@@ -2,11 +2,9 @@
 
 ## **Introduction**
 
-**MicroPie ASGI** is a lightweight, modern Python web framework that supports both synchronous and asynchronous web applications. Designed with flexibility and simplicity in mind, MicroPie ASGI enables you to handle high-concurrency HTTP applications with ease while allowing easy and natural integration with external tools like Socket.IO for real-time communication.
+**MicroPie** is a lightweight, modern Python web framework that supports both synchronous and asynchronous web applications. Designed with flexibility and simplicity in mind, MicroPie enables you to handle high-concurrency HTTP applications with ease while allowing easy and natural integration with external tools like Socket.IO for real-time communication.
 
 ### **Key Features**
-*"Fast, flexible, and future-ready."*
-
 - 🚀 **Async & Sync Support:** Define routes as asynchronous or synchronous functions to suit your application needs.
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
 - 🔒 **Sessions:** Simple session management using cookies.
@@ -14,10 +12,10 @@
 - ✨ **ASGI-Powered:** Built for modern web servers like Uvicorn and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
 
-## **Installing MicroPie ASGI**
+## **Installing MicroPie**
 
 ### **Installation**
-Install MicroPie ASGI via pip:
+Install MicroPie via pip:
 ```bash
 pip install micropie
 ```
@@ -28,13 +26,13 @@ For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place it in your project directory, and your good to go. Note that Jinja2 must be installed separately to use templates:
+Place it in your project directory, and your good to go. Note that Jinja2 must be installed separately to use templates, but this *is* optional:
 ```bash
 pip install jinja2
 ```
 
 ### **Install an ASGI Web Server**
-In oder to test and deply your apps you will need a ASGI web server like uvicorn or Daphne. Install uvicorn with:
+In order to test and deploy your apps you will need a ASGI web server like uvicorn or Daphne. Install uvicorn with:
 ```bash
 pip install uvicorn
 ```
@@ -90,7 +88,7 @@ class MyApp(Server):
 - [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`
 
 ### **3. Real-Time Communication with Socket.IO**
-Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie ASGI does not natively support WebSockets, you can easily integrate Socket.IO alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/development/examples/socketio) to see this in action.
+Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/development/examples/socketio) to see this in action.
 
 
 ### **4. Jinja2 Template Rendering**
@@ -125,7 +123,7 @@ class MyApp(Server):
     def static(self, filename):
         return self.serve_static(filename)
 ```
-Place your files in the `static` directory and access them via `/static/<filename>`.
+To serve static files, place your files in the `static` directory and access them via `/static/<filename>`. You can define any route method handler you would like to serve static files, but for security reasons the built-in `serve_static` method will only serve files from the `static` directory.
 
 ### **6. Streaming Responses**
 Support for streaming responses makes it easy to send data in chunks.
