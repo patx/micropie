@@ -59,7 +59,7 @@ Access your app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 ## **Core Features**
 
-### **1. Flexible HTTP Routing**
+### **1. Flexible HTTP Routing for GET Requests**
 MicroPie automatically maps URLs to methods within your `Server` class. Routes can be defined as either synchronous or asynchronous functions, offering good flexibility.
 
 For GET requests, pass data through query strings or URL path segments, automatically mapped to method arguments.
@@ -72,6 +72,7 @@ class MyApp(Server):
 - [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`
 - [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`
 
+### **2. Flexible HTTP POST Request Handling**
 MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw POST data:
 ```python
 class MyApp(Server):
