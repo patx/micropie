@@ -260,7 +260,7 @@ class Twutr(Server):
         if not self.session.get('logged_in'):
             return self.redirect('/login')
 
-        if self.request == 'POST':
+        if self.scope['method'] == 'POST':
             message = self.body_params.get('message', [''])[0]
 
             # Convert @link syntax and escape everything else
@@ -284,7 +284,7 @@ class Twutr(Server):
         if self.session.get('logged_in'):
             return self.redirect('/')
 
-        if self.request == 'POST':
+        if self.scope['method'] == 'POST':
             username = escape(self.body_params.get('username', [''])[0].strip())
             password = escape(self.body_params.get('password', [''])[0].strip())
 
@@ -306,7 +306,7 @@ class Twutr(Server):
         if self.session.get('logged_in'):
             return self.redirect('/')
 
-        if self.request == 'POST':
+        if self.scope['method'] == 'POST':
             username = escape(self.body_params.get('username', [''])[0].strip())
             password = escape(self.body_params.get('password', [''])[0].strip())
 
@@ -333,9 +333,6 @@ class Twutr(Server):
             self.session.clear()
         return self.redirect('/public')
 
+
+
 app = Twutr()
-wsgi_app = app.wsgi_app
-
-if __name__ == "__main__":
-    app.run()
-

@@ -1,6 +1,7 @@
 from MicroPie import Server
 import os, uuid
 
+
 class Root(Server):
 
     def upload_file(self, file):
@@ -55,4 +56,6 @@ class Root(Server):
             "</html>"
         )
 
-Root().run()
+
+
+app = Root()

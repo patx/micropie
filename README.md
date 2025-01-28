@@ -2,76 +2,81 @@
 
 ## **Introduction**
 
-**MicroPie** is a lightweight Python web framework that makes building web applications simple and efficient. It includes features such as routing, session management, WSGI support, and Jinja2 template rendering.
+**MicroPie** is a lightweight, modern Python web framework that supports both synchronous and asynchronous web applications. Designed with flexibility and simplicity in mind, MicroPie enables you to handle high-concurrency HTTP applications with ease while allowing easy and natural integration with external tools like Socket.IO for real-time communication.
 
 ### **Key Features**
-*"Fast, efficient, and deliciously simple."*
-
-- 🚀 **Easy Setup:** Minimal configuration required. Our setup is so simple, you’ll have time for dessert.
-- 🔄 **Routing:** Maps URLs to functions automatically. So easy, even your grandma could do it (probably).
-- 🔐 **Sessions:** Simple session management using cookies.
-- 🎨 **Templates:** Jinja2 for dynamic HTML pages.
-- ⚡ **Fast & Lightweight:** No unnecessary dependencies. Life’s too short for bloated frameworks.
-- 🖥️ **WSGI support:** Deploy with WSGI servers like gunicorn making web development easy as... pie!
+- 🚀 **Async & Sync Support:** Define routes as asynchronous or synchronous functions to suit your application needs.
+- 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
+- 🔒 **Sessions:** Simple session management using cookies.
+- 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
+- ✨ **ASGI-Powered:** Built for modern web servers like Uvicorn and Daphne, enabling high concurrency.
+- 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
 
 ## **Installing MicroPie**
-### **Normal Installation**
-To install MicroPie [from the PyPI](https://pypi.org/project/MicroPie/) run the following command:
+
+### **Installation**
+Install MicroPie via pip:
 ```bash
 pip install micropie
 ```
-This will install MicroPie along with `jinja2` as a dependency, enabling the built-in `render_template` method. This is the recommended way to install this framework.
+This will install MicroPie along with `jinja2` for template rendering. Jinja2 is optional but recommended for using the `render_template` method.
 
-### **Minimal Installation**
-If you prefer an ultra-minimalistic setup, you can run MicroPie without installing Jinja. Simply download the standalone script:
+### **Minimal Setup**
+For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place the script in your project directory, and you're good to go. Please note you will not be able to use the `render_template` method. It will raise an `ImportError`, unless you have Jinja installed via `pip install jinja2`.
+Place it in your project directory, and your good to go. Note that Jinja2 must be installed separately to use templates, but this *is* optional:
+```bash
+pip install jinja2
+```
+
+### **Install an ASGI Web Server**
+In order to test and deploy your apps you will need a ASGI web server like uvicorn or Daphne. Install uvicorn with:
+```bash
+pip install uvicorn
+```
 
 ## **Getting Started**
 
-Create a basic MicroPie app in `app.py`:
+### **Create Your First ASGI App**
 
+Save the following as `app.py`:
 ```python
 from MicroPie import Server
 
 class MyApp(Server):
-    def index(self, name="Guest"):
-        return f"Hello, {name}!"
+    async def index(self):
+        return "Welcome to MicroPie ASGI."
 
-MyApp().run()
+app = MyApp()
 ```
-
-Run the server:
-
+Run the server with:
 ```bash
-python app.py
+uvicorn app:app
 ```
-
-Visit your app at [http://127.0.0.1:8080](http://127.0.0.1:8080).
+Access your app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 ## **Core Features**
 
-### **1. Routing**
-Define methods to handle URLs:
+### **1. Flexible Routing**
+MicroPie automatically maps URLs to methods within your `Server` class. Routes can be defined as either synchronous or asynchronous functions, offering unparalleled flexibility.
+
+#### **Basic Routing**
 ```python
 class MyApp(Server):
     def hello(self):
         return "Hello, world!"
+
+    async def async_hello(self):
+        return "Hello from an async route!"
 ```
-
 **Access:**
-- Basic route: [http://127.0.0.1:8080/hello](http://127.0.0.1:8080/hello)
+- Sync route: [http://127.0.0.1:8000/hello](http://127.0.0.1:8000/hello)
+- Async route: [http://127.0.0.1:8000/async_hello](http://127.0.0.1:8000/async_hello)
 
-### **2. Handling GET Requests**
-
-MicroPie allows passing data using query strings (`?key=value`) and URL path segments.
-
-#### **Query Parameters**
-
-You can pass query parameters via the URL, which will be automatically mapped to method arguments:
-
+### **2. Query and Path Parameters**
+Pass data through query strings or URL path segments, automatically mapped to method arguments.
 ```python
 class MyApp(Server):
     def greet(self, name="Guest"):
@@ -79,258 +84,115 @@ class MyApp(Server):
 ```
 
 **Access:**
-- Using query parameters: [http://127.0.0.1:8080/greet?name=Alice](http://127.0.0.1:8080/greet?name=Alice)
-  - This will return: `Hello, Alice!`
-- Using URL path segments: [http://127.0.0.1:8080/greet](http://127.0.0.1:8080/greet)
-  - This will return: `Hello, Guest!`
+- [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`
+- [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`
 
-#### **Path Parameters (Dynamic Routing)**
+### **3. Real-Time Communication with Socket.IO**
+Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/development/examples/socketio) to see this in action.
 
-You can also pass parameters directly in the URL path instead of query strings:
 
-```python
-class MyApp(Server):
-    def greet(self, name="Guest"):
-        return f"Hello, {name}!"
-```
-
-**Access:**
-- Using path parameters: [http://127.0.0.1:8080/greet/Alice](http://127.0.0.1:8080/greet/Alice)
-  - This will return: `Hello, Alice!`
-- Another example: [http://127.0.0.1:8080/greet/John](http://127.0.0.1:8080/greet/John)
-  - This will return: `Hello, John!`
-
-#### **Using Both Query and Path Parameters Together**
-
-```python
-class MyApp(Server):
-    def profile(self, user_id):
-        age = self.query_params.get('age', ['Unknown'])[0]
-        return f"User ID: {user_id}, Age: {age}"
-```
-
-**Access:**
-- [http://127.0.0.1:8080/profile/123?age=25](http://127.0.0.1:8080/profile/123?age=25)
-  - Returns: `User ID: 123, Age: 25`
-- [http://127.0.0.1:8080/profile/456](http://127.0.0.1:8080/profile/456)
-  - Returns: `User ID: 456, Age: Unknown`
-
-### **3. Handling POST Requests**
-
-MicroPie supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments.
-
-#### **Handling Form Submission with Default Values**
-
-```python
-class MyApp(Server):
-    def submit(self, username="Anonymous"):
-        return f"Form submitted by: {username}"
-```
-
-#### **Accessing Raw POST Data**
-
-```python
-class MyApp(Server):
-    def submit(self):
-        username = self.body_params.get('username', ['Anonymous'])[0]
-        return f"Submitted by: {username}"
-```
-
-#### **Handling Multiple POST Parameters**
-
-```python
-class MyApp(Server):
-    def register(self):
-        username = self.body_params.get('username', ['Guest'])[0]
-        email = self.body_params.get('email', ['No Email'])[0]
-        return f"Registered {username} with email {email}"
-```
-
-### 4. **WSGI Support**
-MicroPie includes built-in WSGI support via the wsgi_app() method, allowing you to deploy your applications with WSGI-compatible servers like Gunicorn.
-
-#### **Example**
-Create a file named app.py:
-```python
-from MicroPie import Server
-
-class MyApp(Server):
-    def index(self):
-        return "Hello, WSGI World!"
-
-app = MyApp()
-wsgi_application = app.wsgi_app
-```
-
-Run `app.py` with:
-```bash
-gunicorn app:wsgi_application
-```
-
-#### Why Use WSGI?
-WSGI (Web Server Gateway Interface) is the standard Python interface between web servers and web applications. Deploying with a WSGI server like Gunicorn provides benefits such as:
-- Better Performance: Multi-threaded and multi-process capabilities.
-- Scalability: Easily handle multiple requests concurrently.
-- Production Readiness: Designed for high-load environments.
-
-### **5. Handling Sessions**
-MicroPie has built in session handling:
-```python
-class MyApp(Server):
-
-    def index(self):
-        # Initialize or increment visit count in session
-        if 'visits' not in self.session:
-            self.session['visits'] = 1
-        else:
-            self.session['visits'] += 1
-
-        return f"Welcome! You have visited this page {self.session['visits']} times."
-
-MyApp().run()
-```
-
-### **6. Jinja2 Built In**
-MicroPie has Jinja template engine built in. You can use it with the `render_template` method. You can also implement any other template engine you would like.
+### **4. Jinja2 Template Rendering**
+Dynamic HTML generation is supported via Jinja2.
 
 #### **`app.py`**
-Save the following as `app.py`:
 ```python
 class MyApp(Server):
     def index(self):
-        # Pass data to the template for rendering
         return self.render_template("index.html", title="Welcome", message="Hello from MicroPie!")
-
-MyApp().run(port=8080)
 ```
 
-#### **HTML**
-In order to use the `render_template` method you must put your HTML template files in a directory at the same level as `app.py` titled `templates`. Save the following as `templates/index.html`:
+#### **`templates/index.html`**
 ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
 </head>
 <body>
     <h1>{{ message }}</h1>
-    <p>This page is rendered using Jinja2 templates.</p>
 </body>
 </html>
 ```
 
-### **7. Serving Static Files**
-MicroPie can serve static files (such as CSS, JavaScript, and images) from a static directory using the built in `serve_static` method. To do this you must define a route you would like to serve your static files from. For example:
+### **5. Static File Serving**
+Serve static files such as CSS, JS, and images from a `static` directory.
+
 ```python
-class Root(Server):
+class MyApp(Server):
     def static(self, filename):
         return self.serve_static(filename)
 ```
+To serve static files, place your files in the `static` directory and access them via `/static/<filename>`. You can define any route method handler you would like to serve static files, but for security reasons the built-in `serve_static` method will only serve files from the `static` directory.
 
-#### **Setup**
-- Create a directory named `static` in the same location as your MicroPie application. For saftey the `serve_static` method will only work if `filename` is in the `static` directory.
-- Place your static files (e.g., style.css, script.js, logo.png) inside the static directory.
+### **6. Streaming Responses**
+Support for streaming responses makes it easy to send data in chunks.
 
-#### **Accessing Static Files**
-Static files can be accessed via the `/static/` URL path. For example, if you have a file named `style.css` in the `static` directory, you can access it using:
-```
-http://127.0.0.1:8080/static/style.css
-```
-
-### **8. Streaming Responses and WebSockets**
-
-#### **Streaming Response Support**
-MicroPie provides support for streaming responses, allowing you to send data to the client in chunks instead of all at once. This is particularly useful for scenarios where data is generated or processed over time, such as live feeds, large file downloads, or incremental data generation.
-
-#### How It Works
-Streaming is supported through the `wsgi_app` method, making it compatible with WSGI servers like **Gunicorn** or the built in `run` method. When a route handler returns a generator or an iterable (excluding strings), MicroPie automatically streams the response to the client.
-
-With the following saved as `app.py`:
 ```python
-import time
-from MicroPie import Server
-
-class Root(Server):
-
-    def index(self):
-        def generator():
+class MyApp(Server):
+    async def stream(self):
+        async def generator():
             for i in range(1, 6):
                 yield f"Chunk {i}\n"
-                time.sleep(1)  # Simulate slow processing or data generation
         return generator()
-
-app = Root()
-wsgi_app = app.wsgi_app
 ```
-Run your application with `gunicorn app:wsgi_app`. For best performance with streaming, consider tuning Gunicorn settings such as worker types (e.g., `--worker-class gevent`) to handle long-lived connections efficiently.
 
-#### **WebSockets Integration**
-MicroPie applications can seamlessly integrate **WebSockets** by running a separate WebSocket server using Python’s `websockets` library. This enables real-time, bidirectional communication between clients and the server, independent of the HTTP server being used. To get started with WebSockets in MicroPie, ensure you have the `websockets` package installed `pip install websockets`.
+### **7. Sessions and Cookies**
+Built-in session handling simplifies state management:
 
-#### How It Works
+```python
+class MyApp(Server):
+    def index(self):
+        if "visits" not in self.session:
+            self.session["visits"] = 1
+        else:
+            self.session["visits"] += 1
+        return f"You have visited {self.session['visits']} times."
+```
 
-- **The HTTP server (MicroPie)** handles regular web requests and serves the frontend.
-- **A separate WebSocket server** runs concurrently to handle real-time communication.
-- Clients connect to the WebSocket server via the frontend and exchange messages asynchronously.
-- **Threading Considerations:** Since the WebSocket server runs in a separate thread, developers should handle shared resources carefully to avoid concurrency issues.
-- **Port Management:** The WebSocket server must run on a different port than the HTTP server to avoid conflicts.
-- **Client Compatibility:** Ensure that clients support WebSockets when implementing features relying on real-time communication.
+### **8. Deployment**
+MicroPie ASGI apps can be deployed using any ASGI server. For example, using Uvicorn:
+```bash
+uvicorn app:MyApp --workers 4 --port 8000
+```
 
-**For a full example showing `websockets` and MicroPie check out the [chatroom example](https://github.com/patx/micropie/tree/main/examples/chatroom).**
 
-## **API Reference**
+## **Learn by Examples**
+Check out the [examples folder](https://github.com/patx/micropie/tree/development/examples) for more advanced usage, including:
+- Template rendering
+- Custom HTTP request handling
+- File uploads
+- Serving static content
+- Session usage
+- Websockets with Socket.io
+- Async Streaming
+- Form handling
 
-### Class: Server
 
-#### run(host='127.0.0.1', port=8080)
-Starts the WSGI server with the specified host and port.
+## **Why ASGI?**
+ASGI is the future of Python web development, offering:
+- **Concurrency**: Handle thousands of simultaneous connections efficiently.
+- **WebSockets**: Use tools like Socket.IO for real-time communication.
+- **Scalability**: Ideal for modern, high-traffic applications.
 
-#### get_session(request_handler)
-Retrieves or creates a session for the current request. Sessions are managed via cookies.
+MicroPie ASGI allows you to take full advantage of these benefits while maintaining simplicity and ease of use your used to with your WSGI apps.
 
-#### cleanup_sessions()
-Removes expired sessions that have surpassed the timeout period.
-
-#### redirect(location)
-Returns a 302 redirect response to the specified URL.
-
-#### render_template(name, **args)
-Renders a Jinja2 template with provided context variables.
-
-#### validate_request(method)
-Validates incoming requests for both GET and POST methods based on query and body parameters.
-
-#### wsgi_app(environ, start_response)
-WSGI-compliant method for parsing requests and returning responses. Ideal for production deployment using WSGI servers.
-
-#### serve_static(filename)
-Serve static files from the `static` directory.
-
-## **Examples**
-Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including template rendering, custom HTTP request handling, file uploads, session usage, websockets, streaming and form handling.
 
 ## **Feature Comparison**
 
-| Feature             | MicroPie  | Flask      | CherryPy  | Bottle     | Django            | FastAPI    |
-|---------------------|-----------|------------|-----------|------------|-------------------|------------|
-| **Ease of Use**     | Very Easy | Easy       | Easy      | Easy       | Moderate          | Moderate   |
-| **Routing**         | Automatic | Manual     | Manual    | Manual     | Automatic         | Automatic  |
-| **Template Engine** | Jinja2    | Jinja2     | None      | SimpleTpl  | Django Templating | Jinja2     |
-| **Session Handling**| Built-in  | Extension  | Built-in  | Plugin     | Built-in          | Extension  |
-| **Request Handling**| Simple    | Flexible   | Advanced  | Simple     | Advanced          | Advanced   |
-| **Performance**     | High [^1] | High       | Moderate  | High       | Moderate          | Very High  |
-| **WSGI Support**    | Yes       | Yes        | Yes       | Yes        | Yes               | No (ASGI)  |
-| **Async Support**   | No        | No (Quart) | No        | No         | Limited           | Yes        |
-| **Deployment**      | Simple    | Moderate   | Moderate  | Simple     | Complex           | Moderate   |
+| Feature             | MicroPie      | Flask        | CherryPy   | Bottle       | Django       | FastAPI         |
+|---------------------|---------------|--------------|------------|--------------|--------------|-----------------|
+| **Ease of Use**     | Very Easy     | Easy         | Easy       | Easy         | Moderate     | Moderate        |
+| **Routing**         | Automatic     | Manual       | Manual     | Manual       | Automatic    | Automatic       |
+| **Template Engine** | Jinja2 (Opt.) | Jinja2       | None       | SimpleTpl    | Django Templating | Jinja2     |
+| **Session Handling**| Simple        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
+| **Async Support**   | Yes           | No (Quart)   | No         | No           | Limited      | Yes             |
+| **Performance**     | Very High     | High         | Moderate   | High         | Moderate     | Extremely High  |
+| **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
 
 
-[^1]: *Note that while MicroPie is high-performing for lightweight applications, it may not scale well for complex, high-traffic web applications due to the lack of advanced features such as asynchronous request handling and database connection pooling, which are found in frameworks like Django and Flask. To achieve similar performance with MicroPie use `gunicorn` with `gevent`.*
 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!
 - File issues or feature requests [here](https://github.com/patx/micropie/issues).
 
-### **Why not ASGI? And Future-Proofing**
-If your looking for async and websockets support with ASGI out of the box, we are working on that! Check out the [development branch](https://github.com/patx/micropie/tree/development). Please note in order to run your apps you will need an external ASGI server like `uvicorn`.

@@ -28,7 +28,7 @@ def options_handler():
     ]
 
 # Define the custom server application
-class MyApp(Server):
+class Root(Server):
 
     # Handle root URL requests and delegate based on HTTP method
     def index(self):
@@ -47,8 +47,8 @@ class MyApp(Server):
         }
 
         # Check if the request method is supported and call the handler
-        if self.request in method_map:
-            response = method_map[self.request]()
+        if self.scope['method'] in method_map:
+            response = method_map[self.scope['method']]()
 
             # Ensure response is formatted correctly for WSGI
             if isinstance(response, tuple):
@@ -61,8 +61,6 @@ class MyApp(Server):
         # Return 405 if the request method is not supported
         return 405, b"405 Method Not Allowed", [("Content-Type", "text/html")]
 
-# Run the web server
-if __name__ == '__main__':
-    app = MyApp()
-    app.run()
 
+
+app = Root()
