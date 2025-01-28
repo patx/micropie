@@ -56,5 +56,5 @@ async def message(sid, data):
 
 
 # Attach Socket.IO to the ASGI app
-app = MyApp()
-asgi_app = socketio.ASGIApp(sio, app)
+asgi_app = MyApp()
+app = socketio.ASGIApp(sio, app)

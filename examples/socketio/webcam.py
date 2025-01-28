@@ -60,5 +60,5 @@ async def leave_room(sid, data):
         print(f"{sid} left room for {username}")
 
 # Attach the Socket.IO server to the ASGI app
-app = MyApp()
-asgi_app = socketio.ASGIApp(sio, app)
+asgi_app = MyApp()
+app = socketio.ASGIApp(sio, app)
