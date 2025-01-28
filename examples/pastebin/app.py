@@ -21,14 +21,14 @@ class Root(Server):
             db.set(pid, escape(paste_content))
             db.save()
             return self.redirect(f'/paste/{pid}')
-        return self.render_template('index.html')
+        return await self.render_template('index.html')
 
     async def paste(self, paste_id, delete=None):
         if delete == 'delete':
             db.remove(paste_id)
             db.save()
             return self.redirect('/')
-        return self.render_template(
+        return await self.render_template(
             'paste.html',
             paste_id=paste_id,
             paste_content=db.get(paste_id)

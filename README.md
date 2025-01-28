@@ -59,46 +59,43 @@ Access your app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 ## **Core Features**
 
-### **1. Flexible Routing**
+### **1. Flexible HTTP Routing**
 MicroPie automatically maps URLs to methods within your `Server` class. Routes can be defined as either synchronous or asynchronous functions, offering good flexibility.
 
-#### **Basic Routing**
-```python
-class MyApp(Server):
-    def hello(self):
-        return "Hello, world!"
-
-    async def async_hello(self):
-        return "Hello from an async route!"
-```
-**Access:**
-- Sync route: [http://127.0.0.1:8000/hello](http://127.0.0.1:8000/hello)
-- Async route: [http://127.0.0.1:8000/async_hello](http://127.0.0.1:8000/async_hello)
-
-### **2. Query and Path Parameters**
-Pass data through query strings or URL path segments, automatically mapped to method arguments.
+For GET requests, pass data through query strings or URL path segments, automatically mapped to method arguments.
 ```python
 class MyApp(Server):
     def async greet(self, name="Guest"):
         return f"Hello, {name}!"
 ```
-
 **Access:**
 - [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`
 - [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`
+
+MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw POST data:
+```python
+class MyApp(Server):
+    def submit_default_values(self, username="Anonymous"):
+        return f"Form submitted by: {username}"
+
+    def submit_catch_all(self):
+        username = self.body_params.get('username', ['Anonymous'])[0]
+        return f"Submitted by: {username}"
+```
+
 
 ### **3. Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
 
 
 ### **4. Jinja2 Template Rendering**
-Dynamic HTML generation is supported via Jinja2.
+Dynamic HTML generation is supported via Jinja2. This happens asynchronously using Pythons `asyncio` library, so make sure to use the `async` and `await` with this method.
 
 #### **`app.py`**
 ```python
 class MyApp(Server):
-    def index(self):
-        return self.render_template("index.html", title="Welcome", message="Hello from MicroPie!")
+    async def index(self):
+        return await self.render_template("index.html", title="Welcome", message="Hello from MicroPie!")
 ```
 
 #### **`templates/index.html`**

@@ -30,14 +30,14 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-
-import time
-import uuid
+import asyncio
 import inspect
-import os
 import mimetypes
-from urllib.parse import parse_qs
+import os
+import time
 from typing import Optional, Dict, Any, Union, Tuple, List
+from urllib.parse import parse_qs
+import uuid
 
 try:
     from jinja2 import Environment, FileSystemLoader
@@ -366,8 +366,15 @@ class Server:
             ),
         )
 
-    def render_template(self, name: str, **kwargs: Any) -> str:
+    async def render_template(self, name: str, **kwargs: Any) -> str:
+        """
+        Async-compatible template rendering using Jinja2.
+        """
         if not JINJA_INSTALLED:
             raise ImportError("Jinja2 is not installed.")
-        return self.env.get_template(name).render(kwargs)
+
+        def render_sync():
+            return self.env.get_template(name).render(kwargs)
+
+        return await asyncio.get_event_loop().run_in_executor(None, render_sync)
 
