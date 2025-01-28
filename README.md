@@ -26,7 +26,7 @@ For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place it in your project directory, and your good to go. Note that Jinja2 must be installed separately to use templates, but this *is* optional:
+Place it in your project directory, and you are good to go. Note that Jinja2 must be installed separately to use templates, but this *is* optional:
 ```bash
 pip install jinja2
 ```
@@ -88,7 +88,7 @@ class MyApp(Server):
 - [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`
 
 ### **3. Real-Time Communication with Socket.IO**
-Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/development/examples/socketio) to see this in action.
+Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
 
 
 ### **4. Jinja2 Template Rendering**
@@ -158,7 +158,7 @@ uvicorn app:MyApp --workers 4 --port 8000
 
 
 ## **Learn by Examples**
-Check out the [examples folder](https://github.com/patx/micropie/tree/development/examples) for more advanced usage, including:
+Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including:
 - Template rendering
 - Custom HTTP request handling
 - File uploads
@@ -175,7 +175,7 @@ ASGI is the future of Python web development, offering:
 - **WebSockets**: Use tools like Socket.IO for real-time communication.
 - **Scalability**: Ideal for modern, high-traffic applications.
 
-MicroPie ASGI allows you to take full advantage of these benefits while maintaining simplicity and ease of use your used to with your WSGI apps.
+MicroPie allows you to take full advantage of these benefits while maintaining simplicity and ease of use you're used to with your WSGI apps.
 
 
 ## **Feature Comparison**
