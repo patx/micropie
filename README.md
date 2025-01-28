@@ -142,14 +142,14 @@ class MyApp(Server):
 ```
 
 ### **8. Deployment**
-MicroPie ASGI apps can be deployed using any ASGI server. For example, using Uvicorn:
+MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `Server` subclass is assigned to the `app` variable we can run it with:
 ```bash
-uvicorn app:MyApp --workers 4 --port 8000
+uvicorn app:app --workers 4 --port 8000
 ```
 
 
 ## **Learn by Examples**
-Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including:
+The best way to get an idea of how MicroPie works is to see it in action! Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including:
 - Template rendering
 - Custom HTTP request handling
 - File uploads
@@ -158,15 +158,16 @@ Check out the [examples folder](https://github.com/patx/micropie/tree/main/examp
 - Websockets with Socket.io
 - Async Streaming
 - Form handling and POST requests
-
-
+- And more
+  
+*Please note these are examples, showing the MicroPie API and routing, they are not meant for producton!*
 ## **Why ASGI?**
 ASGI is the future of Python web development, offering:
 - **Concurrency**: Handle thousands of simultaneous connections efficiently.
 - **WebSockets**: Use tools like Socket.IO for real-time communication.
 - **Scalability**: Ideal for modern, high-traffic applications.
 
-MicroPie allows you to take full advantage of these benefits while maintaining simplicity and ease of use you're used to with your WSGI apps.
+MicroPie allows you to take full advantage of these benefits while maintaining simplicity and ease of use you're used to with your WSGI apps and it lets you choose what libraries you want to work with instead of forcing our ideas onto you!
 
 
 ## **Feature Comparison**
@@ -177,8 +178,7 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 | **Routing**         | Automatic     | Manual       | Manual     | Manual       | Automatic    | Automatic       |
 | **Template Engine** | Jinja2 (Opt.) | Jinja2       | None       | SimpleTpl    | Django Templating | Jinja2     |
 | **Session Handling**| Simple        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
-| **Async Support**   | ASGI          | No (Quart)   | No         | No           | Limited      | ASGI            |
-| **Performance**     | Very High     | High         | Moderate   | High         | Moderate     | Extremely High  |
+| **Async Support**   | Yes (ASGI)    | No (Quart)   | No         | No           | Limited      | Yes (ASGI)      |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
 
 
