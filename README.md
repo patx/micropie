@@ -84,11 +84,11 @@ class MyApp(Server):
         return f"Form submitted by: {username}"
 
     async def submit_catch_all(self):
-        username = self.body_params.get('username', ['Anonymous'])[0]
+        username = self.body_params.get("username", ["Anonymous"])[0]
         return f"Submitted by: {username}"
 ```
 
-
+By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method in the handler with the`scope["method"]`.
 ### **3. Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
 
