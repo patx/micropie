@@ -89,7 +89,6 @@ class Server:
             cookies = self._parse_cookies(headers_dict.get("cookie", ""))
 
             session_id = cookies.get("session_id")
-
             if session_id and session_id in self.sessions:
                 self.session = self.sessions[session_id]
                 self.session["last_access"] = time.time()

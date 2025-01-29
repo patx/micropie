@@ -10,7 +10,7 @@
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
 - ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
-- ⚡ **Blazing Fast:** Check out the [benchmarks](https://gist.github.com/patx/1269e389d7d19ea31eb3b9ffff47e0cb#file-micropie_fastapi_benchmarks-md)!
+- ⚡ **Blazing Fast:** Check out how MicroPie compares to other popular ASGI frameworks below!
 
 ## **Installing MicroPie**
 
@@ -171,8 +171,9 @@ ASGI is the future of Python web development, offering:
 MicroPie allows you to take full advantage of these benefits while maintaining simplicity and ease of use you're used to with your WSGI apps and it lets you choose what libraries you want to work with instead of forcing our ideas onto you!
 
 
-## **Feature Comparison**
+## **Comparisons**
 
+### **Features vs Other Popular Frameworks*
 | Feature             | MicroPie      | Flask        | CherryPy   | Bottle       | Django       | FastAPI         |
 |---------------------|---------------|--------------|------------|--------------|--------------|-----------------|
 | **Ease of Use**     | Very Easy     | Easy         | Easy       | Easy         | Moderate     | Moderate        |
@@ -182,7 +183,23 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 | **Async Support**   | Yes (ASGI)    | No (Quart)   | No         | No           | Limited      | Yes (ASGI)      |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
 
+### **Performance vs Other ASGI Frameworks**
+| Framework   |   Threads |   Connections |   Duration (s) |   Requests/sec |   Latency (ms) |   Transfer/sec (KB) |
+|------------|----------:|--------------:|---------------:|---------------:|---------------:|--------------------:|
+| FastAPI     |         4 |           100 |             30 |        1895.29 |          52.67 |              257.54 |
+| MicroPie    |         4 |           100 |             30 |        2272.76 |          43.93 |              362.18 |
+| Quart       |         4 |           100 |             30 |        1500.13 |          66.63 |              212.68 |
+| Starlette   |         4 |           100 |             30 |        2305.50 |          43.30 |              326.88 |
+| FastAPI     |         4 |           200 |             30 |        2015.90 |          99.78 |              273.94 |
+| MicroPie    |         4 |           200 |             30 |        2516.01 |          79.31 |              400.92 |
+| Quart       |         4 |           200 |             30 |        1574.15 |         126.63 |              223.16 |
+| Starlette   |         4 |           200 |             30 |        2658.45 |          75.10 |              376.86 |
+| FastAPI     |         4 |          1000 |             30 |        2129.72 |         463.63 |              289.44 |
+| MicroPie    |         4 |          1000 |             30 |        2589.64 |         381.86 |              412.79 |
+| Quart       |         4 |          1000 |             30 |        1557.83 |         628.80 |              221.01 |
+| Starlette   |         4 |          1000 |             30 |        2887.07 |         342.99 |              409.37 |
 
+*Tests were performed with `uvicorn` using 4 workers. Benchmarked with `wrk`. This a minimal baseline benchmark, and should be taken with a grain of salt.*
 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!
