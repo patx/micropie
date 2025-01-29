@@ -1,0 +1,53 @@
+=== Benchmark Results ===
+
+=== Starlette ===
+Running 30s test @ http://127.0.0.1:8000/
+  2 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   463.73ms   93.44ms 793.29ms   72.98%
+    Req/Sec     1.07k   309.39     1.94k    66.00%
+  64065 requests in 30.09s, 8.87MB read
+Requests/sec:   2129.04
+Transfer/sec:    301.86KB
+
+========================================
+
+
+=== FastAPI ===
+Running 30s test @ http://127.0.0.1:8000/
+  2 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   622.20ms  104.33ms 953.26ms   73.59%
+    Req/Sec   797.65    216.53     1.48k    69.40%
+  47649 requests in 30.09s, 6.32MB read
+Requests/sec:   1583.67
+Transfer/sec:    215.17KB
+
+========================================
+
+
+=== Quart ===
+Running 30s test @ http://127.0.0.1:8000/
+  2 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   834.04ms  422.46ms   1.98s    61.02%
+    Req/Sec   597.05    288.80     1.51k    66.55%
+  35581 requests in 30.10s, 4.92MB read
+Requests/sec:   1182.08
+Transfer/sec:    167.45KB
+
+========================================
+
+
+=== MicroPie ===
+Running 30s test @ http://127.0.0.1:8000/
+  2 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   559.16ms  119.78ms   1.03s    71.57%
+    Req/Sec     0.89k   344.42     1.95k    66.11%
+  53082 requests in 30.09s, 8.26MB read
+Requests/sec:   1763.83
+Transfer/sec:    281.18KB
+
+========================================
+

@@ -89,13 +89,12 @@ class Server:
             cookies = self._parse_cookies(headers_dict.get("cookie", ""))
 
             session_id = cookies.get("session_id")
+
             if session_id and session_id in self.sessions:
                 self.session = self.sessions[session_id]
                 self.session["last_access"] = time.time()
             else:
-                session_id = str(uuid.uuid4())
-                self.session = {"last_access": time.time()}
-                self.sessions[session_id] = self.session
+                self.session = {}
 
             self.body_params = {}
             self.files = {}
@@ -169,16 +168,10 @@ class Server:
                     )
                     return
 
-            session_cookie_header = (
-                "Set-Cookie",
-                f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"
-            )
-            has_session_cookie = any(
-                h[0].lower() == "set-cookie" and "session_id=" in h[1]
-                for h in extra_headers
-            )
-            if not has_session_cookie:
-                extra_headers.append(session_cookie_header)
+            if self.session:
+                session_id = cookies.get("session_id", str(uuid.uuid4()))
+                self.sessions[session_id] = self.session  # Store session only if used
+                extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"))
 
             await self._send_response(
                 send,
