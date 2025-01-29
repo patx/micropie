@@ -1,12 +1,31 @@
 from MicroPie import Server
-import os, uuid
+import os, uuid, asyncio
 
 
 class Root(Server):
 
-    def upload_file(self, file):
+    async def save_file_async(self, upload_path, data):
         """
-        Handler function to process uploaded files.
+        Asynchronously writes file data to the specified path.
+        """
+        loop = asyncio.get_running_loop()
+        try:
+            await loop.run_in_executor(None, self._write_file, upload_path, data)
+        except IOError as e:
+            return 500, f"Failed to save file: {str(e)}"
+        return 200, f"File uploaded successfully as '{os.path.basename(upload_path)}'. <a href='/'>Upload another</a>"
+
+    def _write_file(self, upload_path, data):
+        """
+        Synchronous function to write data to a file.
+        Used with run_in_executor to avoid blocking the event loop.
+        """
+        with open(upload_path, 'wb') as f:
+            f.write(data)
+
+    async def upload_file(self, file):
+        """
+        Asynchronous handler function to process uploaded files.
 
         Parameters:
         - file: A dictionary containing 'filename', 'content_type', and 'data'.
@@ -22,22 +41,14 @@ class Root(Server):
         upload_dir = 'uploads'
         os.makedirs(upload_dir, exist_ok=True)
 
-        # Sanitize the filename to prevent directory traversal attacks
+        # Sanitize and create a unique filename
         filename = os.path.basename(filename)
-
-        # Optionally, generate a unique filename to prevent overwriting
         unique_filename = f"{uuid.uuid4()}_{filename}"
         upload_path = os.path.join(upload_dir, unique_filename)
 
-        try:
-            with open(upload_path, 'wb') as f:
-                f.write(data)
-        except IOError as e:
-            return 500, f"Failed to save file: {str(e)}"
+        # Asynchronously save the file
+        return await self.save_file_async(upload_path, data)
 
-        return 200, f"""File '{filename}' uploaded successfully as '{unique_filename}'. <a href="/">Upload another</a>"""
-
-    # Example Index Handler to Render Upload Form
     def index(self):
         """
         Render a simple HTML form for file uploads.
@@ -57,5 +68,5 @@ class Root(Server):
         )
 
 
-
 app = Root()
+
