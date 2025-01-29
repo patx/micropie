@@ -10,6 +10,7 @@
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
 - ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
+- ⚡ **Blazing Fast:** Check out the [benchmarks](https://gist.github.com/patx/1269e389d7d19ea31eb3b9ffff47e0cb#file-micropie_fastapi_benchmarks-md)!
 
 ## **Installing MicroPie**
 
@@ -159,7 +160,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Async Streaming
 - Form handling and POST requests
 - And more
-  
+
 *Please note these are examples, showing the MicroPie API and routing, they are not meant for producton!*
 ## **Why ASGI?**
 ASGI is the future of Python web development, offering:
