@@ -36,12 +36,19 @@ async def disconnect(sid):
 
 @sio.on("stream_frame")
 async def handle_stream_frame(sid, data):
-    """Broadcast the streamed frame to all watchers."""
+    """
+    Broadcast the streamed frame (binary blob) to all watchers.
+    data = { "username": <str>, "frame": <binary blob> }
+    """
     username = data.get("username")
-    frame = data.get("frame")
+    frame = data.get("frame")  # This is binary
     if username in active_users:
-        # Emit the frame to watchers
-        await sio.emit("video_frame", {"username": username, "frame": frame}, room=username)
+        # Emit the frame to watchers in username's room
+        await sio.emit(
+            "video_frame",
+            {"username": username, "frame": frame},
+            room=username,
+        )
 
 @sio.on("join_room")
 async def join_room(sid, data):
@@ -61,4 +68,4 @@ async def leave_room(sid, data):
 
 # Attach the Socket.IO server to the ASGI app
 asgi_app = MyApp()
-app = socketio.ASGIApp(sio, app)
+app = socketio.ASGIApp(sio, asgi_app)

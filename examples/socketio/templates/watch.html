@@ -10,10 +10,10 @@
   <h1>Watching Stream of {{ username }}</h1>
   <img id="videoFeed" style="width: 100%; max-width: 800px;" />
 
-
 <script>
   const username = "{{ username }}";
-  const socket = io();
+  // 1) Force only WebSocket
+  const socket = io({ transports: ["websocket"] });
 
   // Join the room as a watcher
   socket.emit("join_room", { username });
@@ -22,9 +22,13 @@
     console.log("Connected as watcher for", username);
   });
 
+  // Listen for binary frames
   socket.on("video_frame", (data) => {
-    if (data.username === username) {
-      document.getElementById("videoFeed").src = data.frame;
+    // data = { username, frame: <binary> }
+    if (data.username === username && data.frame) {
+      // Reconstruct a Blob from the received 'frame' (binary)
+      const blob = new Blob([data.frame], { type: "image/jpeg" });
+      document.getElementById("videoFeed").src = URL.createObjectURL(blob);
     }
   });
 
@@ -35,3 +39,4 @@
 
 </body>
 </html>
+

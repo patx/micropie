@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebRTC Watcher</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>Watching: {{ username }}</h1>
+
+  <!-- Make sure we have muted, controls, playsinline, and autoplay -->
+  <video
+    id="remoteVideo"
+    playsinline
+    autoplay
+    controls
+    muted
+    style="width: 640px; background: black;">
+  </video>
+
+  <script>
+    const username = "{{ username }}";
+    const socket = io({ transports: ["websocket"] });
+
+    let peerConnection = null;
+    const remoteVideo = document.getElementById("remoteVideo");
+
+    socket.on("connect", () => {
+      console.log("[Watcher] Connected:", socket.id);
+      // Join the same room
+      socket.emit("join_room", { username });
+      // Let the streamer know we want to watch
+      socket.emit("new_watcher", { watcherSid: socket.id, username });
+    });
+
+    // 1) Receive Offer from the streamer
+    socket.on("offer", async (data) => {
+      console.log("[Watcher] Received offer from:", data.streamerSid);
+
+      if (!peerConnection) {
+        peerConnection = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+
+        // 2) Handle local ICE candidates -> send to streamer
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit("ice-candidate", {
+              candidate: event.candidate.candidate,
+              sdpMid: event.candidate.sdpMid,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+              targetSid: data.streamerSid
+            });
+          }
+        };
+
+        // 3) When remote tracks arrive
+        peerConnection.ontrack = (event) => {
+          console.log("[Watcher] ontrack =>", event.streams[0]);
+
+          // Attach the incoming stream to <video>
+          remoteVideo.srcObject = event.streams[0];
+          console.log("[Watcher] remoteVideo.srcObject set:", remoteVideo.srcObject);
+
+          // Explicitly call .play() to handle auto-play policy
+          remoteVideo.play().then(() => {
+            console.log("[Watcher] remoteVideo is playing");
+          }).catch(err => {
+            console.error("[Watcher] remoteVideo play() error:", err);
+          });
+        };
+      }
+
+      try {
+        // 4) Set remote description
+        const desc = new RTCSessionDescription({
+          type: data.offerType,
+          sdp: data.offer
+        });
+        await peerConnection.setRemoteDescription(desc);
+        console.log("[Watcher] setRemoteDescription done");
+
+        // 5) Create and send answer
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        console.log("[Watcher] created answer, setLocalDescription done");
+
+        socket.emit("answer", {
+          answer: answer.sdp,
+          answerType: answer.type,
+          streamerSid: data.streamerSid
+        });
+        console.log("[Watcher] answer emitted");
+      } catch (err) {
+        console.error("[Watcher] Error handling offer/answer:", err);
+      }
+    });
+
+    // 6) ICE candidates from streamer -> add to our PeerConnection
+    socket.on("ice-candidate", (data) => {
+      const { candidate, sdpMid, sdpMLineIndex, senderSid } = data;
+      console.log("[Watcher] ICE candidate from", senderSid);
+
+      if (peerConnection && candidate) {
+        peerConnection.addIceCandidate(new RTCIceCandidate({
+          candidate,
+          sdpMid,
+          sdpMLineIndex
+        })).catch(err => console.error("[Watcher] addIceCandidate error:", err));
+      }
+    });
+  </script>
+</body>
+</html>
+

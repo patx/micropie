@@ -2,7 +2,7 @@
 
 ## **Introduction**
 
-**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with flexibility and simplicity in mind, MicroPie enables you to handle high-concurrency HTTP applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication.
+**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with **flexibility** and **simplicity** in mind, MicroPie enables you to handle high-concurrency applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication.
 
 ### **Key Features**
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
@@ -32,7 +32,7 @@ pip install jinja2
 ```
 
 ### **Install an ASGI Web Server**
-In order to test and deploy your apps you will need a ASGI web server like uvicorn or Daphne. Install uvicorn with:
+In order to test and deploy your apps you will need a ASGI web server like Uvicorn, Hypercorn or Daphne. Install `uvicorn` with:
 ```bash
 pip install uvicorn
 ```
@@ -70,12 +70,12 @@ class MyApp(Server):
 
     async def hello(self):
         name = self.query_params.get("name", None)
-        return f"Hello {name}!" 
+        return f"Hello {name}!"
 ```
 **Access:**
 - [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`, same as [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`
 - [http://127.0.0.1:800/hello/Alice](http://127.0.0.1:800/hello/Alice) returns `Hello Alice!`, same as [http://127.0.0.1:800/hello?name=Alice](http://127.0.0.1:800/hello?name=Alice) returns `Hello Alice!`
-  
+
 ### **2. Flexible HTTP POST Request Handling**
 MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw POST data:
 ```python
@@ -205,7 +205,7 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 
 
 Starlette performs best, maintaining the highest throughput and low latency due to its heavily optimized architecture. MicroPie also excels, especially at high concurrency,
-benefiting from lightweight processing. FastAPI offers stable performance but suffers increased latency under load, likely due to request validation overhead. Quart 
+benefiting from lightweight processing. FastAPI offers stable performance but suffers increased latency under load, likely due to request validation overhead. Quart
 performs the worst, with high latency and low throughput, likely due to its Flask compatibility, making it less suited for high-concurrency workloads.
 
 *Tests were performed on a Star Labs StarLite Mk IV with `uvicorn` using 4 workers. Benchmarked with `wrk` with 4 threads for 30s. This a minimal baseline benchmark, and should be taken with a grain of salt.*

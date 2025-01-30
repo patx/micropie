@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebRTC Streaming (Streamer)</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>Streaming as {{ username }}</h1>
+  <video id="localVideo" autoplay playsinline muted style="transform: scaleX(-1);"></video>
+
+  <script>
+    const username = "{{ username }}";
+    const socket = io({ transports: ["websocket"] });
+
+    // Keep a PeerConnection for each watcherSid
+    const peerConnections = {};
+    let localStream = null;
+
+    socket.on("connect", () => {
+      console.log("[Streamer] Connected:", socket.id);
+      // Join the 'username' room
+      socket.emit("join_room", { username });
+      // Start local camera
+      startLocalCamera();
+    });
+
+    async function startLocalCamera() {
+      try {
+        // Video only; use audio: true if you want to stream mic audio too
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        document.getElementById("localVideo").srcObject = localStream;
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+      }
+    }
+
+    // When a new watcher arrives, we create an offer for them
+    socket.on("new_watcher", (data) => {
+      const watcherSid = data.watcherSid;
+      console.log("[Streamer] new_watcher event:", watcherSid);
+      createOfferForWatcher(watcherSid);
+    });
+
+    async function createOfferForWatcher(watcherSid) {
+      console.log("[Streamer] Creating offer for", watcherSid);
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
+      peerConnections[watcherSid] = pc;
+
+      // Add local tracks to this new PeerConnection
+      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+
+      // Send our ICE candidates to the server => watchers
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("ice-candidate", {
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            targetSid: watcherSid
+          });
+        }
+      };
+
+      // Create an offer, set as local description
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      // Send the offer to that watcher
+      socket.emit("offer", {
+        username,
+        offer: offer.sdp,
+        offerType: offer.type,
+        watcherSid
+      });
+    }
+
+    // Handle "answer" from watchers
+    socket.on("answer", async (data) => {
+      const { answer, answerType, watcherSid } = data;
+      console.log("[Streamer] Received answer from watcherSid:", watcherSid);
+
+      const pc = peerConnections[watcherSid];
+      if (!pc) {
+        console.warn("[Streamer] PeerConnection not found for", watcherSid);
+        return;
+      }
+
+      const remoteDesc = new RTCSessionDescription({
+        type: answerType,
+        sdp: answer
+      });
+      await pc.setRemoteDescription(remoteDesc);
+    });
+
+    // Handle ICE candidates from watchers
+    socket.on("ice-candidate", (data) => {
+      const { candidate, sdpMid, sdpMLineIndex, senderSid } = data;
+      console.log("[Streamer] ICE candidate from", senderSid);
+      const pc = peerConnections[senderSid];
+      if (pc && candidate) {
+        pc.addIceCandidate(new RTCIceCandidate({
+          candidate,
+          sdpMid,
+          sdpMLineIndex
+        })).catch(err => console.error("Error adding ICE candidate:", err));
+      }
+    });
+  </script>
+</body>
+</html>
+
