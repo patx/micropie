@@ -40,6 +40,12 @@ import uuid
 import contextvars
 
 try:
+    from multipart import PushMultipartParser, MultipartSegment
+    MULTIP_INSTALLED = True
+except ImportError:
+    MULTIP_INSTALLED = False
+
+try:
     from jinja2 import Environment, FileSystemLoader
     JINJA_INSTALLED = True
     import asyncio
@@ -127,7 +133,10 @@ class Server:
                                 break
                     content_type = headers_dict.get("content-type", "")
                     if "multipart/form-data" in content_type:
-                        self._parse_multipart(bytes(body_data), content_type, request)
+                        if MULTIP_INSTALLED:
+                            await self._parse_multipart(receive, content_type, request)
+                        else:
+                            print('Library multipart required in order to parse multipart form data/file uploads')
                     else:
                         body_str = body_data.decode("utf-8", "ignore")
                         request.body_params = parse_qs(body_str)
@@ -226,55 +235,68 @@ class Server:
         if not boundary:
             raise ValueError("Boundary not found in Content-Type header.")
 
-        boundary_bytes = boundary.encode("utf-8")
-        delimiter = b"--" + boundary_bytes
-        sections = body.split(delimiter)
-        for section in sections:
-            if not section or section in (b"--", b"--\r\n"):
-                continue
-            if section.startswith(b"\r\n"):
-                section = section[2:]
-            if section.endswith(b"\r\n"):
-                section = section[:-2]
-            if section == b"--":
-                continue
+    async def _parse_multipart(self, receive, content_type: str, request: Request):
+        """Parses multipart form data using PushMultipartParser."""
 
-            try:
-                headers, content = section.split(b"\r\n\r\n", 1)
-            except ValueError:
-                continue
+        # Extract boundary from content_type
+        boundary = None
+        parts = content_type.split(";")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("boundary="):
+                boundary = part.split("=", 1)[1]
+                break
 
-            headers_list = headers.decode("utf-8", "ignore").split("\r\n")
-            header_dict = {}
-            for header_line in headers_list:
-                if ":" in header_line:
-                    key, value = header_line.split(":", 1)
-                    header_dict[key.strip().lower()] = value.strip()
+        if not boundary:
+            raise ValueError("Boundary not found in Content-Type header.")
 
-            disposition = header_dict.get("content-disposition", "")
-            disposition_parts = disposition.split(";")
-            disposition_dict = {}
-            for disp_part in disposition_parts:
-                if "=" in disp_part:
-                    k, v = disp_part.strip().split("=", 1)
-                    disposition_dict[k] = v.strip('"')
+        # Initialize parser
+        parser = PushMultipartParser(boundary)
+        field_name = None
+        file_data = None
 
-            name = disposition_dict.get("name")
-            filename = disposition_dict.get("filename")
+        while not parser.closed:
+            # Read next chunk from ASGI receive function
+            msg = await receive()
+            if msg["type"] == "http.request":
+                chunk = msg.get("body", b"")
 
-            if filename:
-                file_content_type = header_dict.get("content-type", "application/octet-stream")
-                request.files[name] = {
-                    "filename": filename,
-                    "content_type": file_content_type,
-                    "data": content
-                }
-            elif name:
-                value = content.decode("utf-8", "ignore")
-                if name in request.body_params:
-                    request.body_params[name].append(value)
-                else:
-                    request.body_params[name] = [value]
+                for result in parser.parse(chunk):
+                    if isinstance(result, MultipartSegment):
+                        # Start of a new multipart segment
+                        field_name = result.name
+                        filename = result.filename
+
+                        if filename:
+                            # It's a file upload
+                            content_type = result.content_type
+                            file_data = bytearray()
+                            request.files[field_name] = {
+                                "filename": filename,
+                                "content_type": content_type,
+                                "data": file_data
+                            }
+                        else:
+                            # It's a normal form field
+                            request.body_params[field_name] = ""
+
+                    elif isinstance(result, bytearray):
+                        # This is part of the file or form field data
+                        if field_name in request.files:
+                            request.files[field_name]["data"].extend(result)
+                        else:
+                            request.body_params[field_name] += result.decode("utf-8", "ignore")
+
+                    elif result is None:
+                        # End of a segment, finalize file content if present
+                        if field_name in request.files:
+                            request.files[field_name]["data"] = bytes(request.files[field_name]["data"])
+
+                # Stop if there's no more body content
+                if not msg.get("more_body", False):
+                    break
+
+
 
     async def _send_response(
         self,
@@ -295,32 +317,68 @@ class Server:
             404: "404 Not Found",
             500: "500 Internal Server Error",
         }
+        # Fallback if not in map
         status_text = status_map.get(status_code, f"{status_code} OK")
 
-        # Ensure extra headers are safe
-        sanitized_headers = []
-        for k, v in extra_headers:
-            if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
-                print(f"Header injection attempt detected: {k}: {v}")
-                continue  # Skip invalid headers
-            sanitized_headers.append((k, v))
-
-        # Ensure Content-Type is set unless explicitly provided
-        has_content_type = any(h[0].lower() == "content-type" for h in sanitized_headers)
+        # Ensure there's a Content-Type unless already provided
+        has_content_type = any(h[0].lower() == "content-type" for h in extra_headers)
         if not has_content_type:
-            sanitized_headers.append(("Content-Type", "text/html; charset=utf-8"))
+            extra_headers.append(("Content-Type", "text/html; charset=utf-8"))
 
-        # Send response start
+        # Send the initial response start
         await send({
             "type": "http.response.start",
             "status": status_code,
             "headers": [
-                (k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers
+                (k.encode("latin-1"), v.encode("latin-1")) for k, v in extra_headers
             ],
         })
 
-        # Ensure body is properly encoded
-        response_body = body.encode("utf-8") if isinstance(body, str) else body
+        # 1) Check if body is an async generator (has __aiter__)
+        if hasattr(body, "__aiter__"):
+            async for chunk in body:
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8")
+                await send({
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": True
+                })
+            # Send a final empty chunk to mark the end
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False
+            })
+            return
+
+        # 2) Check if body is a *sync* generator (has __iter__) and
+        #    is not a plain string/bytes
+        if hasattr(body, "__iter__") and not isinstance(body, (bytes, str)):
+            for chunk in body:
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8")
+                await send({
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": True
+                })
+            # Send a final empty chunk
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False
+            })
+            return
+
+        if isinstance(body, str):
+            response_body = body.encode("utf-8")
+        elif isinstance(body, bytes):
+            response_body = body
+        else:
+            # Convert anything else to string then to bytes
+            response_body = str(body).encode("utf-8")
+
         await send({
             "type": "http.response.body",
             "body": response_body,
@@ -335,7 +393,7 @@ class Server:
             if data.get("last_access", now) + self.SESSION_TIMEOUT > now
         }
 
-    def _redirect(self, location: str) -> Tuple[int, str]:
+    def redirect(self, location: str) -> Tuple[int, str]:
         return (
             302,
             (
@@ -345,7 +403,7 @@ class Server:
             ),
         )
 
-    async def _render_template(self, name: str, **kwargs: Any) -> str:
+    async def render_template(self, name: str, **kwargs: Any) -> str:
         """
         Async-compatible template rendering using Jinja2.
         """

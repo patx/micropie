@@ -73,9 +73,9 @@ class Server:
         return current_request.get()
 
     async def __call__(self, scope, receive, send):
-        await self.asgi_app(scope, receive, send)
+        await self._asgi_app(scope, receive, send)
 
-    async def asgi_app(self, scope: Dict[str, Any], receive: Any, send: Any) -> None:
+    async def _asgi_app(self, scope: Dict[str, Any], receive: Any, send: Any) -> None:
         """ASGI application entrypoint for both HTTP and WebSockets."""
         if scope["type"] == "http":
             request = Request(scope)
@@ -327,7 +327,7 @@ class Server:
             "more_body": False
         })
 
-    def cleanup_sessions(self) -> None:
+    def _cleanup_sessions(self) -> None:
         now = time.time()
         self.sessions = {
             sid: data
