@@ -319,6 +319,51 @@ class Server:
             ],
         })
 
+        # 1) Check if body is an async generator (has __aiter__)
+        if hasattr(body, "__aiter__"):
+            async for chunk in body:
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8")
+                await send({
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": True
+                })
+            # Send a final empty chunk to mark the end
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False
+            })
+            return
+
+        # 2) Check if body is a *sync* generator (has __iter__) and
+        #    is not a plain string/bytes
+        if hasattr(body, "__iter__") and not isinstance(body, (bytes, str)):
+            for chunk in body:
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8")
+                await send({
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": True
+                })
+            # Send a final empty chunk
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False
+            })
+            return
+
+        if isinstance(body, str):
+            response_body = body.encode("utf-8")
+        elif isinstance(body, bytes):
+            response_body = body
+        else:
+            # Convert anything else to string then to bytes
+            response_body = str(body).encode("utf-8")
+
         # Ensure body is properly encoded
         response_body = body.encode("utf-8") if isinstance(body, str) else body
         await send({
