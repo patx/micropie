@@ -1,3 +1,35 @@
+"""
+MicroPie: A simple Python ultra-micro web framework with ASGI
+support. https://patx.github.io/micropie
+
+Copyright Harrison Erd
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from this
+   software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
 import inspect
 import mimetypes
 import os
@@ -55,8 +87,13 @@ class Server:
                 path = scope["path"].lstrip("/")
                 path_parts = path.split("/") if path else []
                 func_name = path_parts[0] if path_parts else "index"
-                request.path_params = path_parts[1:] if len(path_parts) > 1 else []
 
+                # Ignore methods that start with an underscore
+                if func_name.startswith("_"):
+                    await self._send_response(send, status_code=404, body="404 Not Found")
+                    return
+
+                request.path_params = path_parts[1:] if len(path_parts) > 1 else []
                 handler_function = getattr(self, func_name, None)
                 if not handler_function:
                     request.path_params = path_parts
@@ -90,7 +127,7 @@ class Server:
                                 break
                     content_type = headers_dict.get("content-type", "")
                     if "multipart/form-data" in content_type:
-                        self.parse_multipart(bytes(body_data), content_type, request)
+                        self._parse_multipart(bytes(body_data), content_type, request)
                     else:
                         body_str = body_data.decode("utf-8", "ignore")
                         request.body_params = parse_qs(body_str)
@@ -177,7 +214,7 @@ class Server:
                 cookies[k] = v
         return cookies
 
-    def parse_multipart(self, body: bytes, content_type: str, request: Request) -> None:
+    def _parse_multipart(self, body: bytes, content_type: str, request: Request) -> None:
         boundary = None
         parts = content_type.split(";")
         for part in parts:

@@ -69,7 +69,7 @@ class MyApp(Server):
         return f"Hello, {name}!"
 
     async def hello(self):
-        name = self.query_params.get("name", None)
+        name = self.request.query_params.get("name", None)
         return f"Hello {name}!"
 ```
 **Access:**
