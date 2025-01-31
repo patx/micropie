@@ -100,7 +100,7 @@ Dynamic HTML generation is supported via Jinja2. This happens asynchronously usi
 ```python
 class MyApp(Server):
     async def index(self):
-        return await self.render_template("index.html", title="Welcome", message="Hello from MicroPie!")
+        return await self._render_template("index.html", title="Welcome", message="Hello from MicroPie!")
 ```
 
 #### **`templates/index.html`**
