@@ -1,4 +1,5 @@
 import time
+import asyncio
 from MicroPie import Server
 
 class Root(Server):
@@ -7,12 +8,12 @@ class Root(Server):
         # Normal, immediate response (non-streaming)
         return "Hello from index!"
 
-    def slow_stream(self):
-        # Streaming response using a generator
-        def generator():
+    async def slow_stream(self):
+        # Streaming response using an async generator
+        async def generator():
             for i in range(1, 6):
-                yield f"Chunk {i}\n"
-                time.sleep(1)  # simulate slow processing or data generation
+                yield f"Chunk {i} "
+                await asyncio.sleep(1)
         return generator()
 
 

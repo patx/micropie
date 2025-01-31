@@ -11,7 +11,7 @@ class Root(Server):
             ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
             ("Content-Security-Policy", "default-src 'self'")
         ]
-        return 200, "hello world", headers
+        return 200, "<b>hello world</b>", headers
 
 
 

@@ -13,7 +13,7 @@ class Root(Server):
             await loop.run_in_executor(None, self._write_file, upload_path, data)
         except IOError as e:
             return 500, f"Failed to save file: {str(e)}"
-        return 200, f"File uploaded successfully as '{os.path.basename(upload_path)}'. <a href='/'>Upload another</a>"
+        return f"File uploaded successfully as '{os.path.basename(upload_path)}'. <a href='/'>Upload another</a>"
 
     def _write_file(self, upload_path, data):
         """

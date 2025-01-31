@@ -19,9 +19,10 @@ class Root(Server):
         '''
 
     async def stream(self):
+        # Access the request headers using the self.request property
         headers = {
             k.decode('latin-1').lower(): v.decode('latin-1')
-            for k, v in self.scope.get('headers', [])
+            for k, v in self.request.scope.get('headers', [])
         }
         range_header = headers.get('range')
         file_size = os.path.getsize(VIDEO_PATH)

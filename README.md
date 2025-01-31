@@ -84,11 +84,11 @@ class MyApp(Server):
         return f"Form submitted by: {username}"
 
     async def submit_catch_all(self):
-        username = self.body_params.get("username", ["Anonymous"])[0]
+        username = self.request.body_params.get("username", ["Anonymous"])[0]
         return f"Submitted by: {username}"
 ```
 
-By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method in the handler with the`scope["method"]`.
+By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`.
 ### **3. Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
 
@@ -140,10 +140,10 @@ Built-in session handling simplifies state management:
 class MyApp(Server):
     async def index(self):
         if "visits" not in self.session:
-            self.session["visits"] = 1
+            self.request.session["visits"] = 1
         else:
-            self.session["visits"] += 1
-        return f"You have visited {self.session['visits']} times."
+            self.request.session["visits"] += 1
+        return f"You have visited {self.request.session['visits']} times."
 ```
 
 ### **8. Deployment**
@@ -186,29 +186,6 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 | **Session Handling**| Simple        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
 | **Async Support**   | Yes (ASGI)    | No (Quart)   | No         | No           | Limited      | Yes (ASGI)      |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
-
-### **Performance vs Other ASGI Frameworks**
-| Connections | Framework   | Requests/sec | Latency (ms) | Transfer/sec (KB) |
-|-------------|------------|--------------|--------------|--------------------|
-| 100         | FastAPI    | 1895.29      | 52.67        | 257.54             |
-|             | MicroPie   | 2272.76      | 43.93        | 362.18             |
-|             | Quart      | 1500.13      | 66.63        | 212.68             |
-|             | Starlette  | 2305.50      | 43.30        | 326.88             |
-| 200         | FastAPI    | 2015.90      | 99.78        | 273.94             |
-|             | MicroPie   | 2516.01      | 79.31        | 400.92             |
-|             | Quart      | 1574.15      | 126.63       | 223.16             |
-|             | Starlette  | 2658.45      | 75.10        | 376.86             |
-| 1000        | FastAPI    | 2129.72      | 463.63       | 289.44             |
-|             | MicroPie   | 2589.64      | 381.86       | 412.79             |
-|             | Quart      | 1557.83      | 628.80       | 221.01             |
-|             | Starlette  | 2887.07      | 342.99       | 409.37             |
-
-
-Starlette performs best, maintaining the highest throughput and low latency due to its heavily optimized architecture. MicroPie also excels, especially at high concurrency,
-benefiting from lightweight processing. FastAPI offers stable performance but suffers increased latency under load, likely due to request validation overhead. Quart
-performs the worst, with high latency and low throughput, likely due to its Flask compatibility, making it less suited for high-concurrency workloads.
-
-*Tests were performed on a Star Labs StarLite Mk IV with `uvicorn` using 4 workers. Benchmarked with `wrk` with 4 threads for 30s. This a minimal baseline benchmark, and should be taken with a grain of salt.*
 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!

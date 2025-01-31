@@ -15,8 +15,8 @@ class Root(Server):
 
     async def index(self):
         # Check the HTTP method from the ASGI scope
-        if self.scope["method"] == "POST":
-            paste_content = self.body_params.get('paste_content', [''])[0]
+        if self.request.method == "POST":
+            paste_content = self.request.body_params.get('paste_content', [''])[0]
             pid = str(uuid4())
             db.set(pid, escape(paste_content))
             db.save()

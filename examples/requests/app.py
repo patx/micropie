@@ -47,7 +47,7 @@ class Root(Server):
         }
 
         # Check if the request method is supported and call the handler
-        if self.scope['method'] in method_map:
+        if self.request.method in method_map:
             response = method_map[self.scope['method']]()
 
             # Ensure response is formatted correctly for WSGI

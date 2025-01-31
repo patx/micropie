@@ -1,35 +1,3 @@
-"""
-MicroPie: A simple Python ultra-micro web framework with ASGI
-support. https://patx.github.io/micropie
-
-Copyright Harrison Erd
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice,
-   this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from this
-   software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-"""
 import inspect
 import mimetypes
 import os
@@ -37,6 +5,7 @@ import time
 from typing import Optional, Dict, Any, Union, Tuple, List
 from urllib.parse import parse_qs
 import uuid
+import contextvars
 
 try:
     from jinja2 import Environment, FileSystemLoader
@@ -45,6 +14,18 @@ try:
 except ImportError:
     JINJA_INSTALLED = False
 
+# Create a context variable to store the current request
+current_request = contextvars.ContextVar('current_request')
+
+class Request:
+    def __init__(self, scope):
+        self.scope = scope
+        self.method = scope["method"]
+        self.path_params = []
+        self.query_params = {}
+        self.body_params = {}
+        self.session = {}
+        self.files = {}
 
 class Server:
     SESSION_TIMEOUT: int = 8 * 3600  # 8 hours
@@ -53,131 +34,136 @@ class Server:
         if JINJA_INSTALLED:
             self.env = Environment(loader=FileSystemLoader("templates"))
 
-        self.sessions: Dict[str, Dict[str, Any]] = {}
-        self.query_params: Dict[str, List[str]] = {}
-        self.body_params: Dict[str, List[str]] = {}
-        self.path_params: List[str] = []
-        self.session: Dict[str, Any] = {}
-        self.files: Dict[str, Any] = {}
+        self.sessions: Dict[str, Any] = {}
+
+    @property
+    def request(self) -> Request:
+        return current_request.get()
 
     async def __call__(self, scope, receive, send):
         await self.asgi_app(scope, receive, send)
 
     async def asgi_app(self, scope: Dict[str, Any], receive: Any, send: Any) -> None:
         """ASGI application entrypoint for both HTTP and WebSockets."""
-
         if scope["type"] == "http":
-            self.scope = scope
-            method = scope["method"]
-            path = scope["path"].lstrip("/")
-            path_parts = path.split("/") if path else []
-            func_name = path_parts[0] if path_parts else "index"
-            self.path_params = path_parts[1:] if len(path_parts) > 1 else []
-
-            handler_function = getattr(self, func_name, None)
-            if not handler_function:
-                self.path_params = path_parts
-                handler_function = getattr(self, "index", None)
-
-            raw_query = scope.get("query_string", b"")
-            self.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
-
-            headers_dict = {
-                k.decode("latin-1").lower(): v.decode("latin-1")
-                for k, v in scope.get("headers", [])
-            }
-            cookies = self._parse_cookies(headers_dict.get("cookie", ""))
-
-            session_id = cookies.get("session_id")
-            if session_id and session_id in self.sessions:
-                self.session = self.sessions[session_id]
-                self.session["last_access"] = time.time()
-            else:
-                self.session = {}
-
-            self.body_params = {}
-            self.files = {}
-            if method in ("POST", "PUT", "PATCH"):
-                body_data = bytearray()
-                while True:
-                    msg = await receive()
-                    if msg["type"] == "http.request":
-                        body_data += msg.get("body", b"")
-                        if not msg.get("more_body"):
-                            break
-                content_type = headers_dict.get("content-type", "")
-                if "multipart/form-data" in content_type:
-                    self.parse_multipart(bytes(body_data), content_type)
-                else:
-                    body_str = body_data.decode("utf-8", "ignore")
-                    self.body_params = parse_qs(body_str)
-
-            sig = inspect.signature(handler_function)
-            func_args = []
-            for param in sig.parameters.values():
-                if self.path_params:
-                    func_args.append(self.path_params.pop(0))
-                elif param.name in self.query_params:
-                    func_args.append(self.query_params[param.name][0])
-                elif param.name in self.body_params:
-                    func_args.append(self.body_params[param.name][0])
-                elif param.name in self.files:
-                    func_args.append(self.files[param.name])
-                elif param.name in self.session:
-                    func_args.append(self.session[param.name])
-                elif param.default is not param.empty:
-                    func_args.append(param.default)
-                else:
-                    await self._send_response(
-                        send,
-                        status_code=400,
-                        body=f"400 Bad Request: Missing required parameter '{param.name}'",
-                    )
-                    return
-
-            if handler_function == getattr(self, "index", None) and not func_args and path:
-                await self._send_response(send, status_code=404, body="404 Not Found")
-                return
+            request = Request(scope)
+            # Set the current request in the context variable
+            token = current_request.set(request)
 
             try:
-                if inspect.iscoroutinefunction(handler_function):
-                    result = await handler_function(*func_args)
-                else:
-                    result = handler_function(*func_args)
-            except Exception as e:
-                print(f"Error processing request: {e}")
-                await self._send_response(
-                    send, status_code=500, body="500 Internal Server Error"
-                )
-                return
+                method = scope["method"]
+                path = scope["path"].lstrip("/")
+                path_parts = path.split("/") if path else []
+                func_name = path_parts[0] if path_parts else "index"
+                request.path_params = path_parts[1:] if len(path_parts) > 1 else []
 
-            status_code = 200
-            response_body = result
-            extra_headers: List[Tuple[str, str]] = []
+                handler_function = getattr(self, func_name, None)
+                if not handler_function:
+                    request.path_params = path_parts
+                    handler_function = getattr(self, "index", None)
 
-            if isinstance(result, tuple):
-                if len(result) == 2:
-                    status_code, response_body = result
-                elif len(result) == 3:
-                    status_code, response_body, extra_headers = result
+                raw_query = scope.get("query_string", b"")
+                request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
+
+                headers_dict = {
+                    k.decode("latin-1").lower(): v.decode("latin-1")
+                    for k, v in scope.get("headers", [])
+                }
+                cookies = self._parse_cookies(headers_dict.get("cookie", ""))
+
+                session_id = cookies.get("session_id")
+                if session_id and session_id in self.sessions:
+                    request.session = self.sessions[session_id]
+                    request.session["last_access"] = time.time()
                 else:
+                    request.session = {}
+
+                request.body_params = {}
+                request.files = {}
+                if method in ("POST", "PUT", "PATCH"):
+                    body_data = bytearray()
+                    while True:
+                        msg = await receive()
+                        if msg["type"] == "http.request":
+                            body_data += msg.get("body", b"")
+                            if not msg.get("more_body"):
+                                break
+                    content_type = headers_dict.get("content-type", "")
+                    if "multipart/form-data" in content_type:
+                        self.parse_multipart(bytes(body_data), content_type, request)
+                    else:
+                        body_str = body_data.decode("utf-8", "ignore")
+                        request.body_params = parse_qs(body_str)
+
+                sig = inspect.signature(handler_function)
+                func_args = []
+                for param in sig.parameters.values():
+                    if request.path_params:
+                        func_args.append(request.path_params.pop(0))
+                    elif param.name in request.query_params:
+                        func_args.append(request.query_params[param.name][0])
+                    elif param.name in request.body_params:
+                        func_args.append(request.body_params[param.name][0])
+                    elif param.name in request.files:
+                        func_args.append(request.files[param.name])
+                    elif param.name in request.session:
+                        func_args.append(request.session[param.name])
+                    elif param.default is not param.empty:
+                        func_args.append(param.default)
+                    else:
+                        await self._send_response(
+                            send,
+                            status_code=400,
+                            body=f"400 Bad Request: Missing required parameter '{param.name}'",
+                        )
+                        return
+
+                if handler_function == getattr(self, "index", None) and not func_args and path:
+                    await self._send_response(send, status_code=404, body="404 Not Found")
+                    return
+
+                try:
+                    if inspect.iscoroutinefunction(handler_function):
+                        result = await handler_function(*func_args)
+                    else:
+                        result = handler_function(*func_args)
+                except Exception as e:
+                    print(f"Error processing request: {e}")
                     await self._send_response(
-                        send, status_code=500,
-                        body="500 Internal Server Error: Invalid response tuple"
+                        send, status_code=500, body="500 Internal Server Error"
                     )
                     return
 
-            if self.session:
-                session_id = cookies.get("session_id", str(uuid.uuid4()))
-                self.sessions[session_id] = self.session  # Store session only if used
-                extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"))
+                status_code = 200
+                response_body = result
+                extra_headers: List[Tuple[str, str]] = []
 
-            await self._send_response(
-                send,
-                status_code=status_code,
-                body=response_body,
-                extra_headers=extra_headers
-            )
+                if isinstance(result, tuple):
+                    if len(result) == 2:
+                        status_code, response_body = result
+                    elif len(result) == 3:
+                        status_code, response_body, extra_headers = result
+                    else:
+                        await self._send_response(
+                            send, status_code=500,
+                            body="500 Internal Server Error: Invalid response tuple"
+                        )
+                        return
+
+                if request.session:
+                    session_id = cookies.get("session_id", str(uuid.uuid4()))
+                    self.sessions[session_id] = request.session  # Store session only if used
+                    extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"))
+
+                await self._send_response(
+                    send,
+                    status_code=status_code,
+                    body=response_body,
+                    extra_headers=extra_headers
+                )
+            finally:
+                # Reset the context variable to avoid leaking request state
+                current_request.reset(token)
         else:
             pass
 
@@ -191,7 +177,7 @@ class Server:
                 cookies[k] = v
         return cookies
 
-    def parse_multipart(self, body: bytes, content_type: str) -> None:
+    def parse_multipart(self, body: bytes, content_type: str, request: Request) -> None:
         boundary = None
         parts = content_type.split(";")
         for part in parts:
@@ -241,17 +227,17 @@ class Server:
 
             if filename:
                 file_content_type = header_dict.get("content-type", "application/octet-stream")
-                self.files[name] = {
+                request.files[name] = {
                     "filename": filename,
                     "content_type": file_content_type,
                     "data": content
                 }
             elif name:
                 value = content.decode("utf-8", "ignore")
-                if name in self.body_params:
-                    self.body_params[name].append(value)
+                if name in request.body_params:
+                    request.body_params[name].append(value)
                 else:
-                    self.body_params[name] = [value]
+                    request.body_params[name] = [value]
 
     async def _send_response(
         self,
@@ -369,4 +355,3 @@ class Server:
             return self.env.get_template(name).render(kwargs)
 
         return await asyncio.get_event_loop().run_in_executor(None, render_sync)
-
