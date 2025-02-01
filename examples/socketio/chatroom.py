@@ -6,37 +6,8 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")  # Allow
 
 # Create the MicroPie server
 class MyApp(Server):
-    def index(self):
-        return """
-        <html>
-        <head>
-            <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-            <script>
-                var socket = io("http://localhost:8000");
-                socket.on("connect", function() {
-                    console.log("Connected to Socket.IO server");
-                });
-                socket.on("message", function(data) {
-                    document.getElementById("output").innerHTML += data + "<br>";
-                });
-                function sendMessage() {
-                    var message = document.getElementById("message").value;
-                    socket.send(message);
-                    document.getElementById("message").value = "";  // Clear input after sending
-                }
-                window.onbeforeunload = function() {
-                    socket.disconnect();
-                };
-            </script>
-        </head>
-        <body>
-            <h1>Socket.IO Chat</h1>
-            <input type="text" id="message" placeholder="Type a message">
-            <button onclick="sendMessage()">Send</button>
-            <div id="output"></div>
-        </body>
-        </html>
-        """
+    async def index(self):
+        return await self._render_template("chat.html")
 
 # Socket.IO event handlers
 @sio.event
@@ -57,4 +28,4 @@ async def message(sid, data):
 
 # Attach Socket.IO to the ASGI app
 asgi_app = MyApp()
-app = socketio.ASGIApp(sio, app)
+app = socketio.ASGIApp(sio, asgi_app)

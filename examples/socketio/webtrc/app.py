@@ -16,11 +16,11 @@ class MyApp(Server):
     async def stream(self, username: str):
         # Mark the username active, render the streamer template
         active_users.add(username)
-        return await self.render_template("stream.html", username=username)
+        return await self._render_template("stream.html", username=username)
 
     async def watch(self, username: str):
         # Mark the username active, render the watcher template
-        return await self.render_template("watch.html", username=username)
+        return await self._render_template("watch.html", username=username)
 
 #
 # ------------------- Socket.IO Events for Signaling --------------------

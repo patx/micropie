@@ -21,18 +21,20 @@ class FileUploadApp(Server):
             </body>
         </html>"""
 
-    async def upload(self, file: Any):
-        """Handles file uploads."""
-        if isinstance(file, dict) and "filename" in file and "data" in file:
+    async def upload(self, file):
+        # Check for streaming-based attributes:
+        if (isinstance(file, dict)
+                and "filename" in file
+                and "saved_path" in file):
             filename = file["filename"]
-            file_data = file["data"]
+            saved_path = file["saved_path"]
 
-            file_path = os.path.join(UPLOAD_DIR, filename)
-            with open(file_path, "wb") as f:
-                f.write(file_data)
+            # Optionally, rename the file or do further checks.
+            # For instance, you might want to store an original name in your DB or process the file.
+            return f"File '{filename}' uploaded successfully, saved to: {saved_path}!"
 
-            return f"File '{filename}' uploaded successfully!"
-        return "No file uploaded.", 400
+        # If file data is missing or doesn't match expected structure, return an error.
+        return 400, "No file uploaded."
 
 # Run the ASGI app
 app = FileUploadApp()

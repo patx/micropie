@@ -30,20 +30,18 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+import asyncio
 import inspect
 import mimetypes
 import os
+import re
 import time
 from typing import Optional, Dict, Any, Union, Tuple, List
 from urllib.parse import parse_qs
 import uuid
 import contextvars
 
-try:
-    from multipart import PushMultipartParser, MultipartSegment
-    MULTIP_INSTALLED = True
-except ImportError:
-    MULTIP_INSTALLED = False
+from multipart import PushMultipartParser, MultipartSegment
 
 try:
     from jinja2 import Environment, FileSystemLoader
@@ -79,9 +77,9 @@ class Server:
         return current_request.get()
 
     async def __call__(self, scope, receive, send):
-        await self.asgi_app(scope, receive, send)
+        await self._asgi_app(scope, receive, send)
 
-    async def asgi_app(self, scope: Dict[str, Any], receive: Any, send: Any) -> None:
+    async def _asgi_app(self, scope: Dict[str, Any], receive: Any, send: Any) -> None:
         """ASGI application entrypoint for both HTTP and WebSockets."""
         if scope["type"] == "http":
             request = Request(scope)
@@ -133,10 +131,23 @@ class Server:
                                 break
                     content_type = headers_dict.get("content-type", "")
                     if "multipart/form-data" in content_type:
-                        if MULTIP_INSTALLED:
-                            await self._parse_multipart(receive, content_type, request)
-                        else:
-                            print('Library multipart required in order to parse multipart form data/file uploads')
+                        # Extract the boundary from the Content-Type header
+                        match = re.search(r'boundary=([^;]+)', content_type)
+                        if not match:
+                            await self._send_response(
+                                send, status_code=400,
+                                body="400 Bad Request: Boundary not found in Content-Type header"
+                            )
+                            return
+                        boundary = match.group(1).encode("utf-8")  # Convert boundary to bytes
+
+                        # Create a StreamReader and feed it the body data
+                        reader = asyncio.StreamReader()
+                        reader.feed_data(body_data)
+                        reader.feed_eof()
+
+                        # Now call _parse_multipart with the reader and the boundary
+                        await self._parse_multipart(reader, boundary)
                     else:
                         body_str = body_data.decode("utf-8", "ignore")
                         request.body_params = parse_qs(body_str)
@@ -223,80 +234,86 @@ class Server:
                 cookies[k] = v
         return cookies
 
-    def _parse_multipart(self, body: bytes, content_type: str, request: Request) -> None:
-        boundary = None
-        parts = content_type.split(";")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("boundary="):
-                boundary = part.split("=", 1)[1]
-                break
+    async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes):
+        """
+        Demonstrates handling multipart/form-data in a more streaming-friendly manner.
+        For large files, data is written to disk instead of stored in memory.
+        """
+        with PushMultipartParser(boundary) as parser:
+            current_field_name = None
+            current_filename = None
+            current_content_type = None
+            current_file = None  # File handle for streaming writes
+            form_value = ""
 
-        if not boundary:
-            raise ValueError("Boundary not found in Content-Type header.")
+            # Directory for storing uploaded files:
+            # Adjust if you want a different path or a dynamic approach inside your app.
+            upload_directory = "uploads"
 
-    async def _parse_multipart(self, receive, content_type: str, request: Request):
-        """Parses multipart form data using PushMultipartParser."""
+            # Ensure the directory exists
+            os.makedirs(upload_directory, exist_ok=True)
 
-        # Extract boundary from content_type
-        boundary = None
-        parts = content_type.split(";")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("boundary="):
-                boundary = part.split("=", 1)[1]
-                break
-
-        if not boundary:
-            raise ValueError("Boundary not found in Content-Type header.")
-
-        # Initialize parser
-        parser = PushMultipartParser(boundary)
-        field_name = None
-        file_data = None
-
-        while not parser.closed:
-            # Read next chunk from ASGI receive function
-            msg = await receive()
-            if msg["type"] == "http.request":
-                chunk = msg.get("body", b"")
-
+            while not parser.closed:
+                # Read data in chunks from the request stream
+                chunk = await reader.read(65536)  # 64KB per read
                 for result in parser.parse(chunk):
                     if isinstance(result, MultipartSegment):
-                        # Start of a new multipart segment
-                        field_name = result.name
-                        filename = result.filename
+                        # We have a new part: form field or file
+                        current_field_name = result.name
+                        current_filename = result.filename
+                        current_content_type = None
+                        form_value = ""
 
-                        if filename:
-                            # It's a file upload
-                            content_type = result.content_type
-                            file_data = bytearray()
-                            request.files[field_name] = {
-                                "filename": filename,
-                                "content_type": content_type,
-                                "data": file_data
-                            }
+                        # Parse content-type if present
+                        for header, value in result.headerlist:
+                            if header.lower() == "content-type":
+                                current_content_type = value
+
+                        # If it's a file, open a file handle right away
+                        if current_filename:
+                            safe_filename = f"{uuid.uuid4()}_{current_filename}"
+                            file_path = os.path.join(upload_directory, safe_filename)
+                            current_file = open(file_path, "wb")
+
+                        # Otherwise, treat it as a field (string value).
                         else:
-                            # It's a normal form field
-                            request.body_params[field_name] = ""
+                            if current_field_name not in self.request.body_params:
+                                self.request.body_params[current_field_name] = []
 
-                    elif isinstance(result, bytearray):
-                        # This is part of the file or form field data
-                        if field_name in request.files:
-                            request.files[field_name]["data"].extend(result)
+                    elif result:
+                        # This chunk is body data for the current part
+                        if current_file:
+                            # If it's a file, write directly to disk
+                            current_file.write(result)
                         else:
-                            request.body_params[field_name] += result.decode("utf-8", "ignore")
+                            # It's a form field chunk
+                            form_value += result.decode("utf-8", "ignore")
+                    else:
+                        # End of this part
+                        if current_file:
+                            # Close out the file if we're done writing it
+                            current_file.close()
+                            current_file = None
 
-                    elif result is None:
-                        # End of a segment, finalize file content if present
-                        if field_name in request.files:
-                            request.files[field_name]["data"] = bytes(request.files[field_name]["data"])
+                            # Store reference in self.request.files so the upload handler can use it
+                            # Example structure includes just filename and content type;
+                            # no in-memory data, since we wrote it to disk.
+                            if current_field_name:
+                                self.request.files[current_field_name] = {
+                                    "filename": current_filename,
+                                    "content_type": current_content_type or "application/octet-stream",
+                                    "saved_path": os.path.join(upload_directory, safe_filename),
+                                }
+                        else:
+                            # If it was a form field, add the form value to body_params
+                            if current_field_name:
+                                self.request.body_params[current_field_name].append(form_value)
 
-                # Stop if there's no more body content
-                if not msg.get("more_body", False):
-                    break
-
-
+                        # Reset for the next part
+                        current_field_name = None
+                        current_filename = None
+                        current_content_type = None
+                        form_value = ""
 
     async def _send_response(
         self,
@@ -317,20 +334,27 @@ class Server:
             404: "404 Not Found",
             500: "500 Internal Server Error",
         }
-        # Fallback if not in map
         status_text = status_map.get(status_code, f"{status_code} OK")
 
-        # Ensure there's a Content-Type unless already provided
-        has_content_type = any(h[0].lower() == "content-type" for h in extra_headers)
-        if not has_content_type:
-            extra_headers.append(("Content-Type", "text/html; charset=utf-8"))
+        # Ensure extra headers are safe
+        sanitized_headers = []
+        for k, v in extra_headers:
+            if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
+                print(f"Header injection attempt detected: {k}: {v}")
+                continue  # Skip invalid headers
+            sanitized_headers.append((k, v))
 
-        # Send the initial response start
+        # Ensure Content-Type is set unless explicitly provided
+        has_content_type = any(h[0].lower() == "content-type" for h in sanitized_headers)
+        if not has_content_type:
+            sanitized_headers.append(("Content-Type", "text/html; charset=utf-8"))
+
+        # Send response start
         await send({
             "type": "http.response.start",
             "status": status_code,
             "headers": [
-                (k.encode("latin-1"), v.encode("latin-1")) for k, v in extra_headers
+                (k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers
             ],
         })
 
@@ -379,13 +403,15 @@ class Server:
             # Convert anything else to string then to bytes
             response_body = str(body).encode("utf-8")
 
+        # Ensure body is properly encoded
+        response_body = body.encode("utf-8") if isinstance(body, str) else body
         await send({
             "type": "http.response.body",
             "body": response_body,
             "more_body": False
         })
 
-    def cleanup_sessions(self) -> None:
+    def _cleanup_sessions(self) -> None:
         now = time.time()
         self.sessions = {
             sid: data
@@ -393,7 +419,7 @@ class Server:
             if data.get("last_access", now) + self.SESSION_TIMEOUT > now
         }
 
-    def redirect(self, location: str) -> Tuple[int, str]:
+    def _redirect(self, location: str) -> Tuple[int, str]:
         return (
             302,
             (
@@ -403,7 +429,7 @@ class Server:
             ),
         )
 
-    async def render_template(self, name: str, **kwargs: Any) -> str:
+    async def _render_template(self, name: str, **kwargs: Any) -> str:
         """
         Async-compatible template rendering using Jinja2.
         """

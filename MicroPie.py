@@ -30,14 +30,18 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+import asyncio
 import inspect
 import mimetypes
 import os
+import re
 import time
 from typing import Optional, Dict, Any, Union, Tuple, List
 from urllib.parse import parse_qs
 import uuid
 import contextvars
+
+from multipart import PushMultipartParser, MultipartSegment
 
 try:
     from jinja2 import Environment, FileSystemLoader
@@ -127,7 +131,23 @@ class Server:
                                 break
                     content_type = headers_dict.get("content-type", "")
                     if "multipart/form-data" in content_type:
-                        self._parse_multipart(bytes(body_data), content_type, request)
+                        # Extract the boundary from the Content-Type header
+                        match = re.search(r'boundary=([^;]+)', content_type)
+                        if not match:
+                            await self._send_response(
+                                send, status_code=400,
+                                body="400 Bad Request: Boundary not found in Content-Type header"
+                            )
+                            return
+                        boundary = match.group(1).encode("utf-8")  # Convert boundary to bytes
+
+                        # Create a StreamReader and feed it the body data
+                        reader = asyncio.StreamReader()
+                        reader.feed_data(body_data)
+                        reader.feed_eof()
+
+                        # Now call _parse_multipart with the reader and the boundary
+                        await self._parse_multipart(reader, boundary)
                     else:
                         body_str = body_data.decode("utf-8", "ignore")
                         request.body_params = parse_qs(body_str)
@@ -214,67 +234,86 @@ class Server:
                 cookies[k] = v
         return cookies
 
-    def _parse_multipart(self, body: bytes, content_type: str, request: Request) -> None:
-        boundary = None
-        parts = content_type.split(";")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("boundary="):
-                boundary = part.split("=", 1)[1]
-                break
+    async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes):
+        """
+        Demonstrates handling multipart/form-data in a more streaming-friendly manner.
+        For large files, data is written to disk instead of stored in memory.
+        """
+        with PushMultipartParser(boundary) as parser:
+            current_field_name = None
+            current_filename = None
+            current_content_type = None
+            current_file = None  # File handle for streaming writes
+            form_value = ""
 
-        if not boundary:
-            raise ValueError("Boundary not found in Content-Type header.")
+            # Directory for storing uploaded files:
+            # Adjust if you want a different path or a dynamic approach inside your app.
+            upload_directory = "uploads"
 
-        boundary_bytes = boundary.encode("utf-8")
-        delimiter = b"--" + boundary_bytes
-        sections = body.split(delimiter)
-        for section in sections:
-            if not section or section in (b"--", b"--\r\n"):
-                continue
-            if section.startswith(b"\r\n"):
-                section = section[2:]
-            if section.endswith(b"\r\n"):
-                section = section[:-2]
-            if section == b"--":
-                continue
+            # Ensure the directory exists
+            os.makedirs(upload_directory, exist_ok=True)
 
-            try:
-                headers, content = section.split(b"\r\n\r\n", 1)
-            except ValueError:
-                continue
+            while not parser.closed:
+                # Read data in chunks from the request stream
+                chunk = await reader.read(65536)  # 64KB per read
+                for result in parser.parse(chunk):
+                    if isinstance(result, MultipartSegment):
+                        # We have a new part: form field or file
+                        current_field_name = result.name
+                        current_filename = result.filename
+                        current_content_type = None
+                        form_value = ""
 
-            headers_list = headers.decode("utf-8", "ignore").split("\r\n")
-            header_dict = {}
-            for header_line in headers_list:
-                if ":" in header_line:
-                    key, value = header_line.split(":", 1)
-                    header_dict[key.strip().lower()] = value.strip()
+                        # Parse content-type if present
+                        for header, value in result.headerlist:
+                            if header.lower() == "content-type":
+                                current_content_type = value
 
-            disposition = header_dict.get("content-disposition", "")
-            disposition_parts = disposition.split(";")
-            disposition_dict = {}
-            for disp_part in disposition_parts:
-                if "=" in disp_part:
-                    k, v = disp_part.strip().split("=", 1)
-                    disposition_dict[k] = v.strip('"')
+                        # If it's a file, open a file handle right away
+                        if current_filename:
+                            safe_filename = f"{uuid.uuid4()}_{current_filename}"
+                            file_path = os.path.join(upload_directory, safe_filename)
+                            current_file = open(file_path, "wb")
 
-            name = disposition_dict.get("name")
-            filename = disposition_dict.get("filename")
+                        # Otherwise, treat it as a field (string value).
+                        else:
+                            if current_field_name not in self.request.body_params:
+                                self.request.body_params[current_field_name] = []
 
-            if filename:
-                file_content_type = header_dict.get("content-type", "application/octet-stream")
-                request.files[name] = {
-                    "filename": filename,
-                    "content_type": file_content_type,
-                    "data": content
-                }
-            elif name:
-                value = content.decode("utf-8", "ignore")
-                if name in request.body_params:
-                    request.body_params[name].append(value)
-                else:
-                    request.body_params[name] = [value]
+                    elif result:
+                        # This chunk is body data for the current part
+                        if current_file:
+                            # If it's a file, write directly to disk
+                            current_file.write(result)
+                        else:
+                            # It's a form field chunk
+                            form_value += result.decode("utf-8", "ignore")
+                    else:
+                        # End of this part
+                        if current_file:
+                            # Close out the file if we're done writing it
+                            current_file.close()
+                            current_file = None
+
+                            # Store reference in self.request.files so the upload handler can use it
+                            # Example structure includes just filename and content type;
+                            # no in-memory data, since we wrote it to disk.
+                            if current_field_name:
+                                self.request.files[current_field_name] = {
+                                    "filename": current_filename,
+                                    "content_type": current_content_type or "application/octet-stream",
+                                    "saved_path": os.path.join(upload_directory, safe_filename),
+                                }
+                        else:
+                            # If it was a form field, add the form value to body_params
+                            if current_field_name:
+                                self.request.body_params[current_field_name].append(form_value)
+
+                        # Reset for the next part
+                        current_field_name = None
+                        current_filename = None
+                        current_content_type = None
+                        form_value = ""
 
     async def _send_response(
         self,
