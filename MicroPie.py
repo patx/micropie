@@ -205,13 +205,16 @@ class Server:
             pass
 
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
-        cookies: Dict[str, str] = {}
         if not cookie_header:
-            return cookies
+            return {}
+        
+        cookies = {}
         for cookie in cookie_header.split(";"):
+            cookie = cookie.strip()
             if "=" in cookie:
-                k, v = cookie.strip().split("=", 1)
+                k, v = cookie.split("=", 1)
                 cookies[k] = v
+        
         return cookies
 
     def _parse_multipart(self, body: bytes, content_type: str, request: Request) -> None:
