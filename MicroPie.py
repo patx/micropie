@@ -381,14 +381,12 @@ class Server:
         }
 
     def _redirect(self, location: str) -> Tuple[int, str]:
-        return (
-            302,
-            (
-                "<html><head>"
-                f"<meta http-equiv='refresh' content='0;url={location}'>"
-                "</head></html>"
-            ),
+        html_content = (
+            f"<html><head>"
+            f"<meta http-equiv='refresh' content='0;url={location}'>"
+            f"</head></html>"
         )
+        return 302, html_content
 
     async def _render_template(self, name: str, **kwargs: Any) -> str:
         """
