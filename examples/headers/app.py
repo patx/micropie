@@ -3,7 +3,11 @@ from MicroPie import Server
 
 class Root(Server):
     def index(self):
-        headers = [
+        # Simply return the precomputed response
+        return self._response
+    def __init__(self):
+        # Precompute the headers once during initialization
+        self._headers = [
             ("Content-Type", "text/html"),
             ("X-Content-Type-Options", "nosniff"),
             ("X-Frame-Options", "DENY"),
@@ -11,7 +15,7 @@ class Root(Server):
             ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
             ("Content-Security-Policy", "default-src 'self'")
         ]
-        return 200, "<b>hello world</b>", headers
+        self._response = (200, "<b>hello world</b>", self._headers)
 
 
 
