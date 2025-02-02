@@ -2,7 +2,7 @@
 
 ## **Introduction**
 
-**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with **flexibility** and **simplicity** in mind, MicroPie enables you to handle high-concurrency applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication.
+**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with **flexibility** and **simplicity** in mind, MicroPie enables you to handle high-concurrency applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication. See how to get started below and check out the [API reference](https://patx.github.io/micropie/api).
 
 ### **Key Features**
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
@@ -165,7 +165,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Form handling and POST requests
 - And more
 
-*Please note these are examples, showing the MicroPie API, they are not meant for producton!*
+*Please note these are examples, showing the MicroPie API, they are not meant for producton! You can see the full API documentation [here](https://patx.github.io/micropie/api).*
 ## **Why ASGI?**
 ASGI is the future of Python web development, offering:
 - **Concurrency**: Handle thousands of simultaneous connections efficiently.
