@@ -41,7 +41,11 @@ from urllib.parse import parse_qs
 import uuid
 import contextvars
 
-from multipart import PushMultipartParser, MultipartSegment
+try:
+    from multipart import PushMultipartParser, MultipartSegment
+    MULTIPART_INSTALLED = True
+except ImportError:
+    MULTIPART_INSTALLED = False
 
 try:
     from jinja2 import Environment, FileSystemLoader
@@ -236,9 +240,12 @@ class Server:
 
     async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes):
         """
-        Demonstrates handling multipart/form-data in a more streaming-friendly manner.
+        Multipart/form-data in a more streaming-friendly manner.
         For large files, data is written to disk instead of stored in memory.
         """
+        if not MULTIPART_INSTALLED:
+            raise ImportError("Multipart form data not supported. Install `multipart` via pip.")
+
         with PushMultipartParser(boundary) as parser:
             current_field_name = None
             current_filename = None
@@ -434,7 +441,7 @@ class Server:
         Async-compatible template rendering using Jinja2.
         """
         if not JINJA_INSTALLED:
-            raise ImportError("Jinja2 is not installed.")
+            raise ImportError("`_render_template` not available. Install `jinja2` via pip.")
 
         def render_sync():
             return self.env.get_template(name).render(kwargs)

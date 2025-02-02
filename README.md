@@ -19,16 +19,16 @@ Install MicroPie via pip:
 ```bash
 pip install micropie
 ```
-This will install MicroPie along with `jinja2` for template rendering. Jinja2 is optional but recommended for using the `render_template` method.
+This will install MicroPie along with `jinja2` for template rendering and `multipart` for parsing multipart form data.
 
 ### **Minimal Setup**
 For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place it in your project directory, and you are good to go. Note that Jinja2 must be installed separately to use templates, but this *is* optional:
+Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use templates and/or `multipart` for handling file uploads, but this *is* optional:
 ```bash
-pip install jinja2
+pip install jinja2 multipart
 ```
 
 ### **Install an ASGI Web Server**
@@ -165,7 +165,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Form handling and POST requests
 - And more
 
-*Please note these are examples, showing the MicroPie API and routing, they are not meant for producton!*
+*Please note these are examples, showing the MicroPie API, they are not meant for producton!*
 ## **Why ASGI?**
 ASGI is the future of Python web development, offering:
 - **Concurrency**: Handle thousands of simultaneous connections efficiently.
