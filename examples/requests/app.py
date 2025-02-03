@@ -1,4 +1,4 @@
-from MicroPie import Server
+from MicroPie import App
 
 # Request handlers defined outside the class
 
@@ -28,7 +28,7 @@ def options_handler():
     ]
 
 # Define the custom server application
-class Root(Server):
+class Root(App):
 
     # Handle root URL requests and delegate based on HTTP method
     def index(self):

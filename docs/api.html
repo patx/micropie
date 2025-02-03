@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MicroPie API Documentation</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
+        h1, h2, h3 { color: #333; }
+        code { background: #f4f4f4; padding: 2px 5px; }
+        pre { background: #f4f4f4; padding: 10px; border-left: 5px solid #333; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>MicroPie API Documentation</h1>
+    <p>A simple Python ultra-micro web framework with ASGI support.</p>
+
+    <h2>Request Class</h2>
+    <p>Represents an HTTP request in the MicroPie framework.</p>
+    <pre><code>class Request(scope: Dict[str, Any])</code></pre>
+    <ul>
+        <li><strong>scope</strong>: The ASGI scope dictionary for the request.</li>
+        <li><strong>method</strong>: The HTTP method of the request.</li>
+        <li><strong>path_params</strong>: URL path parameters.</li>
+        <li><strong>query_params</strong>: URL query parameters.</li>
+        <li><strong>body_params</strong>: Request body parameters.</li>
+        <li><strong>session</strong>: Dictionary for session data.</li>
+        <li><strong>files</strong>: Uploaded files in the request.</li>
+    </ul>
+
+    <h2>App Class</h2>
+    <p>ASGI application framework for handling HTTP requests.</p>
+    <pre><code>class App()</code></pre>
+
+    <h3>Properties</h3>
+    <ul>
+        <li><code>request</code> - Retrieve the current request instance.</li>
+        <li><code>SESSION_TIMEOUT</code> - Session timeout duration (8 hours by default).</li>
+        <li><code>sessions</code> - Dictionary storing active session data.</li>
+        <li><code>env</code> - Jinja2 environment for template rendering (if installed).</li>
+    </ul>
+
+    <h3>Methods</h3>
+    <pre><code>async def __call__(self, scope, receive, send)</code></pre>
+    <p>ASGI callable interface.</p>
+
+    <pre><code>async def _asgi_app(self, scope, receive, send)</code></pre>
+    <p>Handles incoming HTTP requests, processes path parameters, query parameters, request body, and calls the appropriate handler function.</p>
+
+    <pre><code>def _parse_cookies(self, cookie_header: str) -> Dict[str, str]</code></pre>
+    <p>Parses cookies from the request header and returns them as a dictionary.</p>
+
+    <pre><code>async def _parse_multipart(self, reader, boundary)</code></pre>
+    <p>Parses multipart form-data including file uploads.</p>
+
+    <pre><code>async def _send_response(self, send, status_code, body, extra_headers=None)</code></pre>
+    <p>Sends an HTTP response with the specified status code, response body, and optional extra headers.</p>
+
+    <pre><code>def _cleanup_sessions(self)</code></pre>
+    <p>Cleans up expired sessions based on the session timeout value.</p>
+
+    <pre><code>def _redirect(self, location: str) -> Tuple[int, str]</code></pre>
+    <p>Generates an HTTP redirect response to the specified location.</p>
+
+    <pre><code>async def _render_template(self, name: str, **kwargs)</code></pre>
+    <p>Renders a Jinja2 template asynchronously with the provided context variables.</p>
+
+    <h3>ASGI Request Handling</h3>
+    <p>The server class processes incoming ASGI requests in the following manner:</p>
+    <ul>
+        <li>Extracts the request path and determines the appropriate handler function.</li>
+        <li>Parses query parameters and request body.</li>
+        <li>Handles cookies and session data.</li>
+        <li>Processes multipart form data if necessary.</li>
+        <li>Executes the handler function and sends the response back.</li>
+    </ul>
+</body>
+</html>
+

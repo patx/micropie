@@ -5,9 +5,9 @@ MicroPie is Fun
 
 ::
 
-    from MicroPie import
+    from MicroPie import App
 
-    class MyApp(Server):
+    class MyApp(App):
 
         def index(self):
             return 'Hello world!'
@@ -25,7 +25,7 @@ Links
 from distutils.core import setup
 
 setup(name="MicroPie",
-    version="0.9.1",
+    version="0.9.5.1",
     description="A ultra micro web framework w/ Jinja2.",
     long_description=__doc__,
     author="Harrison Erd",
