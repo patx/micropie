@@ -1,11 +1,11 @@
 import socketio
-from MicroPie import Server
+from MicroPie import App
 
 # Create a Socket.IO server with CORS support
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")  # Allow all origins
 
 # Create the MicroPie server
-class MyApp(Server):
+class MyApp(App):
     async def index(self):
         return await self._render_template("chat.html")
 

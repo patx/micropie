@@ -7,7 +7,7 @@
 from datetime import datetime
 import re
 
-from MicroPie import Server
+from MicroPie import App
 from pickledb import PickleDB
 from markupsafe import escape
 
@@ -141,7 +141,7 @@ def convert_custom_syntax(text):
 # ----------------
 
 
-class Twutr(Server):
+class Twutr(App):
     """
     Main application class for handling routes.
     The helper functions above are outside the class,

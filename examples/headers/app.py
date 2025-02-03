@@ -1,7 +1,7 @@
-from MicroPie import Server
+from MicroPie import App
 
 
-class Root(Server):
+class Root(App):
     def index(self):
         headers = [
             ("Content-Type", "text/html"),

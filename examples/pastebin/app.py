@@ -5,13 +5,13 @@ A simple no frills pastebin using MicroPie, pickleDB, and highlight.js.
 
 from uuid import uuid4
 
-from MicroPie import Server
+from MicroPie import App
 from pickledb import PickleDB
 from markupsafe import escape
 
 db = PickleDB('pastes.db')
 
-class Root(Server):
+class Root(App):
 
     async def index(self):
         if self.request.method == "POST":

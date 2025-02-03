@@ -78,13 +78,13 @@ class Request:
         self.files: Dict[str, Any] = {}
 
 
-class Server:
-    """ASGI server for handling HTTP requests and WebSocket connections in MicroPie."""
+class App:
+    """ASGI application for handling HTTP requests and WebSocket connections in MicroPie."""
     SESSION_TIMEOUT: int = 8 * 3600
 
     def __init__(self) -> None:
         """
-        Initialize a new Server instance.
+        Initialize a new App instance.
 
         If Jinja2 is installed, set up the template environment.
         """

@@ -1,8 +1,8 @@
 import time
 import asyncio
-from MicroPie import Server
+from MicroPie import App
 
-class Root(Server):
+class Root(App):
 
     def index(self):
         # Normal, immediate response (non-streaming)

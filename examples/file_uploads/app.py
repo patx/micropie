@@ -1,4 +1,4 @@
-from MicroPie import Server
+from MicroPie import App
 
 import os
 from typing import Any
@@ -6,7 +6,7 @@ from typing import Any
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)  # Ensure upload directory exists
 
-class FileUploadApp(Server):
+class FileUploadApp(App):
 
     async def index(self):
         """Serves an HTML form for file uploads."""

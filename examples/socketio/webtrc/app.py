@@ -1,5 +1,5 @@
 import socketio
-from MicroPie import Server
+from MicroPie import App
 
 # 1) Create the Async Socket.IO server and wrap with an ASGI app.
 sio = socketio.AsyncServer(async_mode="asgi")
@@ -8,7 +8,7 @@ sio = socketio.AsyncServer(async_mode="asgi")
 active_users = set()
 
 # 2) Create a MicroPie server class with routes
-class MyApp(Server):
+class MyApp(App):
     async def index(self):
         # A simple response for the root path
         return 'Use /stream/*username* or /watch/*username*'
