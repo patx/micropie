@@ -445,6 +445,7 @@ class App:
                 "</head></html>"
             ),
         )
+        return 302, html_content
 
     async def _render_template(self, name: str, **kwargs: Any) -> str:
         """
