@@ -2,7 +2,7 @@
 
 ## **Introduction**
 
-**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with **flexibility** and **simplicity** in mind, MicroPie enables you to handle high-concurrency applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication.
+**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with **flexibility** and **simplicity** in mind, MicroPie enables you to handle high-concurrency applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication
 
 ### **Key Features**
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
@@ -19,16 +19,16 @@ Install MicroPie via pip:
 ```bash
 pip install micropie
 ```
-This will install MicroPie along with `jinja2` for template rendering. Jinja2 is optional but recommended for using the `render_template` method.
+This will install MicroPie along with `jinja2` for template rendering and `multipart` for parsing multipart form data.
 
 ### **Minimal Setup**
 For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place it in your project directory, and you are good to go. Note that Jinja2 must be installed separately to use templates, but this *is* optional:
+Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use templates and/or `multipart` for handling file uploads, but this *is* optional:
 ```bash
-pip install jinja2
+pip install jinja2 multipart
 ```
 
 ### **Install an ASGI Web Server**
@@ -43,9 +43,9 @@ pip install uvicorn
 
 Save the following as `app.py`:
 ```python
-from MicroPie import Server
+from MicroPie import App
 
-class MyApp(Server):
+class MyApp(App):
     async def index(self):
         return "Welcome to MicroPie ASGI."
 
@@ -60,11 +60,11 @@ Access your app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 ## **Core Features**
 
 ### **1. Flexible HTTP Routing for GET Requests**
-MicroPie automatically maps URLs to methods within your `Server` class. Routes can be defined as either synchronous or asynchronous functions, offering good flexibility.
+MicroPie automatically maps URLs to methods within your `App` class. Routes can be defined as either synchronous or asynchronous functions, offering good flexibility.
 
 For GET requests, pass data through query strings or URL path segments, automatically mapped to method arguments.
 ```python
-class MyApp(Server):
+class MyApp(App):
     async def greet(self, name="Guest"):
         return f"Hello, {name}!"
 
@@ -79,7 +79,7 @@ class MyApp(Server):
 ### **2. Flexible HTTP POST Request Handling**
 MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw POST data:
 ```python
-class MyApp(Server):
+class MyApp(App):
     async def submit_default_values(self, username="Anonymous"):
         return f"Form submitted by: {username}"
 
@@ -98,7 +98,7 @@ Dynamic HTML generation is supported via Jinja2. This happens asynchronously usi
 
 #### **`app.py`**
 ```python
-class MyApp(Server):
+class MyApp(App):
     async def index(self):
         return await self._render_template("index.html", title="Welcome", message="Hello from MicroPie!")
 ```
@@ -125,7 +125,7 @@ Here again, like Websockets, MiroPie does not have a built in static file method
 Support for streaming responses makes it easy to send data in chunks.
 
 ```python
-class MyApp(Server):
+class MyApp(App):
     async def stream(self):
         async def generator():
             for i in range(1, 6):
@@ -137,7 +137,7 @@ class MyApp(Server):
 Built-in session handling simplifies state management:
 
 ```python
-class MyApp(Server):
+class MyApp(App):
     async def index(self):
         if "visits" not in self.session:
             self.request.session["visits"] = 1
@@ -147,7 +147,7 @@ class MyApp(Server):
 ```
 
 ### **8. Deployment**
-MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `Server` subclass is assigned to the `app` variable we can run it with:
+MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash
 uvicorn app:app --workers 4 --port 8000
 ```
@@ -165,7 +165,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Form handling and POST requests
 - And more
 
-*Please note these are examples, showing the MicroPie API and routing, they are not meant for producton!*
+*Please note these are examples, showing the MicroPie API, they are not meant for producton! You can see the full API documentation [here](https://patx.github.io/micropie/api).*
 ## **Why ASGI?**
 ASGI is the future of Python web development, offering:
 - **Concurrency**: Handle thousands of simultaneous connections efficiently.

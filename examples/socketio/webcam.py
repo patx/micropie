@@ -1,5 +1,5 @@
 import socketio
-from MicroPie import Server
+from MicroPie import App
 
 # Create the Socket.IO server
 sio = socketio.AsyncServer(async_mode="asgi")
@@ -8,7 +8,7 @@ sio = socketio.AsyncServer(async_mode="asgi")
 active_users = set()
 
 # MicroPie Server with integrated Socket.IO
-class MyApp(Server):
+class MyApp(App):
     async def index(self):
         return await self.render_template("index_stream.html")
 

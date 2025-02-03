@@ -7,7 +7,7 @@
 from datetime import datetime
 import re
 
-from MicroPie import Server
+from MicroPie import App
 from pickledb import PickleDB
 from markupsafe import escape
 
@@ -141,7 +141,7 @@ def convert_custom_syntax(text):
 # ----------------
 
 
-class Twutr(Server):
+class Twutr(App):
     """
     Main application class for handling routes.
     The helper functions above are outside the class,
@@ -151,20 +151,20 @@ class Twutr(Server):
     async def index(self):
         """Shows the user's timeline (the messages of people they follow, including their own)."""
         if not self.request.session.get('logged_in'):
-            return self.redirect('/public')
+            return self._redirect('/public')
 
         user_id = self.request.session.get('user_id')
         all_messages = get_all_messages_for_user_and_following(user_id)
         all_messages = sort_messages_by_timestamp(all_messages, timestamp_index=2)
 
-        return await self.render_template('timeline.html', messages=all_messages, session=self.request.session)
+        return await self._render_template('timeline.html', messages=all_messages, session=self.request.session)
 
     async def public(self):
         """Displays the latest messages of all users with usernames."""
         all_messages = get_all_messages_from_all_users()
         all_messages = sort_messages_by_timestamp(all_messages, timestamp_index=2)
 
-        return await self.render_template('public.html', messages=all_messages, session=self.request.session)
+        return await self._render_template('public.html', messages=all_messages, session=self.request.session)
 
     async def user(self, username):
         """Displays a specific user's messages."""
@@ -189,7 +189,7 @@ class Twutr(Server):
             followers = user_data.get('followers', [])
             following_count = len(user_data.get('following', []))
 
-            return await self.render_template(
+            return await self._render_template(
                 'user.html',
                 messages=messages,
                 username=username,
@@ -204,7 +204,7 @@ class Twutr(Server):
     def follow(self, username):
         """Follow another user."""
         if not self.request.session.get('logged_in'):
-            return self.redirect('/login')
+            return self._redirect('/login')
 
         username = escape(username)
         current_user = self.request.session.get('user_id')
@@ -213,17 +213,17 @@ class Twutr(Server):
             return "You cannot follow yourself"
 
         update_follow_relationship(current_user, username, follow=True)
-        return self.redirect(f'/user/{username}')
+        return self._redirect(f'/user/{username}')
 
     def unfollow(self, username):
         """Unfollow another user."""
         if not self.request.session.get('logged_in'):
-            return self.redirect('/login')
+            return self._redirect('/login')
 
         current_user = self.request.session.get('user_id')
         update_follow_relationship(current_user, escape(username), follow=False)
 
-        return self.redirect(f'/user/{username}')
+        return self._redirect(f'/user/{username}')
 
     async def list_followers(self, username):
         """Displays the list of followers for a given user."""
@@ -233,7 +233,7 @@ class Twutr(Server):
             return "User not found", 404
 
         followers = user_data.get('followers', [])
-        return await self.render_template(
+        return await self._render_template(
             'list_followers.html',
             username=username,
             followers=followers,
@@ -248,7 +248,7 @@ class Twutr(Server):
             return "User not found", 404
 
         following = user_data.get('following', [])
-        return await self.render_template(
+        return await self._render_template(
             'list_following.html',
             username=username,
             following=following,
@@ -258,7 +258,7 @@ class Twutr(Server):
     def add_message(self):
         """Registers a new message for the logged-in user with custom link and mention handling."""
         if not self.request.session.get('logged_in'):
-            return self.redirect('/login')
+            return self._redirect('/login')
 
         if self.request.method == 'POST':
             message = self.request.body_params.get('message', [''])[0]
@@ -268,7 +268,7 @@ class Twutr(Server):
 
             # Prevent empty message submissions
             if not sanitized_message.strip():
-                return self.render_template('timeline.html', error="Message cannot be empty", session=self.request.session)
+                return self._render_template('timeline.html', error="Message cannot be empty", session=self.request.session)
 
             time_stamp = str(datetime.utcnow().strftime('%m/%d/%Y %I:%M %p'))
             message_tuple = (sanitized_message, time_stamp)
@@ -277,43 +277,43 @@ class Twutr(Server):
             user_data['messages'].append(message_tuple)
             save_user_data(self.request.session.get('user_id'), user_data)
 
-        return self.redirect('/')
+        return self._redirect('/')
 
     async def login(self):
         """Logs the user in."""
         if self.request.session.get('logged_in'):
-            return self.redirect('/')
+            return self._redirect('/')
 
         if self.request.method == 'POST':
             username = escape(self.request.body_params.get('username', [''])[0].strip())
             password = escape(self.request.body_params.get('password', [''])[0].strip())
 
             if not username or not password:
-                return await self.render_template('login.html', error="Fields cannot be empty", session=self.request.session)
+                return await self._render_template('login.html', error="Fields cannot be empty", session=self.request.session)
 
             user = get_user_data(username)
             if not user or user['password'] != password:
-                return await self.render_template('login.html', error="Invalid credentials", session=self.request.session)
+                return await self._render_template('login.html', error="Invalid credentials", session=self.request.session)
 
             self.request.session['user_id'] = username
             self.request.session['logged_in'] = True
-            return self.redirect('/')
+            return self._redirect('/')
 
-        return await self.render_template('login.html', session=self.request.session)
+        return await self._render_template('login.html', session=self.request.session)
 
     async def register(self):
         """Registers a new user."""
         if self.request.session.get('logged_in'):
-            return self.redirect('/')
+            return self._redirect('/')
 
         if self.request.method == 'POST':
             username = escape(self.request.body_params.get('username', [''])[0].strip())
             password = escape(self.request.body_params.get('password', [''])[0].strip())
 
             if not username or not password:
-                return await self.render_template('login.html', error="Fields cannot be empty", session=self.request.session)
+                return await self._render_template('login.html', error="Fields cannot be empty", session=self.request.session)
             if db.get(username):
-                return await self.render_template('register.html', session=self.request.session, error="Username already taken.")
+                return await self._render_template('register.html', session=self.request.session, error="Username already taken.")
 
             db.set(str(username), {
                 'username': username,
@@ -323,15 +323,15 @@ class Twutr(Server):
                 'following': []
             })
             db.save()
-            return self.redirect('/login')
+            return self._redirect('/login')
 
-        return await self.render_template('register.html', session=self.request.session)
+        return await self._render_template('register.html', session=self.request.session)
 
     def logout(self):
         """Logs the user out."""
         if self.request.session.get('logged_in'):
             self.request.session.clear()
-        return self.redirect('/public')
+        return self._redirect('/public')
 
 
 

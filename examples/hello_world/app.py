@@ -1,7 +1,7 @@
-from MicroPie import Server
+from MicroPie import App
 
 
-class Root(Server):
+class Root(App):
 
     async def index(self):
         return 'Hello ASGI World!'

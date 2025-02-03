@@ -1,9 +1,9 @@
 import os
-from MicroPie import Server
+from MicroPie import App
 
 VIDEO_PATH = "video.mp4"
 
-class Root(Server):
+class Root(App):
     def index(self):
         return '''
             <html>
