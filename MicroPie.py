@@ -1,5 +1,3 @@
-__version__ = "0.9.2"
-
 """
 MicroPie: A simple Python ultra-micro web framework with ASGI
 support. https://patx.github.io/micropie
