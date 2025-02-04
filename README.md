@@ -19,16 +19,16 @@ Install MicroPie via pip:
 ```bash
 pip install micropie
 ```
-This will install MicroPie along with `jinja2` for template rendering and `multipart` for parsing multipart form data.
+This will install MicroPie along with `jinja2` for template rendering and `multipart`/`aiofiles` for parsing multipart form data.
 
 ### **Minimal Setup**
 For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use templates and/or `multipart` for handling file uploads, but this *is* optional:
+Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use templates and/or `multipart` & `aiofiles` for handling file uploads, but this *is* optional:
 ```bash
-pip install jinja2 multipart
+pip install jinja2 multipart aiofiles
 ```
 
 ### **Install an ASGI Web Server**

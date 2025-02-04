@@ -43,7 +43,7 @@ from typing import Any, Awaitable, BinaryIO, Callable, Dict, List, Optional, Tup
 from urllib.parse import parse_qs
 
 try:
-    from jinja2 import Environment, FileSystemLoader
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
     JINJA_INSTALLED = True
 except ImportError:
     JINJA_INSTALLED = False
@@ -51,6 +51,7 @@ except ImportError:
 try:
     from multipart import PushMultipartParser, MultipartSegment
     MULTIPART_INSTALLED = True
+    import aiofiles
 except ImportError:
     MULTIPART_INSTALLED = False
 
@@ -87,7 +88,10 @@ class App:
         If Jinja2 is installed, set up the template environment.
         """
         if JINJA_INSTALLED:
-            self.env: Optional[Environment] = Environment(loader=FileSystemLoader("templates"))
+            self.env: Optional[Environment] = Environment(
+                loader=FileSystemLoader("templates"),
+                autoescape=select_autoescape(["html", "xml"]),
+                enable_async=True)
         else:
             self.env = None
         self.sessions: Dict[str, Any] = {}
@@ -288,7 +292,7 @@ class App:
             boundary: The boundary bytes extracted from the Content-Type header.
         """
         if not MULTIPART_INSTALLED:
-            raise ImportError("Multipart form data not supported. Install `multipart` via pip.")
+            raise ImportError("Multipart form data not supported. Install multipart aiofiles via pip.")
         with PushMultipartParser(boundary) as parser:
             current_field_name: Optional[str] = None
             current_filename: Optional[str] = None
@@ -296,7 +300,7 @@ class App:
             current_file: Optional[BinaryIO] = None
             form_value: str = ""
             upload_directory: str = "uploads"
-            os.makedirs(upload_directory, exist_ok=True)
+            await asyncio.to_thread(os.makedirs, upload_directory, exist_ok=True)
             while not parser.closed:
                 chunk: bytes = await reader.read(65536)
                 for result in parser.parse(chunk):
@@ -311,18 +315,18 @@ class App:
                         if current_filename:
                             safe_filename: str = f"{uuid.uuid4()}_{current_filename}"
                             file_path: str = os.path.join(upload_directory, safe_filename)
-                            current_file = open(file_path, "wb")
+                            current_file = await aiofiles.open(file_path, "wb")
                         else:
                             if current_field_name not in self.request.body_params:
                                 self.request.body_params[current_field_name] = []
                     elif result:
                         if current_file:
-                            current_file.write(result)
+                            await current_file.write(result)
                         else:
                             form_value += result.decode("utf-8", "ignore")
                     else:
                         if current_file:
-                            current_file.close()
+                            await current_file.close()
                             current_file = None
                             if current_field_name:
                                 self.request.files[current_field_name] = {
@@ -458,11 +462,9 @@ class App:
             The rendered template as a string.
         """
         if not JINJA_INSTALLED:
-            raise ImportError("`_render_template` not available. Install `jinja2` via pip.")
+            raise ImportError("_render_template not available. Install `jinja2` via pip.")
 
-        def render_sync() -> str:
-            assert self.env is not None
-            return self.env.get_template(name).render(kwargs)
-
-        return await asyncio.get_event_loop().run_in_executor(None, render_sync)
+        assert self.env is not None
+        template = self.env.get_template(name)
+        return await template.render_async(**kwargs)
 
