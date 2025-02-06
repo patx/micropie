@@ -265,6 +265,7 @@ class App:
             pass
 
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
+
         """
         Parse the Cookie header and return a dictionary of cookie names and values.
 
@@ -276,11 +277,15 @@ class App:
         """
         cookies: Dict[str, str] = {}
         if not cookie_header:
-            return cookies
+            return {}
+        
+        cookies = {}
         for cookie in cookie_header.split(";"):
+            cookie = cookie.strip()
             if "=" in cookie:
-                k, v = cookie.strip().split("=", 1)
+                k, v = cookie.split("=", 1)
                 cookies[k] = v
+        
         return cookies
 
     async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes) -> None:
@@ -449,6 +454,7 @@ class App:
                 "</head></html>"
             ),
         )
+        return 302, html_content
 
     async def _render_template(self, name: str, **kwargs: Any) -> str:
         """
