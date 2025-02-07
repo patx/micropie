@@ -1,20 +1,23 @@
 """
     twutr, a really basic Twitter clone. "Instead of tweets, just utr."
-    Built with MicroPie and pickleDB.
+    Built with MicroPie and KenobiDB.
     Written by Harrison Erd as an example application using MicroPie.
     https://patx.github.io/
 """
 from datetime import datetime
 import re
+import os
 
 from MicroPie import App
-from pickledb import PickleDB
+from kenobi import KenobiDB
 from markupsafe import escape
 
 
-# Set up database, we are using pickleDB switch to mongoDB for production
-db = PickleDB('minitwit.db')
+# Database configuration
+DB_PATH = 'minitwit.db'
 
+# Set up database, we are using KenobiDB
+db = KenobiDB(DB_PATH)
 
 # ----------------
 #  HELPER METHODS
@@ -22,12 +25,16 @@ db = PickleDB('minitwit.db')
 
 def get_user_data(username):
     """Retrieve user data from the database by username."""
-    return db.get(username)
+    results = db.search('username', username)
+    return results[0] if results else None
 
 def save_user_data(username, data):
     """Save updated user data back to the database."""
-    db.set(username, data)
-    db.save()
+    user = get_user_data(username)
+    if user:
+        db.update('username', username, data)
+    else:
+        db.insert(data)
 
 def sort_messages_by_timestamp(messages, timestamp_index):
     """
@@ -69,11 +76,11 @@ def get_all_messages_from_all_users():
     Returns a list of tuples: (username, message, timestamp).
     """
     all_messages = []
-    for user_key in db.all():
-        user_data = get_user_data(user_key)
+    for user in db.all():
+        user_data = user
         if user_data and 'messages' in user_data:
             for message in user_data['messages']:
-                all_messages.append((user_key, message[0], message[1]))
+                all_messages.append((user_data['username'], message[0], message[1]))
     return all_messages
 
 def update_follow_relationship(current_user, username, follow=True):
@@ -132,8 +139,6 @@ def convert_custom_syntax(text):
     escaped_text = re.sub(internal_pattern, replace_internal, escaped_text)
 
     return escaped_text
-
-
 
 
 #-----------------
@@ -312,17 +317,16 @@ class Twutr(App):
 
             if not username or not password:
                 return await self._render_template('login.html', error="Fields cannot be empty", session=self.request.session)
-            if db.get(username):
+            if get_user_data(username):
                 return await self._render_template('register.html', session=self.request.session, error="Username already taken.")
 
-            db.set(str(username), {
+            db.insert({
                 'username': username,
                 'password': password,
                 'messages': [],
                 'followers': [],
                 'following': []
             })
-            db.save()
             return self._redirect('/login')
 
         return await self._render_template('register.html', session=self.request.session)
@@ -334,5 +338,7 @@ class Twutr(App):
         return self._redirect('/public')
 
 
-
 app = Twutr()
+
+if __name__ == '__main__':
+    app.run()

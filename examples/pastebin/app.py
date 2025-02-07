@@ -25,8 +25,7 @@ class Root(App):
                 await asyncio.to_thread(db.remove, paste_id)
                 await asyncio.to_thread(db.save)
             return self._redirect('/')
-        async with db_lock:
-            paste_content = await asyncio.to_thread(db.get, paste_id) or ""
+        paste_content = db.get(paste_id)
         return await self._render_template(
             'paste.html',
             paste_id=paste_id,
