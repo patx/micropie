@@ -214,3 +214,129 @@ Below is a performance comparison of various ASGI frameworks using their "Hello 
 We welcome suggestions, bug reports, and pull requests!
 - File issues or feature requests [here](https://github.com/patx/micropie/issues).
 
+# **API Documentation**
+
+## **Class: Request**
+
+**Description:** Represents an HTTP request in the MicroPie framework.
+
+### Attributes
+
+*   `scope` (Dict\[str, Any\]): The ASGI scope dictionary for the request.
+*   `method` (str): The HTTP method derived from the scope.
+*   `path_params` (List\[str\]): List of URL path parameters.
+*   `query_params` (Dict\[str, List\[str\]\]): Dictionary of query string parameters.
+*   `body_params` (Dict\[str, List\[str\]\]): Dictionary of POST/PUT/PATCH body parameters.
+*   `session` (Dict\[str, Any\]): Dictionary for session data.
+*   `files` (Dict\[str, Any\]): Dictionary for uploaded files.
+
+### Methods
+
+#### `__init__(self, scope: Dict[str, Any]) -> None`
+
+**Description:** Initialize a new Request instance.
+
+**Parameters:**
+
+* `scope` (Dict\[str, Any\]): The ASGI scope dictionary for the request.
+
+## **Class: App**
+
+**Description:** ASGI application for handling HTTP requests and WebSocket connections in MicroPie.
+
+### Class Attributes
+
+* `SESSION_TIMEOUT` (int): Session timeout value (8 hours, expressed in seconds).
+
+### Methods
+
+#### `__init__(self) -> None`
+
+**Description:** Initialize a new App instance. If Jinja2 is installed, sets up the template environment and initializes session storage.
+
+#### `request(self) -> Request`
+
+**Description:** Retrieve the current request from the context variable.
+
+**Returns:** The current `Request` instance.
+
+#### `__call__(self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+
+**Description:** ASGI callable interface for the server. This method simply delegates to `_asgi_app`.
+
+**Parameters:**
+
+*   `scope`: The ASGI scope dictionary.
+*   `receive`: The callable to receive ASGI events.
+*   `send`: The callable to send ASGI events.
+
+#### `_asgi_app(self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+
+**Description:** ASGI application entry point for handling HTTP requests.
+
+**Parameters:**
+
+*   `scope`: The ASGI scope dictionary.
+*   `receive`: The callable to receive ASGI events.
+*   `send`: The callable to send ASGI events.
+
+#### `_parse_cookies(self, cookie_header: str) -> Dict[str, str]`
+
+**Description:** Parse the Cookie header and return a dictionary of cookie names and values.
+
+**Parameters:**
+
+*   `cookie_header` (str): The raw Cookie header string.
+
+**Returns:** A dictionary mapping cookie names to their corresponding values.
+
+#### `_parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes) -> None`
+
+**Description:** Parse `multipart/form-data` from the given reader using the specified boundary.
+
+**Parameters:**
+
+*   `reader` (asyncio.StreamReader): Contains the multipart data.
+*   `boundary` (bytes): The boundary bytes extracted from the `Content-Type` header.
+
+**Notes:** Requires the `multipart` and `aiofiles` packages to be installed.
+
+#### `_send_response(self, send: Callable[[Dict[str, Any]], Awaitable[None]], status_code: int, body: Any, extra_headers: Optional[List[Tuple[str, str]]] = None) -> None`
+
+**Description:** Send an HTTP response using the ASGI `send` callable.
+
+**Parameters:**
+
+*   `send`: The ASGI send callable.
+*   `status_code` (int): The HTTP status code for the response.
+*   `body`: The response body (string, bytes, or generator).
+*   `extra_headers` (Optional\[List\[Tuple\[str, str\]\]\]): Optional additional header tuples.
+
+#### `_cleanup_sessions(self) -> None`
+
+**Description:** Clean up expired sessions based on the `SESSION_TIMEOUT` value.
+
+#### `_redirect(self, location: str) -> Tuple[int, str]`
+
+**Description:** Generate an HTTP redirect response.
+
+**Parameters:**
+
+*   `location` (str): The URL to redirect to.
+
+**Returns:** A tuple containing the HTTP status code (302) and an HTML body for redirection.
+
+#### `_render_template(self, name: str, **kwargs: Any) -> str`
+
+**Description:** Render a template asynchronously using Jinja2.
+
+**Parameters:**
+
+*   `name` (str): The name of the template file.
+*   `**kwargs`: Additional keyword arguments passed to the template.
+
+**Returns:** The rendered template as a string.
+
+**Raises:** `ImportError` if Jinja2 is not installed.
+
+© Harrison Erd
