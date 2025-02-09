@@ -12,6 +12,13 @@
 - 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
 - ⚡ **Blazing Fast:** Check out how MicroPie compares to other popular ASGI frameworks below!
 
+### **Useful Links**
+- **Homepage**: [patx.github.io/micropie](https://patx.github.io/micropie)
+- **API Reference**: [patx.github.io/micropie/api](https://patx.github.io/micropie/api)
+- **PyPI Page**: [pypi.org/project/MicroPie](https://pypi.org/project/MicroPie/)
+- **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
+- **File Issue/Request**: [github.com/patx/micropie/issues](https://github.com/patx/micropie/issues)
+
 ## **Installing MicroPie**
 
 ### **Installation**
