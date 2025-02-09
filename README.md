@@ -19,8 +19,7 @@
 - **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
 - **File Issue/Request**: [github.com/patx/micropie/issues](https://github.com/patx/micropie/issues)
 - **Example Applications**: [github.com/patx/micropie/tree/main/examples](https://github.com/patx/micropie/tree/main/examples)
-- **Getting Started**: [README.md#getting-started](https://github.com/patx/micropie?tab=readme-ov-file#getting-started)
-
+  
 ## **Installing MicroPie**
 
 ### **Installation**
