@@ -2,7 +2,7 @@
 
 ## **Introduction**
 
-**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with **flexibility** and **simplicity** in mind, MicroPie enables you to handle high-concurrency applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication
+**MicroPie** is a fast, lightweight, modern Python web framework that supports asynchronous web applications. Designed with **flexibility** and **simplicity** in mind, MicroPie enables you to handle high-concurrency applications with ease while allowing natural integration with external tools like Socket.IO for real-time communication.
 
 ### **Key Features**
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
