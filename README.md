@@ -173,7 +173,6 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Form handling and POST requests
 - And more
 
-*Please note these are examples, showing the MicroPie API, they are not meant for producton! You can see the full API documentation [here](https://patx.github.io/micropie/api).*
 ## **Why ASGI?**
 ASGI is the future of Python web development, offering:
 - **Concurrency**: Handle thousands of simultaneous connections efficiently.
