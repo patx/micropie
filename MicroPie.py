@@ -50,8 +50,8 @@ except ImportError:
 
 try:
     from multipart import PushMultipartParser, MultipartSegment
+    import aiofiles, aiofiles.os
     MULTIPART_INSTALLED = True
-    import aiofiles
 except ImportError:
     MULTIPART_INSTALLED = False
 
@@ -300,7 +300,7 @@ class App:
             current_file: Optional[BinaryIO] = None
             form_value: str = ""
             upload_directory: str = "uploads"
-            await asyncio.to_thread(os.makedirs, upload_directory, exist_ok=True)
+            await aiofiles.os.makedirs(upload_directory, exist_ok=True)
             while not parser.closed:
                 chunk: bytes = await reader.read(65536)
                 for result in parser.parse(chunk):
