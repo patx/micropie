@@ -413,7 +413,7 @@ class App:
             response_body = body
         else:
             response_body = str(body).encode("utf-8")
-        response_body = body.encode("utf-8") if isinstance(body, str) else body
+
         await send({
             "type": "http.response.body",
             "body": response_body,
