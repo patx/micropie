@@ -156,7 +156,7 @@ class App:
                     request.path_params = path_parts
                     handler_function = getattr(self, "index", None)
                 raw_query: bytes = scope.get("query_string", b"")
-                request.query_params = await asyncio.to_thread(parse_qs, raw_query.decode("utf-8", "ignore"))
+                request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
                 headers_dict: Dict[str, str] = {
                     k.decode("latin-1").lower(): v.decode("latin-1")
                     for k, v in scope.get("headers", [])
