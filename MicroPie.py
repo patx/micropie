@@ -41,6 +41,7 @@ import time
 import uuid
 from typing import Any, Awaitable, BinaryIO, Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs
+import html
 
 try:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -155,7 +156,7 @@ class App:
                     request.path_params = path_parts
                     handler_function = getattr(self, "index", None)
                 raw_query: bytes = scope.get("query_string", b"")
-                request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
+                request.query_params = await asyncio.to_thread(parse_qs, raw_query.decode("utf-8", "ignore"))
                 headers_dict: Dict[str, str] = {
                     k.decode("latin-1").lower(): v.decode("latin-1")
                     for k, v in scope.get("headers", [])
@@ -195,21 +196,22 @@ class App:
                     else:
                         body_str: str = body_data.decode("utf-8", "ignore")
                         request.body_params = parse_qs(body_str)
-                sig = inspect.signature(handler_function)
+                sig = await asyncio.to_thread(inspect.signature, handler_function)
                 func_args: List[Any] = []
                 for param in sig.parameters.values():
+                    param_value = None
                     if request.path_params:
-                        func_args.append(request.path_params.pop(0))
+                        param_value = request.path_params.pop(0)
                     elif param.name in request.query_params:
-                        func_args.append(request.query_params[param.name][0])
+                        param_value = request.query_params[param.name][0]
                     elif param.name in request.body_params:
-                        func_args.append(request.body_params[param.name][0])
+                        param_value = request.body_params[param.name][0]
                     elif param.name in request.files:
-                        func_args.append(request.files[param.name])
+                        param_value = request.files[param.name]
                     elif param.name in request.session:
-                        func_args.append(request.session[param.name])
+                        param_value = request.session[param.name]
                     elif param.default is not param.empty:
-                        func_args.append(param.default)
+                        param_value = param.default
                     else:
                         await self._send_response(
                             send,
@@ -217,6 +219,10 @@ class App:
                             body=f"400 Bad Request: Missing required parameter '{param.name}'"
                         )
                         return
+                    if isinstance(param_value, str):
+                        param_value = html.escape(param_value)
+                    func_args.append(param_value)
+
                 if handler_function == getattr(self, "index", None) and not func_args and path:
                     await self._send_response(send, status_code=404, body="404 Not Found")
                     return
@@ -465,5 +471,5 @@ class App:
             raise ImportError("_render_template not available. Install `jinja2` via pip.")
 
         assert self.env is not None
-        template = self.env.get_template(name)
+        template = 	await asyncio.to_thread(self.env.get_template, name)
         return await template.render_async(**kwargs)
