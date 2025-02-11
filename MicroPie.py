@@ -308,7 +308,11 @@ class App:
             upload_directory: str = "uploads"
             await aiofiles.os.makedirs(upload_directory, exist_ok=True)
             while not parser.closed:
-                chunk: bytes = await reader.read(65536)
+                try:
+                    chunk: bytes = await reader.read(65536)
+                except Exception as e:
+                    print(f"Error readinf multipart data: {e}")
+                    break
                 for result in parser.parse(chunk):
                     if isinstance(result, MultipartSegment):
                         current_field_name = result.name
@@ -320,6 +324,7 @@ class App:
                                 current_content_type = value
                         if current_filename:
                             safe_filename: str = f"{uuid.uuid4()}_{current_filename}"
+                            safe_filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", safe_filename)
                             file_path: str = os.path.join(upload_directory, safe_filename)
                             current_file = await aiofiles.open(file_path, "wb")
                         else:
