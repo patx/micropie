@@ -1,10 +1,5 @@
 from MicroPie import App
 
-import os
-from typing import Any
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)  # Ensure upload directory exists
 
 class FileUploadApp(App):
 
@@ -29,7 +24,7 @@ class FileUploadApp(App):
             filename = file["filename"]
             saved_path = file["saved_path"]
 
-            # Optionally, rename the file or do further checks.
+            # Optionally, rename the file or do further (like file size or type) checks.
             # For instance, you might want to store an original name in your DB or process the file.
             return f"File '{filename}' uploaded successfully, saved to: {saved_path}!"
 
