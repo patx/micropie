@@ -81,8 +81,8 @@ class MyApp(App):
         return f"Hello {name}!"
 ```
 **Access:**
-- [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`, same as [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`
-- [http://127.0.0.1:8000/hello/Alice](http://127.0.0.1:8000/hello/Alice) returns `Hello None!`, while as [http://127.0.0.1:8000/hello?name=Alice](http://127.0.0.1:8000/hello?name=Alice) returns `Hello Alice!`
+- [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`, same as [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`.
+- [http://127.0.0.1:8000/hello/Alice](http://127.0.0.1:8000/hello/Alice) returns a `500 Internal Server Error` because it is expecting [http://127.0.0.1:8000/hello?name=Alice](http://127.0.0.1:8000/hello?name=Alice), which returns `Hello Alice!`
 
 ### **2. Flexible HTTP POST Request Handling**
 MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw POST data:
