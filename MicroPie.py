@@ -33,15 +33,15 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import asyncio
 import contextvars
+import html
 import inspect
-import mimetypes
 import os
 import re
 import time
 import uuid
-from typing import Any, Awaitable, BinaryIO, Callable, Dict, List, Optional, Tuple
+from abc import ABC, abstractmethod
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs
-import html
 
 try:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -56,19 +56,47 @@ try:
 except ImportError:
     MULTIPART_INSTALLED = False
 
-current_request: contextvars.ContextVar[Any] = contextvars.ContextVar("current_request")
 
+# -----------------------------
+# Session Backend Abstraction
+# -----------------------------
+class SessionBackend(ABC):
+    @abstractmethod
+    async def load(self, session_id: str) -> Dict[str, Any]:
+        """Load session data given a session ID."""
+        pass
+
+    @abstractmethod
+    async def save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None:
+        """Save session data given a session ID, data, and session timeout in seconds."""
+        pass
+
+
+class InMemorySessionBackend(SessionBackend):
+    def __init__(self):
+        self.sessions: Dict[str, Dict[str, Any]] = {}
+        self.last_access: Dict[str, float] = {}
+
+    async def load(self, session_id: str) -> Dict[str, Any]:
+        now = time.time()
+        if session_id in self.sessions and (now - self.last_access.get(session_id, now)) < 8 * 3600:
+            self.last_access[session_id] = now
+            return self.sessions[session_id]
+        return {}
+
+    async def save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None:
+        self.sessions[session_id] = data
+        self.last_access[session_id] = time.time()
+
+
+# -----------------
+# Request Object
+# -----------------
+current_request: contextvars.ContextVar[Any] = contextvars.ContextVar("current_request")
 
 class Request:
     """Represents an HTTP request in the MicroPie framework."""
-
     def __init__(self, scope: Dict[str, Any]) -> None:
-        """
-        Initialize a new Request instance.
-
-        Args:
-            scope: The ASGI scope dictionary for the request.
-        """
         self.scope: Dict[str, Any] = scope
         self.method: str = scope["method"]
         self.path_params: List[str] = []
@@ -78,33 +106,31 @@ class Request:
         self.files: Dict[str, Any] = {}
 
 
+# -----------------
+# Application Base
+# -----------------
 class App:
-    """ASGI application for handling HTTP requests and WebSocket connections in MicroPie."""
-    SESSION_TIMEOUT: int = 8 * 3600
+    """
+    ASGI application for handling HTTP requests in MicroPie.
+    It supports pluggable session backends via the 'session_backend' attribute.
+    """
+    SESSION_TIMEOUT: int = 8 * 3600  # Default 8 hours
 
-    def __init__(self) -> None:
-        """
-        Initialize a new App instance.
-
-        If Jinja2 is installed, set up the template environment.
-        """
+    def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
         if JINJA_INSTALLED:
-            self.env: Optional[Environment] = Environment(
+            self.env = Environment(
                 loader=FileSystemLoader("templates"),
                 autoescape=select_autoescape(["html", "xml"]),
-                enable_async=True)
+                enable_async=True
+            )
         else:
             self.env = None
-        self.sessions: Dict[str, Any] = {}
+
+        # Register the session backend: default to in-memory if none provided.
+        self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
 
     @property
     def request(self) -> Request:
-        """
-        Retrieve the current request from the context variable.
-
-        Returns:
-            The current Request instance.
-        """
         return current_request.get()
 
     async def __call__(
@@ -145,7 +171,6 @@ class App:
                 path: str = scope["path"].lstrip("/")
                 path_parts: List[str] = path.split("/") if path else []
                 func_name: str = path_parts[0] if path_parts else "index"
-
                 if func_name.startswith("_"):
                     await self._send_response(send, status_code=404, body="404 Not Found")
                     return
@@ -155,23 +180,30 @@ class App:
                 if not handler_function:
                     request.path_params = path_parts
                     handler_function = getattr(self, "index", None)
+
                 raw_query: bytes = scope.get("query_string", b"")
                 request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
+
+                # Parse headers and cookies.
                 headers_dict: Dict[str, str] = {
                     k.decode("latin-1").lower(): v.decode("latin-1")
                     for k, v in scope.get("headers", [])
                 }
                 cookies: Dict[str, str] = self._parse_cookies(headers_dict.get("cookie", ""))
-                session_id: Optional[str] = cookies.get("session_id")
-                if session_id and session_id in self.sessions:
-                    request.session = self.sessions[session_id]
-                    request.session["last_access"] = time.time()
+
+                # Load session using the session backend.
+                session_cookie = "session_id"
+                session_id: Optional[str] = cookies.get(session_cookie)
+                if session_id:
+                    request.session = await self.session_backend.load(session_id)
                 else:
                     request.session = {}
+
+                # Parse body parameters.
                 request.body_params = {}
                 request.files = {}
                 if method in ("POST", "PUT", "PATCH"):
-                    body_data: bytearray = bytearray()
+                    body_data = bytearray()
                     while True:
                         msg: Dict[str, Any] = await receive()
                         if msg["type"] == "http.request":
@@ -182,11 +214,8 @@ class App:
                     if "multipart/form-data" in content_type:
                         match = re.search(r"boundary=([^;]+)", content_type)
                         if not match:
-                            await self._send_response(
-                                send,
-                                status_code=400,
-                                body="400 Bad Request: Boundary not found in Content-Type header"
-                            )
+                            await self._send_response(send, status_code=400,
+                                body="400 Bad Request: Boundary not found in Content-Type header")
                             return
                         boundary: bytes = match.group(1).encode("utf-8")
                         reader: asyncio.StreamReader = asyncio.StreamReader()
@@ -196,6 +225,8 @@ class App:
                     else:
                         body_str: str = body_data.decode("utf-8", "ignore")
                         request.body_params = parse_qs(body_str)
+
+                # Build function arguments from path, query, body, files, and session values.
                 sig = await asyncio.to_thread(inspect.signature, handler_function)
                 func_args: List[Any] = []
                 for param in sig.parameters.values():
@@ -214,11 +245,11 @@ class App:
                         param_value = param.default
                     else:
                         await self._send_response(
-                            send,
-                            status_code=400,
+                            send, status_code=400,
                             body=f"400 Bad Request: Missing required parameter '{param.name}'"
                         )
                         return
+
                     if isinstance(param_value, str):
                         param_value = html.escape(param_value)
                     func_args.append(param_value)
@@ -226,15 +257,17 @@ class App:
                 if handler_function == getattr(self, "index", None) and not func_args and path:
                     await self._send_response(send, status_code=404, body="404 Not Found")
                     return
+
                 try:
                     if inspect.iscoroutinefunction(handler_function):
-                        result: Any = await handler_function(*func_args)
+                        result = await handler_function(*func_args)
                     else:
                         result = handler_function(*func_args)
                 except Exception as e:
                     print(f"Error processing request: {e}")
                     await self._send_response(send, status_code=500, body="500 Internal Server Error")
                     return
+
                 status_code: int = 200
                 response_body: Any = result
                 extra_headers: List[Tuple[str, str]] = []
@@ -244,27 +277,18 @@ class App:
                     elif len(result) == 3:
                         status_code, response_body, extra_headers = result
                     else:
-                        await self._send_response(
-                            send,
-                            status_code=500,
-                            body="500 Internal Server Error: Invalid response tuple"
-                        )
+                        await self._send_response(send, status_code=500, body="500 Internal Server Error: Invalid response tuple")
                         return
+
+                # Save session back if any session data exists.
                 if request.session:
-                    session_id = cookies.get("session_id", str(uuid.uuid4()))
-                    self.sessions[session_id] = request.session
+                    if not session_id:
+                        session_id = str(uuid.uuid4())
+                    await self.session_backend.save(session_id, request.session, self.SESSION_TIMEOUT)
                     extra_headers.append(
-                        (
-                            "Set-Cookie",
-                            f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"
-                        )
+                        ("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict")
                     )
-                await self._send_response(
-                    send,
-                    status_code=status_code,
-                    body=response_body,
-                    extra_headers=extra_headers
-                )
+                await self._send_response(send, status_code=status_code, body=response_body, extra_headers=extra_headers)
             finally:
                 current_request.reset(token)
         else:
@@ -298,12 +322,12 @@ class App:
             boundary: The boundary bytes extracted from the Content-Type header.
         """
         if not MULTIPART_INSTALLED:
-            raise ImportError("Multipart form data not supported. Install multipart aiofiles via pip.")
+            raise ImportError("Multipart form data not supported. Install the 'multipart' and 'aiofiles' packages.")
         with PushMultipartParser(boundary) as parser:
             current_field_name: Optional[str] = None
             current_filename: Optional[str] = None
             current_content_type: Optional[str] = None
-            current_file: Optional[BinaryIO] = None
+            current_file: Optional[Any] = None
             form_value: str = ""
             upload_directory: str = "uploads"
             await aiofiles.os.makedirs(upload_directory, exist_ok=True)
@@ -311,7 +335,7 @@ class App:
                 try:
                     chunk: bytes = await reader.read(65536)
                 except Exception as e:
-                    print(f"Error readinf multipart data: {e}")
+                    print(f"Error reading multipart data: {e}")
                     break
                 for result in parser.parse(chunk):
                     if isinstance(result, MultipartSegment):
@@ -379,22 +403,18 @@ class App:
             404: "404 Not Found",
             500: "500 Internal Server Error",
         }
-        status_text: str = status_map.get(status_code, f"{status_code} OK")
         sanitized_headers: List[Tuple[str, str]] = []
         for k, v in extra_headers:
             if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
                 print(f"Header injection attempt detected: {k}: {v}")
                 continue
             sanitized_headers.append((k, v))
-        has_content_type: bool = any(h[0].lower() == "content-type" for h in sanitized_headers)
-        if not has_content_type:
+        if not any(h[0].lower() == "content-type" for h in sanitized_headers):
             sanitized_headers.append(("Content-Type", "text/html; charset=utf-8"))
         await send({
             "type": "http.response.start",
             "status": status_code,
-            "headers": [
-                (k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers
-            ],
+            "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers],
         })
         if hasattr(body, "__aiter__"):
             async for chunk in body:
@@ -419,28 +439,16 @@ class App:
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
         if isinstance(body, str):
-            response_body: bytes = body.encode("utf-8")
+            response_body = body.encode("utf-8")
         elif isinstance(body, bytes):
             response_body = body
         else:
             response_body = str(body).encode("utf-8")
-
         await send({
             "type": "http.response.body",
             "body": response_body,
             "more_body": False
         })
-
-    def _cleanup_sessions(self) -> None:
-        """
-        Clean up expired sessions based on the SESSION_TIMEOUT value.
-        """
-        now: float = time.time()
-        self.sessions = {
-            sid: data
-            for sid, data in self.sessions.items()
-            if data.get("last_access", now) + self.SESSION_TIMEOUT > now
-        }
 
     def _redirect(self, location: str) -> Tuple[int, str]:
         """
@@ -452,13 +460,10 @@ class App:
         Returns:
             A tuple containing the HTTP status code and the HTML body.
         """
-        return (
-            302,
-            (
-                "<html><head>"
-                f"<meta http-equiv='refresh' content='0;url={location}'>"
-                "</head></html>"
-            ),
+        return 302, (
+            "<html><head>"
+            f"<meta http-equiv='refresh' content='0;url={location}'>"
+            "</head></html>"
         )
 
     async def _render_template(self, name: str, **kwargs: Any) -> str:
@@ -473,8 +478,8 @@ class App:
             The rendered template as a string.
         """
         if not JINJA_INSTALLED:
-            raise ImportError("_render_template not available. Install `jinja2` via pip.")
-
+            raise ImportError("_render_template not available. Install jinja2 via pip.")
         assert self.env is not None
-        template = 	await asyncio.to_thread(self.env.get_template, name)
+        template = await asyncio.to_thread(self.env.get_template, name)
         return await template.render_async(**kwargs)
+
