@@ -97,6 +97,11 @@ current_request: contextvars.ContextVar[Any] = contextvars.ContextVar("current_r
 class Request:
     """Represents an HTTP request in the MicroPie framework."""
     def __init__(self, scope: Dict[str, Any]) -> None:
+        """
+        Initialize a new Request instance.
+        Args:
+            scope: The ASGI scope dictionary for the request.
+        """
         self.scope: Dict[str, Any] = scope
         self.method: str = scope["method"]
         self.path_params: List[str] = []
@@ -131,6 +136,11 @@ class App:
 
     @property
     def request(self) -> Request:
+        """
+        Retrieve the current request from the context variable.
+        Returns:
+            The current Request instance.
+        """
         return current_request.get()
 
     async def __call__(

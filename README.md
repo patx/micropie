@@ -19,7 +19,7 @@
 - **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
 - **File Issue/Request**: [github.com/patx/micropie/issues](https://github.com/patx/micropie/issues)
 - **Example Applications**: [github.com/patx/micropie/tree/main/examples](https://github.com/patx/micropie/tree/main/examples)
-  
+
 ## **Installing MicroPie**
 
 ### **Installation**
@@ -154,6 +154,8 @@ class MyApp(App):
         return f"You have visited {self.request.session['visits']} times."
 ```
 
+You also can use the `SessionBackend` class to create your own session middleware. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
+
 ### **8. Deployment**
 MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash
@@ -168,6 +170,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - File uploads
 - Serving static content with ServeStatic
 - Session usage
+- Sessions
 - Websockets with Socket.io
 - Async Streaming
 - Form handling and POST requests
@@ -237,6 +240,30 @@ We welcome suggestions, bug reports, and pull requests!
 **Parameters:**
 
 * `scope` (Dict\[str, Any\]): The ASGI scope dictionary for the request.
+
+## Class: SessionBackend
+
+An abstract base class for session backends in MicroPie. It provides an interface for loading and saving session data.
+
+### Methods
+
+#### `load(self, session_id: str) -> Dict[str, Any]`
+**Description:** Load session data given a session ID.
+
+**Parameters:**
+
+* `session_id (str)`: The unique session identifier.
+
+**Returns:** A dictionary containing the loaded session data.
+
+#### `save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None`
+**Description:** Save session data given a session ID, session data, and a timeout in seconds.
+
+**Parameters:**
+
+* session_id (str): The unique session identifier.
+* data (Dict[str, Any]): Session data to be saved.
+*  timeout (int): Session timeout in seconds.
 
 ## **Class: App**
 

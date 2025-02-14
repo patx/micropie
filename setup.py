@@ -25,7 +25,7 @@ Links
 from distutils.core import setup
 
 setup(name="MicroPie",
-    version="0.9.7.1",
+    version="0.9.8",
     description="A ultra micro web framework w/ Jinja2.",
     long_description=__doc__,
     author="Harrison Erd",
