@@ -275,9 +275,13 @@ An abstract base class for session backends in MicroPie. It provides an interfac
 
 ### Methods
 
-#### `__init__(self) -> None`
+#### `__init__(self, session_backend: Optional[SessionBackend] = None) -> None`
 
 **Description:** Initialize a new App instance. If Jinja2 is installed, sets up the template environment and initializes session storage.
+
+**Parameters:**
+
+* `session_backend: Optional[SessionBackend]`
 
 #### `request(self) -> Request`
 
