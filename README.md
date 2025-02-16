@@ -341,10 +341,6 @@ An abstract base class for session backends in MicroPie. It provides an interfac
 *   `body`: The response body (string, bytes, or generator).
 *   `extra_headers` (Optional\[List\[Tuple\[str, str\]\]\]): Optional additional header tuples.
 
-#### `_cleanup_sessions(self) -> None`
-
-**Description:** Clean up expired sessions based on the `SESSION_TIMEOUT` value.
-
 #### `_redirect(self, location: str) -> Tuple[int, str]`
 
 **Description:** Generate an HTTP redirect response.
