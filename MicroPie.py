@@ -237,7 +237,7 @@ class App:
                         request.body_params = parse_qs(body_str)
 
                 # Build function arguments from path, query, body, files, and session values.
-                sig = await asyncio.to_thread(inspect.signature, handler_function)
+                sig = inspect.signature(handler_function)
                 func_args: List[Any] = []
                 for param in sig.parameters.values():
                     param_value = None
@@ -346,7 +346,7 @@ class App:
                     chunk: bytes = await reader.read(65536)
                 except Exception as e:
                     print(f"Error reading multipart data: {e}")
-                    break
+                    return 500, "500 Internal Server Error"
                 for result in parser.parse(chunk):
                     if isinstance(result, MultipartSegment):
                         current_field_name = result.name
@@ -448,12 +448,8 @@ class App:
                 })
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
-        if isinstance(body, str):
-            response_body = body.encode("utf-8")
-        elif isinstance(body, bytes):
-            response_body = body
-        else:
-            response_body = str(body).encode("utf-8")
+        response_body = (body if isinstance(body, bytes)
+                 else str(body).encode("utf-8"))
         await send({
             "type": "http.response.body",
             "body": response_body,
@@ -470,11 +466,8 @@ class App:
         Returns:
             A tuple containing the HTTP status code and the HTML body.
         """
-        return 302, (
-            "<html><head>"
-            f"<meta http-equiv='refresh' content='0;url={location}'>"
-            "</head></html>"
-        )
+        return 302, "", [("Location", location)]
+
 
     async def _render_template(self, name: str, **kwargs: Any) -> str:
         """
