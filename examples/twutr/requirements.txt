@@ -1,0 +1,6 @@
+micropie
+uvicorn
+motor
+markupsafe
+bcrypt
+

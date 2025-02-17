@@ -135,16 +135,47 @@
             text-align: center;
         }
 
+        @media (max-width: 768px) {
+            body {
+                padding: 20px;
+            }
+
+            .container {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+            }
+
+            .nav-container {
+                width: 100%;
+                padding: 15px;
+            }
+
+            nav {
+                flex-direction: row;
+                justify-content: space-around;
+            }
+
+            nav a {
+                font-size: 16px;
+                padding: 10px;
+            }
+
+            main {
+                width: 100%;
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 36px;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <main>
-        <h1>twutr</h1>
-            {% block content %}{% endblock %}
-        </main>
-
-        <div class="nav-container">
+            <div class="nav-container">
 <nav>
     {% if session['logged_in'] %}
         <a href="/">Home</a>
@@ -158,6 +189,13 @@
     {% endif %}
 </nav>
         </div>
+
+        <main>
+        <h1>twutr</h1>
+            {% block content %}{% endblock %}
+        </main>
+
+
     </div>
 </body>
 </html>

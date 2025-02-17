@@ -17,7 +17,7 @@
 
 <ul>
     {% for message in messages %}
-        <li><h3>{{ message[0] }}</h3> <small>{{ message[1] }}</small></li>
+        <li><h3>{{ message[0] | safe }}</h3> <small>{{ message[1] }}</small></li>
     {% endfor %}
 </ul>
 {% endblock %}

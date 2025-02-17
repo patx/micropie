@@ -2,7 +2,9 @@
 {% block title %}Register{% endblock %}
 {% block content %}
 <h2>Register</h2>
-
+{% if error %}
+    <font color="red">{{ error }}</font>
+{% endif %}
 <div class="form-container">
     <form action="/register" method="post">
         <input id="username" type="text" name="username" placeholder="Username" required>

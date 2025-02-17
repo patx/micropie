@@ -4,7 +4,7 @@ from MicroPie import App
 from markupsafe import escape
 from pickledb import AsyncPickleDB
 
-db = AsyncPickleDB('pastes.db')
+db = AsyncPickleDB('pastes.json')
 
 
 class Root(App):

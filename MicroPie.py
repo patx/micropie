@@ -60,6 +60,9 @@ except ImportError:
 # -----------------------------
 # Session Backend Abstraction
 # -----------------------------
+SESSION_TIMEOUT: int = 8 * 3600  # Default 8 hours
+
+
 class SessionBackend(ABC):
     @abstractmethod
     async def load(self, session_id: str) -> Dict[str, Any]:
@@ -68,7 +71,14 @@ class SessionBackend(ABC):
 
     @abstractmethod
     async def save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None:
-        """Save session data given a session ID, data, and session timeout in seconds."""
+        """
+        Save session data.
+
+        Args:
+            session_id:str
+            data:Dict
+            timeout:int (in seconds)
+        """
         pass
 
 
@@ -79,7 +89,7 @@ class InMemorySessionBackend(SessionBackend):
 
     async def load(self, session_id: str) -> Dict[str, Any]:
         now = time.time()
-        if session_id in self.sessions and (now - self.last_access.get(session_id, now)) < 8 * 3600:
+        if session_id in self.sessions and (now - self.last_access.get(session_id, now)) < SESSION_TIMEOUT:
             self.last_access[session_id] = now
             return self.sessions[session_id]
         return {}
@@ -119,7 +129,6 @@ class App:
     ASGI application for handling HTTP requests in MicroPie.
     It supports pluggable session backends via the 'session_backend' attribute.
     """
-    SESSION_TIMEOUT: int = 8 * 3600  # Default 8 hours
 
     def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
         if JINJA_INSTALLED:
@@ -294,7 +303,7 @@ class App:
                 if request.session:
                     if not session_id:
                         session_id = str(uuid.uuid4())
-                    await self.session_backend.save(session_id, request.session, self.SESSION_TIMEOUT)
+                    await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
                     extra_headers.append(
                         ("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict")
                     )
