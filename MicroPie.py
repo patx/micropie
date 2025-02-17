@@ -75,9 +75,9 @@ class SessionBackend(ABC):
         Save session data.
 
         Args:
-            session_id:str
-            data:Dict
-            timeout:int (in seconds)
+            session_id: str
+            data: Dict
+            timeout: int (in seconds)
         """
         pass
 
@@ -97,6 +97,37 @@ class InMemorySessionBackend(SessionBackend):
     async def save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None:
         self.sessions[session_id] = data
         self.last_access[session_id] = time.time()
+
+
+# -----------------------------
+# Middleware Abstraction
+# -----------------------------
+class HttpMiddleware(ABC):
+    """
+    Pluggable middleware class that allows hooking into the request lifecycle.
+    """
+
+    @abstractmethod
+    async def before_request(self, request: "Request") -> None:
+        """
+        Called before the request is processed.
+        """
+        pass
+
+    @abstractmethod
+    async def after_request(
+        self,
+        request: "Request",
+        status_code: int,
+        response_body: Any,
+        extra_headers: List[Tuple[str, str]]
+    ) -> None:
+        """
+        Called after the request is processed, but before the final response
+        is sent to the client. You may alter the status_code, response_body,
+        or extra_headers if needed.
+        """
+        pass
 
 
 # -----------------
@@ -127,7 +158,8 @@ class Request:
 class App:
     """
     ASGI application for handling HTTP requests in MicroPie.
-    It supports pluggable session backends via the 'session_backend' attribute.
+    It supports pluggable session backends via the 'session_backend' attribute
+    and pluggable middlewares via the 'middlewares' list.
     """
 
     def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
@@ -142,6 +174,9 @@ class App:
 
         # Register the session backend: default to in-memory if none provided.
         self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
+
+        # A list of middleware instances implementing the HttpMiddleware ABC.
+        self.middlewares: List[HttpMiddleware] = []
 
     @property
     def request(self) -> Request:
@@ -185,13 +220,28 @@ class App:
         if scope["type"] == "http":
             request: Request = Request(scope)
             token = current_request.set(request)
+            status_code: int = 200
+            response_body: Any = ""
+            extra_headers: List[Tuple[str, str]] = []
             try:
+                # Run before_request middleware
+                for mw in self.middlewares:
+                    result = await mw.before_request(request)
+                    if result is not None:
+                        status_code = result["status_code"]
+                        response_body = result["body"]
+                        extra_headers = result.get("headers", [])
+                        await self._send_response(send, status_code, response_body, extra_headers)
+                        return
+
                 method: str = scope["method"]
                 path: str = scope["path"].lstrip("/")
                 path_parts: List[str] = path.split("/") if path else []
                 func_name: str = path_parts[0] if path_parts else "index"
                 if func_name.startswith("_"):
-                    await self._send_response(send, status_code=404, body="404 Not Found")
+                    status_code = 404
+                    response_body = "404 Not Found"
+                    await self._send_response(send, status_code, response_body)
                     return
 
                 request.path_params = path_parts[1:] if len(path_parts) > 1 else []
@@ -233,14 +283,19 @@ class App:
                     if "multipart/form-data" in content_type:
                         match = re.search(r"boundary=([^;]+)", content_type)
                         if not match:
-                            await self._send_response(send, status_code=400,
-                                body="400 Bad Request: Boundary not found in Content-Type header")
+                            status_code = 400
+                            response_body = "400 Bad Request: Boundary not found in Content-Type header"
+                            await self._send_response(send, status_code, response_body)
                             return
                         boundary: bytes = match.group(1).encode("utf-8")
                         reader: asyncio.StreamReader = asyncio.StreamReader()
                         reader.feed_data(body_data)
                         reader.feed_eof()
-                        await self._parse_multipart(reader, boundary)
+                        parse_res = await self._parse_multipart(reader, boundary)
+                        if isinstance(parse_res, tuple) and parse_res[0] == 500:
+                            status_code, response_body = parse_res
+                            await self._send_response(send, status_code, response_body)
+                            return
                     else:
                         body_str: str = body_data.decode("utf-8", "ignore")
                         request.body_params = parse_qs(body_str)
@@ -263,10 +318,9 @@ class App:
                     elif param.default is not param.empty:
                         param_value = param.default
                     else:
-                        await self._send_response(
-                            send, status_code=400,
-                            body=f"400 Bad Request: Missing required parameter '{param.name}'"
-                        )
+                        status_code = 400
+                        response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
+                        await self._send_response(send, status_code, response_body)
                         return
 
                     if isinstance(param_value, str):
@@ -274,7 +328,9 @@ class App:
                     func_args.append(param_value)
 
                 if handler_function == getattr(self, "index", None) and not func_args and path:
-                    await self._send_response(send, status_code=404, body="404 Not Found")
+                    status_code = 404
+                    response_body = "404 Not Found"
+                    await self._send_response(send, status_code, response_body)
                     return
 
                 try:
@@ -284,20 +340,24 @@ class App:
                         result = handler_function(*func_args)
                 except Exception as e:
                     print(f"Error processing request: {e}")
-                    await self._send_response(send, status_code=500, body="500 Internal Server Error")
+                    status_code = 500
+                    response_body = "500 Internal Server Error"
+                    await self._send_response(send, status_code, response_body)
                     return
 
-                status_code: int = 200
-                response_body: Any = result
-                extra_headers: List[Tuple[str, str]] = []
                 if isinstance(result, tuple):
                     if len(result) == 2:
                         status_code, response_body = result
                     elif len(result) == 3:
                         status_code, response_body, extra_headers = result
                     else:
-                        await self._send_response(send, status_code=500, body="500 Internal Server Error: Invalid response tuple")
+                        status_code = 500
+                        response_body = "500 Internal Server Error: Invalid response tuple"
+                        await self._send_response(send, status_code, response_body)
                         return
+                else:
+                    # If result is not a tuple, treat it as body only
+                    response_body = result
 
                 # Save session back if any session data exists.
                 if request.session:
@@ -307,10 +367,20 @@ class App:
                     extra_headers.append(
                         ("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict")
                     )
-                await self._send_response(send, status_code=status_code, body=response_body, extra_headers=extra_headers)
+
+                # Run after_request middleware
+                for mw in self.middlewares:
+                    result = await mw.after_request(request, status_code, response_body, extra_headers)
+                    if result is not None:
+                        status_code = result.get("status_code", status_code)
+                        response_body = result.get("body", response_body)
+                        extra_headers = result.get("headers", extra_headers)
+
+                await self._send_response(send, status_code, response_body, extra_headers)
             finally:
                 current_request.reset(token)
         else:
+            # For non-HTTP scopes, do nothing or handle websockets, etc., as needed
             pass
 
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
@@ -332,16 +402,21 @@ class App:
                 cookies[k] = v
         return cookies
 
-    async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes) -> None:
+    async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes):
         """
         Parse multipart/form-data from the given reader using the specified boundary.
 
         Args:
             reader: An asyncio.StreamReader containing the multipart data.
             boundary: The boundary bytes extracted from the Content-Type header.
+
+        Returns:
+            None or a (status_code, error_message) tuple on error.
         """
         if not MULTIPART_INSTALLED:
-            raise ImportError("Multipart form data not supported. Install the 'multipart' and 'aiofiles' packages.")
+            print("For multipart form data support install 'multipart' and 'aiofiles'.")
+            return 500, "500 Internal Server Error"
+
         with PushMultipartParser(boundary) as parser:
             current_field_name: Optional[str] = None
             current_filename: Optional[str] = None
@@ -477,7 +552,6 @@ class App:
         """
         return 302, "", [("Location", location)]
 
-
     async def _render_template(self, name: str, **kwargs: Any) -> str:
         """
         Render a template asynchronously using Jinja2.
@@ -490,8 +564,8 @@ class App:
             The rendered template as a string.
         """
         if not JINJA_INSTALLED:
-            raise ImportError("_render_template not available. Install jinja2 via pip.")
+            print("To use the `_render_template` method install 'jinja2'.")
+            return 500, "500 Internal Server Error"
         assert self.env is not None
         template = await asyncio.to_thread(self.env.get_template, name)
         return await template.render_async(**kwargs)
-
