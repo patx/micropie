@@ -317,4 +317,6 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 - `_render_template(name: str, **kwargs: Any) -> str`
   - Renders a template asynchronously using Jinja2.
 
+----
+
 © Harrison Erd
