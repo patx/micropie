@@ -219,182 +219,102 @@ We welcome suggestions, bug reports, and pull requests!
 
 # **API Documentation**
 
-## **Class: Request**
+## Session Backend Abstraction
 
-**Description:** Represents an HTTP request in the MicroPie framework.
+MicroPie provides an abstraction for session backends, allowing you to define custom session storage mechanisms.
 
-### Attributes
+### `SessionBackend` Class
 
-*   `scope` (Dict\[str, Any\]): The ASGI scope dictionary for the request.
-*   `method` (str): The HTTP method derived from the scope.
-*   `path_params` (List\[str\]): List of URL path parameters.
-*   `query_params` (Dict\[str, List\[str\]\]): Dictionary of query string parameters.
-*   `body_params` (Dict\[str, List\[str\]\]): Dictionary of POST/PUT/PATCH body parameters.
-*   `session` (Dict\[str, Any\]): Dictionary for session data.
-*   `files` (Dict\[str, Any\]): Dictionary for uploaded files.
+#### Methods
 
-### Methods
+- `load(session_id: str) -> Dict[str, Any]`
+  - Abstract method to load session data given a session ID.
 
-#### `__init__(self, scope: Dict[str, Any]) -> None`
+- `save(session_id: str, data: Dict[str, Any], timeout: int) -> None`
+  - Abstract method to save session data.
+  - Args:
+    - `session_id`: The session ID.
+    - `data`: The session data.
+    - `timeout`: The session timeout in seconds.
 
-**Description:** Initialize a new Request instance.
+### `InMemorySessionBackend` Class
 
-**Parameters:**
+An in-memory implementation of the `SessionBackend`.
 
-* `scope` (Dict\[str, Any\]): The ASGI scope dictionary for the request.
+#### Methods
 
-## Class: SessionBackend
+- `__init__()`
+  - Initializes the in-memory session backend.
 
-**Description:** An abstract base class for session backends in MicroPie. It provides an interface for loading and saving session data.
+- `load(session_id: str) -> Dict[str, Any]`
+  - Loads session data for the given session ID.
 
-### Methods
+- `save(session_id: str, data: Dict[str, Any], timeout: int) -> None`
+  - Saves session data for the given session ID.
 
-#### `load(self, session_id: str) -> Dict[str, Any]`
-**Description:** Load session data given a session ID.
+## Middleware Abstraction
 
-**Parameters:**
+MicroPie allows you to create pluggable middleware to hook into the request lifecycle.
 
-* `session_id (str)`: The unique session identifier.
+### `HttpMiddleware` Class
 
-**Returns:** A dictionary containing the loaded session data.
+#### Methods
 
-#### `save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None`
-**Description:** Save session data given a session ID, session data, and a timeout in seconds.
+- `before_request(request: "Request") -> None`
+  - Abstract method called before the request is processed.
 
-**Parameters:**
+- `after_request(request: "Request", status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> None`
+  - Abstract method called after the request is processed but before the final response is sent to the client.
 
-* session_id (str): The unique session identifier.
-* data (Dict[str, Any]): Session data to be saved.
-*  timeout (int): Session timeout in seconds.
+## Request Object
 
-## **Class: HttpMiddleware**
+### `Request` Class
 
-**Description:**
-Pluggable middleware class that allows hooking into the request lifecycle. Subclasses of this class can implement the `before_request` and `after_request` methods to interact with the request and response processes.
+Represents an HTTP request in the MicroPie framework.
 
-### Methods
+#### Attributes
 
-#### `before_request(self, request: "Request") -> None`
+- `scope`: The ASGI scope dictionary for the request.
+- `method`: The HTTP method of the request.
+- `path_params`: List of path parameters.
+- `query_params`: Dictionary of query parameters.
+- `body_params`: Dictionary of body parameters.
+- `session`: Dictionary of session data.
+- `files`: Dictionary of uploaded files.
 
-**Description:**
-Called before the request is processed. This method can be used for tasks such as logging, modifying the request, or handling authentication before the request is passed to the next step in the lifecycle.
+## Application Base
 
-**Parameters:**
+### `App` Class
 
-* `request` (Request): The incoming `Request` object, representing the HTTP request.
+The main ASGI application class for handling HTTP requests in MicroPie.
 
-**Returns:**
-None
+#### Methods
 
-#### `after_request(self, request: "Request", status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> None`
+- `__init__(session_backend: Optional[SessionBackend] = None) -> None`
+  - Initializes the application with an optional session backend.
 
-**Description:**
-Called after the request is processed, but before the final response is sent to the client. You may alter the `status_code`, `response_body`, or `extra_headers` if needed.
+- `request -> Request`
+  - Retrieves the current request from the context variable.
 
-**Parameters:**
+- `__call__(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - ASGI callable interface for the server.
 
-* `request` (Request): The `Request` object representing the HTTP request.
-* `status_code` (int): The HTTP status code of the response.
-* `response_body` (Any): The body of the response, which could be a string, bytes, or other formats.
-* `extra_headers` (List[Tuple[str, str]]): A list of additional headers to be included in the response.
+- `_asgi_app(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - ASGI application entry point for handling HTTP requests.
 
-**Returns:**
-None
+- `_parse_cookies(cookie_header: str) -> Dict[str, str]`
+  - Parses the Cookie header and returns a dictionary of cookie names and values.
 
-## **Class: App**
+- `_parse_multipart(reader: asyncio.StreamReader, boundary: bytes)`
+  - Parses multipart/form-data from the given reader using the specified boundary.
 
-**Description:** ASGI application for handling HTTP requests and WebSocket connections in MicroPie.
+- `_send_response(send: Callable[[Dict[str, Any]], Awaitable[None]], status_code: int, body: Any, extra_headers: Optional[List[Tuple[str, str]]] = None) -> None`
+  - Sends an HTTP response using the ASGI send callable.
 
-### Methods
+- `_redirect(location: str) -> Tuple[int, str]`
+  - Generates an HTTP redirect response.
 
-#### `__init__(self, session_backend: Optional[SessionBackend] = None) -> None`
-
-**Description:** Initialize a new App instance. If Jinja2 is installed, sets up the template environment and initializes session storage.
-
-**Parameters:**
-
-* `session_backend: Optional[SessionBackend]`
-* `middlewares: List[HttpMiddleware]`
-
-#### `request(self) -> Request`
-
-**Description:** Retrieve the current request from the context variable.
-
-**Returns:** The current `Request` instance.
-
-#### `__call__(self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
-
-**Description:** ASGI callable interface for the server. This method simply delegates to `_asgi_app`.
-
-**Parameters:**
-
-*   `scope`: The ASGI scope dictionary.
-*   `receive`: The callable to receive ASGI events.
-*   `send`: The callable to send ASGI events.
-
-#### `_asgi_app(self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
-
-**Description:** ASGI application entry point for handling HTTP requests.
-
-**Parameters:**
-
-*   `scope`: The ASGI scope dictionary.
-*   `receive`: The callable to receive ASGI events.
-*   `send`: The callable to send ASGI events.
-
-#### `_parse_cookies(self, cookie_header: str) -> Dict[str, str]`
-
-**Description:** Parse the Cookie header and return a dictionary of cookie names and values.
-
-**Parameters:**
-
-*   `cookie_header` (str): The raw Cookie header string.
-
-**Returns:** A dictionary mapping cookie names to their corresponding values.
-
-#### `_parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes) -> None`
-
-**Description:** Parse `multipart/form-data` from the given reader using the specified boundary.
-
-**Parameters:**
-
-*   `reader` (asyncio.StreamReader): Contains the multipart data.
-*   `boundary` (bytes): The boundary bytes extracted from the `Content-Type` header.
-
-**Notes:** Requires the `multipart` and `aiofiles` packages to be installed.
-
-#### `_send_response(self, send: Callable[[Dict[str, Any]], Awaitable[None]], status_code: int, body: Any, extra_headers: Optional[List[Tuple[str, str]]] = None) -> None`
-
-**Description:** Send an HTTP response using the ASGI `send` callable.
-
-**Parameters:**
-
-*   `send`: The ASGI send callable.
-*   `status_code` (int): The HTTP status code for the response.
-*   `body`: The response body (string, bytes, or generator).
-*   `extra_headers` (Optional\[List\[Tuple\[str, str\]\]\]): Optional additional header tuples.
-
-#### `_redirect(self, location: str) -> Tuple[int, str]`
-
-**Description:** Generate an HTTP redirect response.
-
-**Parameters:**
-
-*   `location` (str): The URL to redirect to.
-
-**Returns:** A tuple containing the HTTP status code (302) and an HTML body for redirection.
-
-#### `_render_template(self, name: str, **kwargs: Any) -> str`
-
-**Description:** Render a template asynchronously using Jinja2.
-
-**Parameters:**
-
-*   `name` (str): The name of the template file.
-*   `**kwargs`: Additional keyword arguments passed to the template.
-
-**Returns:** The rendered template as a string.
-
-**Raises:** `ImportError` if Jinja2 is not installed.
+- `_render_template(name: str, **kwargs: Any) -> str`
+  - Renders a template asynchronously using Jinja2.
 
 © Harrison Erd
