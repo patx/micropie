@@ -8,6 +8,7 @@
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
 - 🔒 **Sessions:** Simple session management using cookies.
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
+- ⚙️ **Middleware:** Support for custom request middleware enabling functions like rate limiting, authentication, logging, and more.
 - ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
 - ⚡ **Blazing Fast:** Check out how MicroPie compares to other popular ASGI frameworks below!
@@ -173,6 +174,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Sessions
 - Websockets with Socket.io
 - Async Streaming
+- Middleware
 - Form handling and POST requests
 - And more
 
@@ -191,7 +193,7 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 | Feature             | MicroPie      | Flask        | CherryPy   | Bottle       | Django       | FastAPI         |
 |---------------------|---------------|--------------|------------|--------------|--------------|-----------------|
 | **Ease of Use**     | Very Easy     | Easy         | Easy       | Easy         | Moderate     | Moderate        |
-| **Routing**         | Automatic     | Manual       | Manual     | Manual       | Automatic    | Automatic       |
+| **Routing**         | Automatic     | Manual       | Manual     | Manual       | Django       | Manual          |
 | **Template Engine** | Jinja2 (Opt.) | Jinja2       | None       | SimpleTpl    | Django Templating | Jinja2     |
 | **Session Handling**| Simple        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
 | **Async Support**   | Yes (ASGI)    | No (Quart)   | No         | No           | Limited      | Yes (ASGI)      |
@@ -243,7 +245,7 @@ We welcome suggestions, bug reports, and pull requests!
 
 ## Class: SessionBackend
 
-An abstract base class for session backends in MicroPie. It provides an interface for loading and saving session data.
+**Description:** An abstract base class for session backends in MicroPie. It provides an interface for loading and saving session data.
 
 ### Methods
 
@@ -265,13 +267,43 @@ An abstract base class for session backends in MicroPie. It provides an interfac
 * data (Dict[str, Any]): Session data to be saved.
 *  timeout (int): Session timeout in seconds.
 
+## **Class: HttpMiddleware**
+
+**Description:**
+Pluggable middleware class that allows hooking into the request lifecycle. Subclasses of this class can implement the `before_request` and `after_request` methods to interact with the request and response processes.
+
+### Methods
+
+#### `before_request(self, request: "Request") -> None`
+
+**Description:**
+Called before the request is processed. This method can be used for tasks such as logging, modifying the request, or handling authentication before the request is passed to the next step in the lifecycle.
+
+**Parameters:**
+
+* `request` (Request): The incoming `Request` object, representing the HTTP request.
+
+**Returns:**
+None
+
+#### `after_request(self, request: "Request", status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> None`
+
+**Description:**
+Called after the request is processed, but before the final response is sent to the client. You may alter the `status_code`, `response_body`, or `extra_headers` if needed.
+
+**Parameters:**
+
+* `request` (Request): The `Request` object representing the HTTP request.
+* `status_code` (int): The HTTP status code of the response.
+* `response_body` (Any): The body of the response, which could be a string, bytes, or other formats.
+* `extra_headers` (List[Tuple[str, str]]): A list of additional headers to be included in the response.
+
+**Returns:**
+None
+
 ## **Class: App**
 
 **Description:** ASGI application for handling HTTP requests and WebSocket connections in MicroPie.
-
-### Class Attributes
-
-* `SESSION_TIMEOUT` (int): Session timeout value (8 hours, expressed in seconds).
 
 ### Methods
 
@@ -282,6 +314,7 @@ An abstract base class for session backends in MicroPie. It provides an interfac
 **Parameters:**
 
 * `session_backend: Optional[SessionBackend]`
+* `middlewares: List[HttpMiddleware]`
 
 #### `request(self) -> Request`
 
