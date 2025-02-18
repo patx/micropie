@@ -33,7 +33,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import asyncio
 import contextvars
-import html
 import inspect
 import os
 import re
@@ -323,8 +322,6 @@ class App:
                         await self._send_response(send, status_code, response_body)
                         return
 
-                    if isinstance(param_value, str):
-                        param_value = html.escape(param_value)
                     func_args.append(param_value)
 
                 if handler_function == getattr(self, "index", None) and not func_args and path:
