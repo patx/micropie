@@ -35,7 +35,7 @@ For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use templates and/or `multipart` & `aiofiles` for handling file uploads, but this *is* optional:
+Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use the `_render_template` method and/or `multipart` & `aiofiles` for handling file uploads (the `_parse_multipart` method), but this *is* optional and you can use MicroPie without them. To install the optional dependencies use:
 ```bash
 pip install jinja2 multipart aiofiles
 ```
