@@ -155,9 +155,30 @@ class MyApp(App):
         return f"You have visited {self.request.session['visits']} times."
 ```
 
-You also can use the `SessionBackend` class to create your own session middleware. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
+You also can use the `SessionBackend` class to create your own session backend. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
 
-### **8. Deployment**
+### **8. Middleware**
+MicroPie allows you to create pluggable middleware to hook into the request lifecycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed.
+```python
+from MicroPie import App, HttpMiddleware
+
+class MiddlewareExample(HttpMiddleware):
+    async def before_request(self, request):
+        print("Hook before request")
+
+    async def after_request(self, request, status_code, response_body, extra_headers):
+        print("Hook after request")
+
+
+class Root(App):
+    async def index(self):
+        return "Hello, World!"
+
+app = Root()
+app.middlewares.append(MiddlewareExample())
+```
+
+### **9. Deployment**
 MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash
 uvicorn app:app --workers 4 --port 8000

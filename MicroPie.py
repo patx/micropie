@@ -248,6 +248,11 @@ class App:
                 if not handler_function:
                     request.path_params = path_parts
                     handler_function = getattr(self, "index", None)
+                    if not handler_function:
+                        status_code = 404
+                        response_body = "404 Not Found"
+                        await self._send_response(send, status_code, response_body)
+                        return
 
                 raw_query: bytes = scope.get("query_string", b"")
                 request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
