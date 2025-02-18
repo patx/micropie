@@ -237,6 +237,7 @@ class App:
                 path: str = scope["path"].lstrip("/")
                 path_parts: List[str] = path.split("/") if path else []
                 func_name: str = path_parts[0] if path_parts else "index"
+                func_args = path_parts[1:]  # Remaining parts become function arguments
                 if func_name.startswith("_"):
                     status_code = 404
                     response_body = "404 Not Found"
