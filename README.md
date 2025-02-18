@@ -193,8 +193,9 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 | Feature             | MicroPie      | Flask        | CherryPy   | Bottle       | Django       | FastAPI         |
 |---------------------|---------------|--------------|------------|--------------|--------------|-----------------|
 | **Ease of Use**     | Very Easy     | Easy         | Easy       | Easy         | Moderate     | Moderate        |
-| **Routing**         | Automatic     | Manual       | Manual     | Manual       | Django       | Manual          |
-| **Template Engine** | Jinja2 (Opt.) | Jinja2       | None       | SimpleTpl    | Django Templating | Jinja2     |
+| **Routing**         | Automatic     | Manual       | Manual     | Manual       | Views        | Manual          |
+| **Template Engine** | Jinja2 (Opt.) | Jinja2       | None       | SimpleTpl    | Django       | Jinja2          |
+| **Middleware**      | Yes           | Yes          | Yes        | Yes          | Yes          | Yes             |
 | **Session Handling**| Simple        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
 | **Async Support**   | Yes (ASGI)    | No (Quart)   | No         | No           | Limited      | Yes (ASGI)      |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
@@ -203,15 +204,15 @@ MicroPie allows you to take full advantage of these benefits while maintaining s
 
 Below is a performance comparison of various ASGI frameworks using their "Hello World" examples from each framework's website. Ran with `uvicorn` with 4 workers and `wrk -t12 -c1000 -d30s http://127.0.0.1:8000/`:
 
-| Framework   | Requests/sec | Transfer/sec | Avg Latency | Stdev Latency | Max Latency | Socket Errors (timeouts) |
-|------------|-------------|--------------|-------------|--------------|-------------|--------------------------|
-| **Muffin**      | 6508.80  | 0.90MB  | 132.62ms  | 69.71ms  | 2.00s | 533  |
-| **Starlette**   | 6340.40  | 0.86MB  | 130.72ms  | 75.55ms  | 2.00s | 621  |
-| **BlackSheep**  | 5928.99  | 0.98MB  | 142.48ms  | 73.61ms  | 1.99s | 526  |
-| **MicroPie**    | 5447.04  | 0.85MB  | 157.04ms  | 71.55ms  | 2.00s | 470  |
-| **Litestar**    | 5088.38  | 730.46KB  | 151.59ms  | 81.75ms  | 2.00s | 662  |
-| **Sanic**       | 4236.29  | 682.61KB  | 196.80ms  | 80.56ms  | 2.00s | 452  |
-| **FastAPI**     | 2352.53  | 326.23KB  | 396.95ms  | 112.41ms | 2.00s | 516  |
+| Framework       | Requests/sec | Transfer/sec | Avg Latency | Stdev Latency | Max Latency | Socket Errors (timeouts) |
+|-----------------|--------------|--------------|-------------|---------------|-------------|--------------------------|
+| **Muffin**      | 6508.80      | 0.90MB       | 132.62ms    | 69.71ms       | 2.00s       | 533                      |
+| **Starlette**   | 6340.40      | 0.86MB       | 130.72ms    | 75.55ms       | 2.00s       | 621                      |
+| **BlackSheep**  | 5928.99      | 0.98MB       | 142.48ms    | 73.61ms       | 1.99s       | 526                      |
+| **MicroPie**    | 5447.04      | 0.85MB       | 157.04ms    | 71.55ms       | 2.00s       | 470                      |
+| **Litestar**    | 5088.38      | 730.46KB     | 151.59ms    | 81.75ms       | 2.00s       | 662                      |
+| **Sanic**       | 4236.29      | 682.61KB     | 196.80ms    | 80.56ms       | 2.00s       | 452                      |
+| **FastAPI**     | 2352.53      | 326.23KB     | 396.95ms    | 112.41ms      | 2.00s       | 516                      |
 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!
