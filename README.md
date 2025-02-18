@@ -6,7 +6,7 @@
 
 ### **Key Features**
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
-- 🔒 **Sessions:** Simple session management using cookies.
+- 🔒 **Sessions:** Simple, plugable, session management using cookies.
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
 - ⚙️ **Middleware:** Support for custom request middleware enabling functions like rate limiting, authentication, logging, and more.
 - ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn and Daphne, enabling high concurrency.
