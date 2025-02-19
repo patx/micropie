@@ -6,7 +6,7 @@ class Root(App):
         return "Hello, World!"
 
 # Create the application
-app = Root()
+application = Root()
 
 # Wrap it with ServeStaticASGI for static file serving
 app = ServeStaticASGI(application, root="static")
