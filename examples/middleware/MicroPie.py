@@ -2,7 +2,7 @@
 MicroPie: A simple Python ultra-micro web framework with ASGI
 support. https://patx.github.io/micropie
 
-Copyright 2025 Harrison Erd
+Copyright Harrison Erd
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

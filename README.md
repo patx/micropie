@@ -328,6 +328,7 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 
 - `_parse_multipart(reader: asyncio.StreamReader, boundary: bytes)`
   - Parses multipart/form-data from the given reader using the specified boundary.
+  - *Requires*: `multipart` and `aiofiles`
 
 - `_send_response(send: Callable[[Dict[str, Any]], Awaitable[None]], status_code: int, body: Any, extra_headers: Optional[List[Tuple[str, str]]] = None) -> None`
   - Sends an HTTP response using the ASGI send callable.
@@ -337,17 +338,9 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 
 - `_render_template(name: str, **kwargs: Any) -> str`
   - Renders a template asynchronously using Jinja2.
+  - *Requires*: `jinja2`
 
 The `App` class is the main entry point for creating MicroPie applications. It implements the ASGI interface and handles HTTP requests.
-
-
-## Optional Dependencies
-
-MicroPie has optional features that require additional packages:
-
-- **Template Support**: Install `jinja2` for template rendering
-- **File Upload Support**: Install `multipart` and `aiofiles` for multipart form handling
-
 
 ## Response Formats
 
@@ -370,4 +363,4 @@ Custom error handling can be implemented through middleware.
 
 ----
 
-© Harrison Erd
+© 2025 Harrison Erd
