@@ -317,7 +317,7 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 - `__call__(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
   - ASGI callable interface for the server.
 
-- `_handle_asgi_http(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+- `_asgi_app_http(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
   - ASGI application entry point for handling HTTP requests.
 
 - `request(self) -> Request`
