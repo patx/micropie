@@ -254,10 +254,6 @@ MicroPie provides an abstraction for session backends, allowing you to define cu
 
 - `save(session_id: str, data: Dict[str, Any], timeout: int) -> None`
   - Abstract method to save session data.
-  - Args:
-    - `session_id`: The session ID.
-    - `data`: The session data.
-    - `timeout`: The session timeout in seconds.
 
 ### `InMemorySessionBackend` Class
 
@@ -321,8 +317,11 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 - `__call__(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
   - ASGI callable interface for the server.
 
-- `_asgi_app(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+- `_handle_asgi_http(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
   - ASGI application entry point for handling HTTP requests.
+
+- `request(self) -> Request`
+  - Accessor for the current request object. - Returns the current request from the context variable.
 
 - `_parse_cookies(cookie_header: str) -> Dict[str, str]`
   - Parses the Cookie header and returns a dictionary of cookie names and values.
@@ -338,6 +337,36 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 
 - `_render_template(name: str, **kwargs: Any) -> str`
   - Renders a template asynchronously using Jinja2.
+
+The `App` class is the main entry point for creating MicroPie applications. It implements the ASGI interface and handles HTTP requests.
+
+
+## Optional Dependencies
+
+MicroPie has optional features that require additional packages:
+
+- **Template Support**: Install `jinja2` for template rendering
+- **File Upload Support**: Install `multipart` and `aiofiles` for multipart form handling
+
+
+## Response Formats
+
+Handlers can return responses in the following formats:
+
+1. String or bytes
+2. Tuple of (status_code, body)
+3. Tuple of (status_code, body, headers)
+4. Async or sync generator for streaming responses
+
+## Error Handling
+
+MicroPie provides built-in error handling for common HTTP status codes:
+
+- `404 Not Found`: Automatically returned for non-existent routes
+- `400 Bad Request`: Returned for missing required parameters
+- `500 Internal Server Error`: Returned for unhandled exceptions
+
+Custom error handling can be implemented through middleware.
 
 ----
 
