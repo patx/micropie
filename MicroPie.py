@@ -170,10 +170,8 @@ class App:
             )
         else:
             self.env = None
-
         # Register the session backend: default to in-memory if none provided.
         self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
-
         # A list of middleware instances implementing the HttpMiddleware ABC.
         self.middlewares: List[HttpMiddleware] = []
 
@@ -200,7 +198,10 @@ class App:
             receive: The callable to receive ASGI events.
             send: The callable to send ASGI events.
         """
-        await self._asgi_app_http(scope, receive, send)
+        if scope["type"] == "http":
+            await self._asgi_app_http(scope, receive, send)
+        else:
+            pass  # Handle websockets and more in the future.
 
     async def _asgi_app_http(
         self,
@@ -216,175 +217,172 @@ class App:
             receive: The callable to receive ASGI events.
             send: The callable to send ASGI events.
         """
-        if scope["type"] == "http":
-            request: Request = Request(scope)
-            token = current_request.set(request)
-            status_code: int = 200
-            response_body: Any = ""
-            extra_headers: List[Tuple[str, str]] = []
-            try:
-                # Run before_request middleware
-                for mw in self.middlewares:
-                    result = await mw.before_request(request)
-                    if result is not None:
-                        status_code = result["status_code"]
-                        response_body = result["body"]
-                        extra_headers = result.get("headers", [])
-                        await self._send_response(send, status_code, response_body, extra_headers)
-                        return
-
-                method: str = scope["method"]
-                path: str = scope["path"].lstrip("/")
-                path_parts: List[str] = path.split("/") if path else []
-                func_name: str = path_parts[0] if path_parts else "index"
-                func_args = path_parts[1:]  # Remaining parts become function arguments
-                if func_name.startswith("_"):
-                    status_code = 404
-                    response_body = "404 Not Found"
-                    await self._send_response(send, status_code, response_body)
+        request: Request = Request(scope)
+        token = current_request.set(request)
+        status_code: int = 200
+        response_body: Any = ""
+        extra_headers: List[Tuple[str, str]] = []
+        try:
+            # Run before_request middleware
+            for mw in self.middlewares:
+                result = await mw.before_request(request)
+                if result is not None:
+                    status_code = result["status_code"]
+                    response_body = result["body"]
+                    extra_headers = result.get("headers", [])
+                    await self._send_response(send, status_code, response_body, extra_headers)
                     return
 
-                request.path_params = path_parts[1:] if len(path_parts) > 1 else []
-                handler_function: Optional[Callable[..., Any]] = getattr(self, func_name, None)
+            method: str = scope["method"]
+            path: str = scope["path"].lstrip("/")
+            path_parts: List[str] = path.split("/") if path else []
+            func_name: str = path_parts[0] if path_parts else "index"
+            func_args = path_parts[1:]  # Remaining parts become function arguments
+            if func_name.startswith("_"):
+                status_code = 404
+                response_body = "404 Not Found"
+                await self._send_response(send, status_code, response_body)
+                return
+
+            request.path_params = path_parts[1:] if len(path_parts) > 1 else []
+            handler_function: Optional[Callable[..., Any]] = getattr(self, func_name, None)
+            if not handler_function:
+                request.path_params = path_parts
+                handler_function = getattr(self, "index", None)
                 if not handler_function:
-                    request.path_params = path_parts
-                    handler_function = getattr(self, "index", None)
-                    if not handler_function:
-                        status_code = 404
-                        response_body = "404 Not Found"
-                        await self._send_response(send, status_code, response_body)
-                        return
-
-                raw_query: bytes = scope.get("query_string", b"")
-                request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
-
-                # Parse headers and cookies.
-                headers_dict: Dict[str, str] = {
-                    k.decode("latin-1").lower(): v.decode("latin-1")
-                    for k, v in scope.get("headers", [])
-                }
-                cookies: Dict[str, str] = self._parse_cookies(headers_dict.get("cookie", ""))
-
-                # Load session using the session backend.
-                session_cookie = "session_id"
-                session_id: Optional[str] = cookies.get(session_cookie)
-                if session_id:
-                    request.session = await self.session_backend.load(session_id)
-                else:
-                    request.session = {}
-
-                # Parse body parameters.
-                request.body_params = {}
-                request.files = {}
-                if method in ("POST", "PUT", "PATCH"):
-                    body_data = bytearray()
-                    while True:
-                        msg: Dict[str, Any] = await receive()
-                        if msg["type"] == "http.request":
-                            body_data += msg.get("body", b"")
-                            if not msg.get("more_body"):
-                                break
-                    content_type: str = headers_dict.get("content-type", "")
-                    if "multipart/form-data" in content_type:
-                        match = re.search(r"boundary=([^;]+)", content_type)
-                        if not match:
-                            status_code = 400
-                            response_body = "400 Bad Request: Boundary not found in Content-Type header"
-                            await self._send_response(send, status_code, response_body)
-                            return
-                        boundary: bytes = match.group(1).encode("utf-8")
-                        reader: asyncio.StreamReader = asyncio.StreamReader()
-                        reader.feed_data(body_data)
-                        reader.feed_eof()
-                        parse_res = await self._parse_multipart(reader, boundary)
-                        if isinstance(parse_res, tuple) and parse_res[0] == 500:
-                            status_code, response_body = parse_res
-                            await self._send_response(send, status_code, response_body)
-                            return
-                    else:
-                        body_str: str = body_data.decode("utf-8", "ignore")
-                        request.body_params = parse_qs(body_str)
-
-                # Build function arguments from path, query, body, files, and session values.
-                sig = inspect.signature(handler_function)
-                func_args: List[Any] = []
-                for param in sig.parameters.values():
-                    param_value = None
-                    if request.path_params:
-                        param_value = request.path_params.pop(0)
-                    elif param.name in request.query_params:
-                        param_value = request.query_params[param.name][0]
-                    elif param.name in request.body_params:
-                        param_value = request.body_params[param.name][0]
-                    elif param.name in request.files:
-                        param_value = request.files[param.name]
-                    elif param.name in request.session:
-                        param_value = request.session[param.name]
-                    elif param.default is not param.empty:
-                        param_value = param.default
-                    else:
-                        status_code = 400
-                        response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
-                        await self._send_response(send, status_code, response_body)
-                        return
-
-                    func_args.append(param_value)
-
-                if handler_function == getattr(self, "index", None) and not func_args and path:
                     status_code = 404
                     response_body = "404 Not Found"
                     await self._send_response(send, status_code, response_body)
                     return
 
-                try:
-                    if inspect.iscoroutinefunction(handler_function):
-                        result = await handler_function(*func_args)
-                    else:
-                        result = handler_function(*func_args)
-                except Exception as e:
-                    print(f"Error processing request: {e}")
-                    status_code = 500
-                    response_body = "500 Internal Server Error"
-                    await self._send_response(send, status_code, response_body)
-                    return
+            raw_query: bytes = scope.get("query_string", b"")
+            request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
 
-                if isinstance(result, tuple):
-                    if len(result) == 2:
-                        status_code, response_body = result
-                    elif len(result) == 3:
-                        status_code, response_body, extra_headers = result
-                    else:
-                        status_code = 500
-                        response_body = "500 Internal Server Error: Invalid response tuple"
+            # Parse headers and cookies.
+            headers_dict: Dict[str, str] = {
+                k.decode("latin-1").lower(): v.decode("latin-1")
+                for k, v in scope.get("headers", [])
+            }
+            cookies: Dict[str, str] = self._parse_cookies(headers_dict.get("cookie", ""))
+
+            # Load session using the session backend.
+            session_cookie = "session_id"
+            session_id: Optional[str] = cookies.get(session_cookie)
+            if session_id:
+                request.session = await self.session_backend.load(session_id)
+            else:
+                request.session = {}
+
+            # Parse body parameters.
+            request.body_params = {}
+            request.files = {}
+            if method in ("POST", "PUT", "PATCH"):
+                body_data = bytearray()
+                while True:
+                    msg: Dict[str, Any] = await receive()
+                    if msg["type"] == "http.request":
+                        body_data += msg.get("body", b"")
+                        if not msg.get("more_body"):
+                            break
+                content_type: str = headers_dict.get("content-type", "")
+                if "multipart/form-data" in content_type:
+                    match = re.search(r"boundary=([^;]+)", content_type)
+                    if not match:
+                        status_code = 400
+                        response_body = "400 Bad Request: Boundary not found in Content-Type header"
+                        await self._send_response(send, status_code, response_body)
+                        return
+                    boundary: bytes = match.group(1).encode("utf-8")
+                    reader: asyncio.StreamReader = asyncio.StreamReader()
+                    reader.feed_data(body_data)
+                    reader.feed_eof()
+                    parse_res = await self._parse_multipart(reader, boundary)
+                    if isinstance(parse_res, tuple) and parse_res[0] == 500:
+                        status_code, response_body = parse_res
                         await self._send_response(send, status_code, response_body)
                         return
                 else:
-                    # If result is not a tuple, treat it as body only
-                    response_body = result
+                    body_str: str = body_data.decode("utf-8", "ignore")
+                    request.body_params = parse_qs(body_str)
 
-                # Save session back if any session data exists.
-                if request.session:
-                    if not session_id:
-                        session_id = str(uuid.uuid4())
-                    await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
-                    extra_headers.append(
-                        ("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict")
-                    )
+            # Build function arguments from path, query, body, files, and session values.
+            sig = inspect.signature(handler_function)
+            func_args: List[Any] = []
+            for param in sig.parameters.values():
+                param_value = None
+                if request.path_params:
+                    param_value = request.path_params.pop(0)
+                elif param.name in request.query_params:
+                    param_value = request.query_params[param.name][0]
+                elif param.name in request.body_params:
+                    param_value = request.body_params[param.name][0]
+                elif param.name in request.files:
+                    param_value = request.files[param.name]
+                elif param.name in request.session:
+                    param_value = request.session[param.name]
+                elif param.default is not param.empty:
+                    param_value = param.default
+                else:
+                    status_code = 400
+                    response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
+                    await self._send_response(send, status_code, response_body)
+                    return
 
-                # Run after_request middleware
-                for mw in self.middlewares:
-                    result = await mw.after_request(request, status_code, response_body, extra_headers)
-                    if result is not None:
-                        status_code = result.get("status_code", status_code)
-                        response_body = result.get("body", response_body)
-                        extra_headers = result.get("headers", extra_headers)
+                func_args.append(param_value)
 
-                await self._send_response(send, status_code, response_body, extra_headers)
-            finally:
-                current_request.reset(token)
-        else:
-            # For non-HTTP scopes, do nothing or handle websockets, etc., as needed
-            pass
+            if handler_function == getattr(self, "index", None) and not func_args and path:
+                status_code = 404
+                response_body = "404 Not Found"
+                await self._send_response(send, status_code, response_body)
+                return
+
+            try:
+                if inspect.iscoroutinefunction(handler_function):
+                    result = await handler_function(*func_args)
+                else:
+                    result = handler_function(*func_args)
+            except Exception as e:
+                print(f"Error processing request: {e}")
+                status_code = 500
+                response_body = "500 Internal Server Error"
+                await self._send_response(send, status_code, response_body)
+                return
+
+            if isinstance(result, tuple):
+                if len(result) == 2:
+                    status_code, response_body = result
+                elif len(result) == 3:
+                    status_code, response_body, extra_headers = result
+                else:
+                    status_code = 500
+                    response_body = "500 Internal Server Error: Invalid response tuple"
+                    await self._send_response(send, status_code, response_body)
+                    return
+            else:
+                # If result is not a tuple, treat it as body only
+                response_body = result
+
+            # Save session back if any session data exists.
+            if request.session:
+                if not session_id:
+                    session_id = str(uuid.uuid4())
+                await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
+                extra_headers.append(
+                    ("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict")
+                )
+
+            # Run after_request middleware
+            for mw in self.middlewares:
+                result = await mw.after_request(request, status_code, response_body, extra_headers)
+                if result is not None:
+                    status_code = result.get("status_code", status_code)
+                    response_body = result.get("body", response_body)
+                    extra_headers = result.get("headers", extra_headers)
+
+            await self._send_response(send, status_code, response_body, extra_headers)
+        finally:
+            current_request.reset(token)
+
 
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
         """
