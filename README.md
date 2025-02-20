@@ -351,11 +351,10 @@ The `App` class is the main entry point for creating MicroPie applications. It i
 
 Handlers can return responses in the following formats:
 
-1. String or bytes
+1. String or bytes or JSON (`dict`)
 2. Tuple of (status_code, body)
 3. Tuple of (status_code, body, headers)
 4. Async or sync generator for streaming responses
-5. JSON (represented as a Python `dict`)
 
 ## Error Handling
 
