@@ -148,6 +148,7 @@ class Request:
         self.path_params: List[str] = []
         self.query_params: Dict[str, List[str]] = {}
         self.body_params: Dict[str, List[str]] = {}
+        self.get_json: Any = {}
         self.session: Dict[str, Any] = {}
         self.files: Dict[str, Any] = {}
 
@@ -202,7 +203,7 @@ class App:
         if scope["type"] == "http":
             await self._asgi_app_http(scope, receive, send)
         else:
-            pass  # Handle websockets and more in the future.
+            pass  # Handle websockets, lifespan and more in the future.
 
     async def _asgi_app_http(
         self,
@@ -275,8 +276,6 @@ class App:
                 request.session = {}
 
             # Parse body parameters.
-            request.body_params = {}
-            request.files = {}
             if method in ("POST", "PUT", "PATCH"):
                 body_data = bytearray()
                 while True:
@@ -290,12 +289,9 @@ class App:
                 if "application/json" in content_type:
                     try:
                         json_body = json.loads(body_data.decode("utf-8"))
-                        # In case JSON is an object, convert key/value pairs to lists for consistency
+                        request.get_json = json_body
                         if isinstance(json_body, dict):
                             request.body_params = {k: [str(v)] for k, v in json_body.items()}
-                        else:
-                            # For other JSON types, e.g., arrays, store under a single key
-                            request.body_params = {"data": [str(json_body)]}
                     except Exception as e:
                         status_code = 400
                         response_body = "400 Bad Request: Invalid JSON"
@@ -364,6 +360,7 @@ class App:
                 await self._send_response(send, status_code, response_body)
                 return
 
+            # Handle responses
             if isinstance(result, tuple):
                 if len(result) == 2:
                     status_code, response_body = result
@@ -378,7 +375,8 @@ class App:
                 # If result is not a tuple, treat it as body only
                 response_body = result
 
-            if isinstance(response_body, dict):
+            # Detect JSON responses
+            if isinstance(response_body, (dict, list)):
                 response_body = json.dumps(response_body)
                 extra_headers.append(
                     ("Content-Type", "application/json")

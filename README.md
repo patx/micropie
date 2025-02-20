@@ -31,7 +31,7 @@ pip install micropie[all]
 This will install MicroPie along with `jinja2` for template rendering and `multipart`/`aiofiles` for parsing multipart form data.
 
 ### **Minimal Setup**
-You can also install MicroPie without dependencies via pip:
+You can also install MicroPie without ANY dependencies via pip:
 ```bash
 pip install micropie
 ```
@@ -102,7 +102,8 @@ class MyApp(App):
         return f"Submitted by: {username}"
 ```
 
-By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`.
+By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
+
 ### **3. Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
 
@@ -197,7 +198,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - File uploads
 - Serving static content with ServeStatic
 - Session usage
-- Sessions
+- JSON Requests and Responses
 - Websockets with Socket.io
 - Async Streaming
 - Middleware
@@ -302,6 +303,7 @@ Represents an HTTP request in the MicroPie framework.
 - `path_params`: List of path parameters.
 - `query_params`: Dictionary of query parameters.
 - `body_params`: Dictionary of body parameters.
+- `get_json`: JSON request body object.
 - `session`: Dictionary of session data.
 - `files`: Dictionary of uploaded files.
 
@@ -351,7 +353,7 @@ The `App` class is the main entry point for creating MicroPie applications. It i
 
 Handlers can return responses in the following formats:
 
-1. String or bytes or JSON (`dict`)
+1. String or bytes or JSON
 2. Tuple of (status_code, body)
 3. Tuple of (status_code, body, headers)
 4. Async or sync generator for streaming responses
