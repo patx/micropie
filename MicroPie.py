@@ -378,6 +378,12 @@ class App:
                 # If result is not a tuple, treat it as body only
                 response_body = result
 
+            if isinstance(response_body, dict):
+                response_body = json.dumps(response_body)
+                extra_headers.append(
+                    ("Content-Type", "application/json")
+                )
+
             # Save session back if any session data exists.
             if request.session:
                 if not session_id:

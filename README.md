@@ -350,6 +350,7 @@ Handlers can return responses in the following formats:
 2. Tuple of (status_code, body)
 3. Tuple of (status_code, body, headers)
 4. Async or sync generator for streaming responses
+5. JSON (represented as a Python `dict`)
 
 ## Error Handling
 
