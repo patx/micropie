@@ -86,7 +86,7 @@ class MyApp(App):
 - [http://127.0.0.1:8000/hello/Alice](http://127.0.0.1:8000/hello/Alice) returns a `500 Internal Server Error` because it is expecting [http://127.0.0.1:8000/hello?name=Alice](http://127.0.0.1:8000/hello?name=Alice), which returns `Hello Alice!`
 
 ### **2. Flexible HTTP POST Request Handling**
-MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw POST data:
+MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw/JSON POST data:
 ```python
 class MyApp(App):
     async def submit_default_values(self, username="Anonymous"):
