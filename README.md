@@ -24,13 +24,18 @@
 ## **Installing MicroPie**
 
 ### **Installation**
-Install MicroPie via pip:
+Install MicroPie with all optional dependencies via pip:
 ```bash
-pip install micropie
+pip install micropie[all]
 ```
 This will install MicroPie along with `jinja2` for template rendering and `multipart`/`aiofiles` for parsing multipart form data.
 
 ### **Minimal Setup**
+You can also install MicroPie without dependencies via pip:
+```bash
+pip install micropie
+```
+
 For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)

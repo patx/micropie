@@ -50,8 +50,8 @@ except ImportError:
     JINJA_INSTALLED = False
 
 try:
-    from multipart import PushMultipartParser, MultipartSegment
     import aiofiles, aiofiles.os
+    from multipart import PushMultipartParser, MultipartSegment
     MULTIPART_INSTALLED = True
 except ImportError:
     MULTIPART_INSTALLED = False
