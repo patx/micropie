@@ -34,6 +34,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import asyncio
 import contextvars
 import inspect
+import json
 import os
 import re
 import time
@@ -285,7 +286,24 @@ class App:
                         if not msg.get("more_body"):
                             break
                 content_type: str = headers_dict.get("content-type", "")
-                if "multipart/form-data" in content_type:
+                # JSON parsing logic
+                if ("application/json" in content_type or
+                    ("application/x-www-form-urlencoded" in content_type and body_data.lstrip().startswith(b"{")) or
+                    (not content_type and body_data.lstrip().startswith(b"{"))):
+                    try:
+                        json_body = json.loads(body_data.decode("utf-8"))
+                        # In case JSON is an object, convert key/value pairs to lists for consistency
+                        if isinstance(json_body, dict):
+                            request.body_params = {k: [str(v)] for k, v in json_body.items()}
+                        else:
+                            # For other JSON types, e.g., arrays, store under a single key
+                            request.body_params = {"data": [str(json_body)]}
+                    except Exception as e:
+                        status_code = 400
+                        response_body = "400 Bad Request: Invalid JSON"
+                        await self._send_response(send, status_code, response_body)
+                        return
+                elif "multipart/form-data" in content_type:
                     match = re.search(r"boundary=([^;]+)", content_type)
                     if not match:
                         status_code = 400

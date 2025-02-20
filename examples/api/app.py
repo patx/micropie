@@ -1,39 +1,59 @@
-from pickledb import AsyncPickleDB
 from MicroPie import App
+from pickledb import AsyncPickleDB
 import orjson
-import uvicorn
+from uuid import uuid4
 
-DB_NAME = input('Enter database name: ')
-db = AsyncPickleDB(DB_NAME)
-
-
-class Root(App):
-
-    async def set(self, key, value):
-        await db.aset(key, value)
-        return orjson.dumps({key: value})
-
-    async def get(self, key):
-        value = await db.aget(key)
-        return orjson.dumps({key: value})
-
-    async def remove(self, key):
-        await db.aremove(key)
-        return orjson.dumps({'action': 'removed'})
-
-    async def purge(self):
-        await db.apurge()
-        return orjson.dumps({'action': 'purge'})
-
-    async def all(self):
-        return orjson.dumps(await db.aall())
-
-    async def save(self):
-        await db.asave()
-        return orjson.dumps({'action': 'save'})
+db = AsyncPickleDB('pastes.db')
 
 
-app = Root()
+class PasteApp(App):
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=5272)
+    async def paste(self, pid: str = None):
+        if self.request.method == "POST":
+            # Get content from JSON or form, depending on the Content-Type
+            content = self.request.body_params.get('content')[0]
+            pid = str(uuid4())
+            await db.aset(pid, content)
+            return orjson.dumps({
+                "status": "success",
+                "action": "post",
+                "paste_id": pid,
+                "content": content
+            })
+
+        elif self.request.method == "DELETE":
+            await db.aremove(pid)
+            return orjson.dumps({
+                "status": "success",
+                "action": "delete",
+                "paste_id": pid
+            })
+
+        elif self.request.method == "GET":
+            if pid:
+                paste = await db.aget(pid)
+                if paste is None:
+                    return 404, orjson.dumps({
+                        "status": "fail",
+                        "error": "Paste not found"
+                    })
+                return orjson.dumps({
+                    "status": "success",
+                    "action": "get",
+                    "paste_id": pid,
+                    "content": paste
+                })
+
+            all_keys = await db.aall()
+            all_pastes = [{
+                "paste_id": key,
+                "content": await db.aget(key)
+            } for key in all_keys]
+            return 302, orjson.dumps({
+                "status": "success",
+                "action": "get all",
+                "pastes": all_pastes
+            })
+
+
+app = PasteApp()
