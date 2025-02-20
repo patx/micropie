@@ -287,9 +287,7 @@ class App:
                             break
                 content_type: str = headers_dict.get("content-type", "")
                 # JSON parsing logic
-                if ("application/json" in content_type or
-                    ("application/x-www-form-urlencoded" in content_type and body_data.lstrip().startswith(b"{")) or
-                    (not content_type and body_data.lstrip().startswith(b"{"))):
+                if "application/json" in content_type:
                     try:
                         json_body = json.loads(body_data.decode("utf-8"))
                         # In case JSON is an object, convert key/value pairs to lists for consistency
