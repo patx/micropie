@@ -10,7 +10,7 @@
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
 - ⚙️ **Middleware:** Support for custom request middleware enabling functions like rate limiting, authentication, logging, and more.
 - ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn and Daphne, enabling high concurrency.
-- 🛠️ **Lightweight Design:** Minimal dependencies for faster development and deployment.
+- 🛠️ **Lightweight Design:** Only optional dependencies for flexibility and faster development/deployment.
 - ⚡ **Blazing Fast:** Check out how MicroPie compares to other popular ASGI frameworks below!
 
 ### **Useful Links**
@@ -132,7 +132,7 @@ class MyApp(App):
 ```
 
 ### **5. Static File Serving**
-Here again, like Websockets, MiroPie does not have a built in static file method. While MicroPie does not natively support static files, if you need them, you can easily integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
+Here again, like Websockets, MicroPie does not have a built in static file method. While MicroPie does not natively support static files, if you need them, you can easily integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
 
 
 ### **6. Streaming Responses**
