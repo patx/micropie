@@ -510,14 +510,6 @@ class App:
         """
         if extra_headers is None:
             extra_headers = []
-        status_map: Dict[int, str] = {
-            200: "200 OK",
-            206: "206 Partial Content",
-            302: "302 Found",
-            403: "403 Forbidden",
-            404: "404 Not Found",
-            500: "500 Internal Server Error",
-        }
         sanitized_headers: List[Tuple[str, str]] = []
         for k, v in extra_headers:
             if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
