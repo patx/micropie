@@ -3,8 +3,8 @@ import requests
 import os
 
 # GitHub OAuth settings
-CLIENT_ID = "Ov23liP7LoMlJcoiCcDB"
-CLIENT_SECRET = "12220bafe659e8f5738064bd6e506368dd358aa7"
+CLIENT_ID = "your client id"
+CLIENT_SECRET = "your client secret"
 REDIRECT_URI = "http://0.0.0.0:8000/callback"
 
 GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
