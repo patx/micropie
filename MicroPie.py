@@ -62,11 +62,15 @@ except ImportError:
 # -----------------------------
 SESSION_TIMEOUT: int = 8 * 3600  # Default 8 hours
 
-
 class SessionBackend(ABC):
     @abstractmethod
     async def load(self, session_id: str) -> Dict[str, Any]:
-        """Load session data given a session ID."""
+        """
+        Load session data given a session ID.
+
+        Args:
+            session_id: str
+        """
         pass
 
     @abstractmethod
@@ -80,7 +84,6 @@ class SessionBackend(ABC):
             timeout: int (in seconds)
         """
         pass
-
 
 class InMemorySessionBackend(SessionBackend):
     def __init__(self):
@@ -130,9 +133,9 @@ class HttpMiddleware(ABC):
         pass
 
 
-# -----------------
+# -----------------------------
 # Request Object
-# -----------------
+# -----------------------------
 current_request: contextvars.ContextVar[Any] = contextvars.ContextVar("current_request")
 
 class Request:
@@ -140,6 +143,7 @@ class Request:
     def __init__(self, scope: Dict[str, Any]) -> None:
         """
         Initialize a new Request instance.
+
         Args:
             scope: The ASGI scope dictionary for the request.
         """
@@ -157,9 +161,9 @@ class Request:
         }
 
 
-# -----------------
+# -----------------------------
 # Application Base
-# -----------------
+# -----------------------------
 class App:
     """
     ASGI application for handling HTTP requests in MicroPie.
@@ -176,17 +180,15 @@ class App:
             )
         else:
             self.env = None
-        # Register the session backend: default to in-memory if none provided.
         self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
-        # A list of middleware instances implementing the HttpMiddleware ABC.
         self.middlewares: List[HttpMiddleware] = []
 
     @property
     def request(self) -> Request:
         """
         Retrieve the current request from the context variable.
-        Returns:
-            The current Request instance.
+
+        Returns: The current Request instance.
         """
         return current_request.get()
 
@@ -390,7 +392,6 @@ class App:
         finally:
             current_request.reset(token)
 
-
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
         """
         Parse the Cookie header and return a dictionary of cookie names and values.
@@ -426,11 +427,7 @@ class App:
                 fields in the multipart request.
 
         Returns:
-            tuple[dict, dict]: A tuple containing:
-                - form_data (dict): A dictionary of form field names and
-                    their corresponding values.
-                - files (dict): A dictionary mapping field names to
-                    file metadata.
+            tuple[dict, dict]: A tuple containing form_data & files.
         """
         if not MULTIPART_INSTALLED:
             print("For multipart form data support install 'multipart' and 'aiofiles'.")
