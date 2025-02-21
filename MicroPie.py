@@ -431,14 +431,7 @@ class App:
                 - form_data (dict): A dictionary of form field names and
                     their corresponding values.
                 - files (dict): A dictionary mapping field names to
-                    file metadata, including:
-                        - "filename": The original filename of the uploaded file.
-                        - "content_type": The MIME type of the file.
-                        - "saved_path": The file path where the uploaded file was stored.
-
-        Raises:
-            RuntimeError: If the required 'multipart' and 'aiofiles'
-                          packages are not installed.
+                    file metadata.
         """
         if not MULTIPART_INSTALLED:
             print("For multipart form data support install 'multipart' and 'aiofiles'.")
@@ -446,17 +439,17 @@ class App:
             return
 
         with PushMultipartParser(boundary) as parser:
-            form_data = {}
-            files = {}
-            current_field_name = None
-            current_filename = None
-            current_content_type = None
-            current_file = None
-            form_value = ""
-            upload_directory = "uploads"
+            form_data: dict = {}
+            files: dict = {}
+            current_field_name: Optional[str] = None
+            current_filename: Optional[str] = None
+            current_content_type: Optional[str] = None
+            current_file: Optional[aiofiles.threadpool.binary.AsyncBufferedIOBase]= None
+            form_value: str = ""
+            upload_directory: str = "uploads"
             await aiofiles.os.makedirs(upload_directory, exist_ok=True)
             while not parser.closed:
-                chunk = await reader.read(65536)
+                chunk: bytes = await reader.read(65536)
                 if not chunk:
                     break
                 for result in parser.parse(chunk):
@@ -470,9 +463,9 @@ class App:
                                 current_content_type = value
 
                         if current_filename:
-                            safe_filename = f"{uuid.uuid4()}_{current_filename}"
+                            safe_filename: str = f"{uuid.uuid4()}_{current_filename}"
                             safe_filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", safe_filename)
-                            file_path = os.path.join(upload_directory, safe_filename)
+                            file_path: str = os.path.join(upload_directory, safe_filename)
                             current_file = await aiofiles.open(file_path, "wb")
                         else:
                             form_data[current_field_name] = ""
