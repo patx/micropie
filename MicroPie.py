@@ -151,6 +151,10 @@ class Request:
         self.get_json: Any = {}
         self.session: Dict[str, Any] = {}
         self.files: Dict[str, Any] = {}
+        self.headers: Dict[str, str] = {
+            k.decode("latin-1").lower(): v.decode("latin-1")
+            for k, v in scope.get("headers", [])
+        }
 
 
 # -----------------
@@ -260,12 +264,8 @@ class App:
             raw_query: bytes = scope.get("query_string", b"")
             request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
 
-            # Parse headers and cookies.
-            headers_dict: Dict[str, str] = {
-                k.decode("latin-1").lower(): v.decode("latin-1")
-                for k, v in scope.get("headers", [])
-            }
-            cookies: Dict[str, str] = self._parse_cookies(headers_dict.get("cookie", ""))
+            # Parse cookies.
+            cookies: Dict[str, str] = self._parse_cookies(request.headers.get("cookie", ""))
 
             # Load session using the session backend.
             session_cookie = "session_id"
@@ -284,7 +284,7 @@ class App:
                         body_data += msg.get("body", b"")
                         if not msg.get("more_body"):
                             break
-                content_type: str = headers_dict.get("content-type", "")
+                content_type: str = request.headers.get("content-type", "")
                 # JSON parsing logic
                 if "application/json" in content_type:
                     try:
@@ -426,6 +426,8 @@ class App:
     async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes):
         """
         Parse multipart/form-data from the given reader using the specified boundary.
+        This improved implementation minimizes memory usage by accumulating form field data in lists
+        and by writing file chunks directly to disk.
 
         Args:
             reader: An asyncio.StreamReader containing the multipart data.
@@ -443,21 +445,29 @@ class App:
             current_filename: Optional[str] = None
             current_content_type: Optional[str] = None
             current_file: Optional[Any] = None
-            form_value: str = ""
+            # Use a list to accumulate form field parts to avoid expensive string concatenation.
+            current_field_parts: List[str] = []
             upload_directory: str = "uploads"
             await aiofiles.os.makedirs(upload_directory, exist_ok=True)
+            # Loop until the parser signals it is closed.
             while not parser.closed:
                 try:
                     chunk: bytes = await reader.read(65536)
+                    # If there is no more data, break out of loop.
+                    if not chunk:
+                        break
+                    # Let the event loop run other tasks.
+                    await asyncio.sleep(0)
                 except Exception as e:
                     print(f"Error reading multipart data: {e}")
                     return 500, "500 Internal Server Error"
                 for result in parser.parse(chunk):
                     if isinstance(result, MultipartSegment):
+                        # Start a new part.
                         current_field_name = result.name
                         current_filename = result.filename
                         current_content_type = None
-                        form_value = ""
+                        current_field_parts = []
                         for header, value in result.headerlist:
                             if header.lower() == "content-type":
                                 current_content_type = value
@@ -473,8 +483,10 @@ class App:
                         if current_file:
                             await current_file.write(result)
                         else:
-                            form_value += result.decode("utf-8", "ignore")
+                            # Append data parts for form fields.
+                            current_field_parts.append(result.decode("utf-8", "ignore"))
                     else:
+                        # End of a part.
                         if current_file:
                             await current_file.close()
                             current_file = None
@@ -486,11 +498,15 @@ class App:
                                 }
                         else:
                             if current_field_name:
-                                self.request.body_params[current_field_name].append(form_value)
+                                # Join the accumulated parts to form the final field value.
+                                self.request.body_params[current_field_name].append("".join(current_field_parts))
                         current_field_name = None
                         current_filename = None
                         current_content_type = None
-                        form_value = ""
+                        current_field_parts = []
+            # Final check in case parser did not close correctly.
+            if current_file:
+                await current_file.close()
 
     async def _send_response(
         self,

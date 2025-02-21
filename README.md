@@ -306,6 +306,7 @@ Represents an HTTP request in the MicroPie framework.
 - `get_json`: JSON request body object.
 - `session`: Dictionary of session data.
 - `files`: Dictionary of uploaded files.
+- `headers`: Dictionary of headers.
 
 ## Application Base
 

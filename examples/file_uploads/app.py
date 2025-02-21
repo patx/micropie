@@ -1,40 +1,49 @@
-from MicroPie import App
+"""
+This file demonstrates how to use a middleware to check file upload sizes
+before the request body is processed by the multipart parser.
+"""
+
+from MicroPie import App, HttpMiddleware
+
+MAX_UPLOAD_SIZE = 1 * 1024 * 1024  # 1MB
+
+class MaxUploadSizeMiddleware(HttpMiddleware):
+    async def before_request(self, request):
+        # Check if we're dealing with a POST, PUT, or PATCH request
+        if request.scope["method"] in ("POST", "PUT", "PATCH"):
+            content_length = request.headers.get("content-length")
+            if int(content_length) > MAX_UPLOAD_SIZE:
+                return {
+                    "status_code": 413,
+                    "body": "413 Payload Too Large: Uploaded file exceeds size limit."
+                }
+        # If the check passes, return None to continue processing.
+        return None
+
+    async def after_request(self, request, status_code, response_body, extra_headers):
+        return None
 
 
 class FileUploadApp(App):
-
     async def index(self):
         """Serves an HTML form for file uploads."""
         return """<html>
-            <head><title>File Upload</title></head>
-            <body>
-                <h2>Upload a File</h2>
-                <form action="/upload" method="post" enctype="multipart/form-data">
-                    <input type="file" name="file"><br><br>
-                    <input type="submit" value="Upload">
-                </form>
-            </body>
-        </html>"""
+<head><title>File Upload</title></head>
+<body>
+    <h2>Upload a File</h2>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file"><br><br>
+        <input type="submit" value="Upload">
+    </form>
+</body>
+</html>"""
 
     async def upload(self, file):
-        # Check for streaming-based attributes:
-        if (isinstance(file, dict)
-                and "filename" in file
-                and "saved_path" in file):
-            filename = file["filename"]
-            saved_path = file["saved_path"]
+        filename = file["filename"]
+        saved_path = file["saved_path"]
+        return f"File '{filename}' uploaded successfully, saved to: {saved_path}!"
 
-            # Optionally, rename the file or do further (like file size or type) checks.
-            # For instance, you might want to store an original name in your DB or process the file.
-            return f"File '{filename}' uploaded successfully, saved to: {saved_path}!"
 
-        # If file data is missing or doesn't match expected structure, return an error.
-        return 400, "No file uploaded."
-
-# Run the ASGI app
+# Instantiate the app and add the middleware.
 app = FileUploadApp()
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
-
+app.middlewares.insert(0, MaxUploadSizeMiddleware())
