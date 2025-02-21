@@ -244,6 +244,7 @@ Below is a performance comparison of various ASGI frameworks using their "Hello 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!
 - File issues or feature requests [here](https://github.com/patx/micropie/issues).
+- Security issues that should not be public, email `harrisonerd [at] gmail.com`.
 
 # **API Documentation**
 
