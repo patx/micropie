@@ -239,7 +239,6 @@ class App:
                     await self._send_response(send, status_code, response_body, extra_headers)
                     return
 
-            method: str = scope["method"]
             path: str = scope["path"].lstrip("/")
             path_parts: List[str] = path.split("/") if path else []
             func_name: str = path_parts[0] if path_parts else "index"
@@ -272,7 +271,7 @@ class App:
                 request.session = {}
 
             # Parse body parameters.
-            if method in ("POST", "PUT", "PATCH"):
+            if request.method in ("POST", "PUT", "PATCH"):
                 body_data = bytearray()
                 while True:
                     msg: Dict[str, Any] = await receive()
