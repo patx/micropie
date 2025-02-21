@@ -11,16 +11,10 @@ readme = "README.md"
 authors = [{ name = "Harrison Erd", email = "harrisonerd@gmail.com" }]
 license = {file = "LICENSE"}
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Environment :: Web Environment",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
-    "Operating System :: OS Independent",
-    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
-    "Topic :: Internet :: WWW/HTTP",
     "Framework :: AsyncIO",
+    "Environment :: Web Environment",
+    "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
-    "Typing :: Typed"
 ]
 
 [project.optional-dependencies]
