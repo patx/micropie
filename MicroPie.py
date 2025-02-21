@@ -265,15 +265,20 @@ class App:
             if request.method in ("POST", "PUT", "PATCH"):
                 body_data = bytearray()
                 while True:
-                    msg = await receive()
+                    msg: Dict[str, Any] = await receive()
                     body_data += msg.get("body", b"")
                     if not msg.get("more_body"):
                         break
                 content_type = request.headers.get("content-type", "")
                 if "application/json" in content_type:
-                    request.get_json = json.loads(body_data.decode("utf-8"))
-                    if isinstance(request.get_json, dict):
-                        request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
+                    try:
+                        request.get_json = json.loads(body_data.decode("utf-8"))
+                        if isinstance(request.get_json, dict):
+                            request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
+                    except:
+                        print(f"Request error: {e}")
+                        await self._send_response(send, 400, "400 Bad Request: Bad JSON")
+                        return
                 elif "multipart/form-data" in content_type:
                     if boundary := re.search(r"boundary=([^;]+)", content_type):
                         reader = asyncio.StreamReader()
@@ -315,7 +320,12 @@ class App:
                 return
 
             # Execute handler
-            result = await handler(*func_args) if inspect.iscoroutinefunction(handler) else handler(*func_args)
+            try:
+                result = await handler(*func_args) if inspect.iscoroutinefunction(handler) else handler(*func_args)
+            except Exception as e:
+                print(f"Request error: {e}")
+                await self._send_response(send, 500, "500 Internal Server Error")
+                return
 
             # Normalize response
             if isinstance(result, tuple):
@@ -345,9 +355,6 @@ class App:
 
             await self._send_response(send, status_code, response_body, extra_headers)
 
-        except Exception as e:
-            print(f"Request error: {e}")
-            await self._send_response(send, 500, "500 Internal Server Error")
         finally:
             current_request.reset(token)
 
@@ -528,8 +535,7 @@ class App:
         """
         if not JINJA_INSTALLED:
             print("To use the `_render_template` method install 'jinja2'.")
-            await self._send_response(send, 500, "500 Internal Server Error")
-            return
+            return 500, "500 Internal Server Error"
         assert self.env is not None
         template = await asyncio.to_thread(self.env.get_template, name)
         return await template.render_async(**kwargs)
