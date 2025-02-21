@@ -285,10 +285,10 @@ MicroPie allows you to create pluggable middleware to hook into the request life
 
 #### Methods
 
-- `before_request(request: "Request") -> None`
+- `before_request(request: Request) -> None`
   - Abstract method called before the request is processed.
 
-- `after_request(request: "Request", status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> None`
+- `after_request(request: Request, status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> None`
   - Abstract method called after the request is processed but before the final response is sent to the client.
 
 ## Request Object

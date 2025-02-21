@@ -103,37 +103,6 @@ class InMemorySessionBackend(SessionBackend):
 
 
 # -----------------------------
-# Middleware Abstraction
-# -----------------------------
-class HttpMiddleware(ABC):
-    """
-    Pluggable middleware class that allows hooking into the request lifecycle.
-    """
-
-    @abstractmethod
-    async def before_request(self, request: "Request") -> None:
-        """
-        Called before the request is processed.
-        """
-        pass
-
-    @abstractmethod
-    async def after_request(
-        self,
-        request: "Request",
-        status_code: int,
-        response_body: Any,
-        extra_headers: List[Tuple[str, str]]
-    ) -> None:
-        """
-        Called after the request is processed, but before the final response
-        is sent to the client. You may alter the status_code, response_body,
-        or extra_headers if needed.
-        """
-        pass
-
-
-# -----------------------------
 # Request Object
 # -----------------------------
 current_request: contextvars.ContextVar[Any] = contextvars.ContextVar("current_request")
@@ -156,9 +125,40 @@ class Request:
         self.session: Dict[str, Any] = {}
         self.files: Dict[str, Any] = {}
         self.headers: Dict[str, str] = {
-            k.decode("latin-1").lower(): v.decode("latin-1")
+            k.decode("utf-8", errors="replace").lower(): v.decode("utf-8", errors="replace")
             for k, v in scope.get("headers", [])
         }
+
+
+# -----------------------------
+# Middleware Abstraction
+# -----------------------------
+class HttpMiddleware(ABC):
+    """
+    Pluggable middleware class that allows hooking into the request lifecycle.
+    """
+
+    @abstractmethod
+    async def before_request(self, request: Request) -> None:
+        """
+        Called before the request is processed.
+        """
+        pass
+
+    @abstractmethod
+    async def after_request(
+        self,
+        request: Request,
+        status_code: int,
+        response_body: Any,
+        extra_headers: List[Tuple[str, str]]
+    ) -> None:
+        """
+        Called after the request is processed, but before the final response
+        is sent to the client. You may alter the status_code, response_body,
+        or extra_headers if needed.
+        """
+        pass
 
 
 # -----------------------------
