@@ -245,9 +245,7 @@ class App:
             func_name: str = path_parts[0] if path_parts else "index"
             func_args = path_parts[1:]  # Remaining parts become function arguments
             if func_name.startswith("_"):
-                status_code = 404
-                response_body = "404 Not Found"
-                await self._send_response(send, status_code, response_body)
+                await self._send_response(send, 404, "404 Not Found")
                 return
 
             request.path_params = path_parts[1:] if len(path_parts) > 1 else []
@@ -256,9 +254,7 @@ class App:
                 request.path_params = path_parts
                 handler_function = getattr(self, "index", None)
                 if not handler_function:
-                    status_code = 404
-                    response_body = "404 Not Found"
-                    await self._send_response(send, status_code, response_body)
+                    await self._send_response(send, 404, "404 Not Found")
                     return
 
             raw_query: bytes = scope.get("query_string", b"")
@@ -308,11 +304,7 @@ class App:
                     reader: asyncio.StreamReader = asyncio.StreamReader()
                     reader.feed_data(body_data)
                     reader.feed_eof()
-                    parse_res = await self._parse_multipart(reader, boundary)
-                    if isinstance(parse_res, tuple) and parse_res[0] == 500:
-                        status_code, response_body = parse_res
-                        await self._send_response(send, status_code, response_body)
-                        return
+                    request.body_params, request.files = await self._parse_multipart(reader, boundary)
                 else:
                     body_str: str = body_data.decode("utf-8", "ignore")
                     request.body_params = parse_qs(body_str)
@@ -343,9 +335,7 @@ class App:
                 func_args.append(param_value)
 
             if handler_function == getattr(self, "index", None) and not func_args and path:
-                status_code = 404
-                response_body = "404 Not Found"
-                await self._send_response(send, status_code, response_body)
+                await self._send_response(send, 404, "404 Not Found")
                 return
 
             try:
@@ -355,9 +345,7 @@ class App:
                     result = handler_function(*func_args)
             except Exception as e:
                 print(f"Error processing request: {e}")
-                status_code = 500
-                response_body = "500 Internal Server Error"
-                await self._send_response(send, status_code, response_body)
+                await self._send_response(send, 500, "500 Internal Server Error")
                 return
 
             # Handle responses
@@ -425,88 +413,86 @@ class App:
 
     async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes):
         """
-        Parse multipart/form-data from the given reader using the specified boundary.
-        This improved implementation minimizes memory usage by accumulating form field data in lists
-        and by writing file chunks directly to disk.
+        Asynchronously parses a multipart form-data request.
+
+        This method processes incoming multipart form-data, handling
+        both text fields and file uploads. It reads data from the provided
+        asyncio stream reader and extracts form values and files,
+        saving uploaded files to a designated directory.
 
         Args:
-            reader: An asyncio.StreamReader containing the multipart data.
-            boundary: The boundary bytes extracted from the Content-Type header.
+            reader (asyncio.StreamReader): The stream reader from which
+                to read the multipart data.
+            boundary (bytes): The boundary string used to separate form
+                fields in the multipart request.
 
         Returns:
-            None or a (status_code, error_message) tuple on error.
+            tuple[dict, dict]: A tuple containing:
+                - form_data (dict): A dictionary of form field names and
+                    their corresponding values.
+                - files (dict): A dictionary mapping field names to
+                    file metadata, including:
+                        - "filename": The original filename of the uploaded file.
+                        - "content_type": The MIME type of the file.
+                        - "saved_path": The file path where the uploaded file was stored.
+
+        Raises:
+            RuntimeError: If the required 'multipart' and 'aiofiles'
+                          packages are not installed.
         """
         if not MULTIPART_INSTALLED:
             print("For multipart form data support install 'multipart' and 'aiofiles'.")
-            return 500, "500 Internal Server Error"
+            await self._send_response(send, 500, "500 Internal Server Error")
+            return
 
         with PushMultipartParser(boundary) as parser:
-            current_field_name: Optional[str] = None
-            current_filename: Optional[str] = None
-            current_content_type: Optional[str] = None
-            current_file: Optional[Any] = None
-            # Use a list to accumulate form field parts to avoid expensive string concatenation.
-            current_field_parts: List[str] = []
-            upload_directory: str = "uploads"
+            form_data = {}
+            files = {}
+            current_field_name = None
+            current_filename = None
+            current_content_type = None
+            current_file = None
+            form_value = ""
+            upload_directory = "uploads"
             await aiofiles.os.makedirs(upload_directory, exist_ok=True)
-            # Loop until the parser signals it is closed.
             while not parser.closed:
-                try:
-                    chunk: bytes = await reader.read(65536)
-                    # If there is no more data, break out of loop.
-                    if not chunk:
-                        break
-                    # Let the event loop run other tasks.
-                    await asyncio.sleep(0)
-                except Exception as e:
-                    print(f"Error reading multipart data: {e}")
-                    return 500, "500 Internal Server Error"
+                chunk = await reader.read(65536)
+                if not chunk:
+                    break
                 for result in parser.parse(chunk):
                     if isinstance(result, MultipartSegment):
-                        # Start a new part.
                         current_field_name = result.name
                         current_filename = result.filename
                         current_content_type = None
-                        current_field_parts = []
+                        form_value = ""
                         for header, value in result.headerlist:
                             if header.lower() == "content-type":
                                 current_content_type = value
+
                         if current_filename:
-                            safe_filename: str = f"{uuid.uuid4()}_{current_filename}"
+                            safe_filename = f"{uuid.uuid4()}_{current_filename}"
                             safe_filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", safe_filename)
-                            file_path: str = os.path.join(upload_directory, safe_filename)
+                            file_path = os.path.join(upload_directory, safe_filename)
                             current_file = await aiofiles.open(file_path, "wb")
                         else:
-                            if current_field_name not in self.request.body_params:
-                                self.request.body_params[current_field_name] = []
+                            form_data[current_field_name] = ""
                     elif result:
                         if current_file:
                             await current_file.write(result)
                         else:
-                            # Append data parts for form fields.
-                            current_field_parts.append(result.decode("utf-8", "ignore"))
+                            form_value += result.decode("utf-8", "ignore")
                     else:
-                        # End of a part.
                         if current_file:
                             await current_file.close()
                             current_file = None
-                            if current_field_name:
-                                self.request.files[current_field_name] = {
-                                    "filename": current_filename,
-                                    "content_type": current_content_type or "application/octet-stream",
-                                    "saved_path": os.path.join(upload_directory, safe_filename),
-                                }
+                            files[current_field_name] = {
+                                "filename": current_filename,
+                                "content_type": current_content_type or "application/octet-stream",
+                                "saved_path": os.path.join(upload_directory, safe_filename),
+                            }
                         else:
-                            if current_field_name:
-                                # Join the accumulated parts to form the final field value.
-                                self.request.body_params[current_field_name].append("".join(current_field_parts))
-                        current_field_name = None
-                        current_filename = None
-                        current_content_type = None
-                        current_field_parts = []
-            # Final check in case parser did not close correctly.
-            if current_file:
-                await current_file.close()
+                            form_data[current_field_name] = form_value
+            return form_data, files
 
     async def _send_response(
         self,
@@ -594,7 +580,8 @@ class App:
         """
         if not JINJA_INSTALLED:
             print("To use the `_render_template` method install 'jinja2'.")
-            return 500, "500 Internal Server Error"
+            await self._send_response(send, 500, "500 Internal Server Error")
+            return
         assert self.env is not None
         template = await asyncio.to_thread(self.env.get_template, name)
         return await template.render_async(**kwargs)

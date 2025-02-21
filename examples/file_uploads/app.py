@@ -5,7 +5,7 @@ before the request body is processed by the multipart parser.
 
 from MicroPie import App, HttpMiddleware
 
-MAX_UPLOAD_SIZE = 1 * 1024 * 1024  # 1MB
+MAX_UPLOAD_SIZE = 10000 * 1024 * 1024  # 1MB
 
 class MaxUploadSizeMiddleware(HttpMiddleware):
     async def before_request(self, request):
