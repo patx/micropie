@@ -4,7 +4,8 @@ from MicroPie import App
 class Root(App):
 
     async def index(self):
-        return 'Hello ASGI World!'
+        data = self.path_params[0]
+        return 'Hello ASGI World! {data}'
 
     async def greet(self,first_name='World', last_name=None):
         if last_name:

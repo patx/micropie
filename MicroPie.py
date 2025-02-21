@@ -231,87 +231,63 @@ class App:
         response_body: Any = ""
         extra_headers: List[Tuple[str, str]] = []
         try:
-            # Run before_request middleware
+            # Middleware: before request
             for mw in self.middlewares:
-                result = await mw.before_request(request)
-                if result is not None:
-                    status_code = result["status_code"]
-                    response_body = result["body"]
-                    extra_headers = result.get("headers", [])
+                if result := await mw.before_request(request):
+                    status_code, response_body, extra_headers = (
+                        result["status_code"],
+                        result["body"],
+                        result.get("headers", []),
+                    )
                     await self._send_response(send, status_code, response_body, extra_headers)
                     return
 
+            # Parse path and find handler
             path: str = scope["path"].lstrip("/")
-            path_parts: List[str] = path.split("/") if path else []
-            func_name: str = path_parts[0] if path_parts else "index"
-            func_args = path_parts[1:]  # Remaining parts become function arguments
+            parts: List[str] = path.split("/") if path else []
+            func_name: str = parts[0] if parts else "index"
             if func_name.startswith("_"):
                 await self._send_response(send, 404, "404 Not Found")
                 return
 
-            request.path_params = path_parts[1:] if len(path_parts) > 1 else []
-            handler_function: Optional[Callable[..., Any]] = getattr(self, func_name, None)
-            if not handler_function:
-                request.path_params = path_parts
-                handler_function = getattr(self, "index", None)
-                if not handler_function:
-                    await self._send_response(send, 404, "404 Not Found")
-                    return
+            request.path_params = parts[1:] if len(parts) > 1 else []
+            handler = getattr(self, func_name, None) or getattr(self, "index", None)
+            if not handler:
+                await self._send_response(send, 404, "404 Not Found")
+                return
 
-            raw_query: bytes = scope.get("query_string", b"")
-            request.query_params = parse_qs(raw_query.decode("utf-8", "ignore"))
-
-            # Parse cookies.
-            cookies: Dict[str, str] = self._parse_cookies(request.headers.get("cookie", ""))
-
-            # Load session using the session backend.
-            session_cookie = "session_id"
-            session_id: Optional[str] = cookies.get(session_cookie)
-            if session_id:
-                request.session = await self.session_backend.load(session_id)
-            else:
-                request.session = {}
+            # Parse request details
+            request.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
+            cookies = self._parse_cookies(request.headers.get("cookie", ""))
+            request.session = await self.session_backend.load(cookies.get("session_id", "")) or {}
 
             # Parse body parameters.
             if request.method in ("POST", "PUT", "PATCH"):
                 body_data = bytearray()
                 while True:
-                    msg: Dict[str, Any] = await receive()
-                    if msg["type"] == "http.request":
-                        body_data += msg.get("body", b"")
-                        if not msg.get("more_body"):
-                            break
-                content_type: str = request.headers.get("content-type", "")
-                # JSON parsing logic
+                    msg = await receive()
+                    body_data += msg.get("body", b"")
+                    if not msg.get("more_body"):
+                        break
+                content_type = request.headers.get("content-type", "")
                 if "application/json" in content_type:
-                    try:
-                        json_body = json.loads(body_data.decode("utf-8"))
-                        request.get_json = json_body
-                        if isinstance(json_body, dict):
-                            request.body_params = {k: [str(v)] for k, v in json_body.items()}
-                    except Exception as e:
-                        status_code = 400
-                        response_body = "400 Bad Request: Invalid JSON"
-                        await self._send_response(send, status_code, response_body)
-                        return
+                    request.get_json = json.loads(body_data.decode("utf-8"))
+                    if isinstance(request.get_json, dict):
+                        request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
                 elif "multipart/form-data" in content_type:
-                    match = re.search(r"boundary=([^;]+)", content_type)
-                    if not match:
-                        status_code = 400
-                        response_body = "400 Bad Request: Boundary not found in Content-Type header"
-                        await self._send_response(send, status_code, response_body)
+                    if boundary := re.search(r"boundary=([^;]+)", content_type):
+                        reader = asyncio.StreamReader()
+                        reader.feed_data(body_data)
+                        reader.feed_eof()
+                        request.body_params, request.files = await self._parse_multipart(reader, boundary.group(1).encode("utf-8"))
+                    else:
+                        await self._send_response(send, 400, "400 Bad Request: Missing boundary")
                         return
-                    boundary: bytes = match.group(1).encode("utf-8")
-                    reader: asyncio.StreamReader = asyncio.StreamReader()
-                    reader.feed_data(body_data)
-                    reader.feed_eof()
-                    request.body_params, request.files = await self._parse_multipart(reader, boundary)
                 else:
-                    body_str: str = body_data.decode("utf-8", "ignore")
-                    request.body_params = parse_qs(body_str)
+                    request.body_params = parse_qs(body_data.decode("utf-8", "ignore"))
 
             # Build function arguments from path, query, body, files, and session values.
-            sig = inspect.signature(handler_function)
+            sig = inspect.signature(handler)
             func_args: List[Any] = []
             for param in sig.parameters.values():
                 param_value = None
@@ -332,63 +308,46 @@ class App:
                     response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
                     await self._send_response(send, status_code, response_body)
                     return
-
                 func_args.append(param_value)
 
-            if handler_function == getattr(self, "index", None) and not func_args and path:
+            if handler == getattr(self, "index", None) and not func_args and path:
                 await self._send_response(send, 404, "404 Not Found")
                 return
 
-            try:
-                if inspect.iscoroutinefunction(handler_function):
-                    result = await handler_function(*func_args)
-                else:
-                    result = handler_function(*func_args)
-            except Exception as e:
-                print(f"Error processing request: {e}")
-                await self._send_response(send, 500, "500 Internal Server Error")
-                return
+            # Execute handler
+            result = await handler(*func_args) if inspect.iscoroutinefunction(handler) else handler(*func_args)
 
-            # Handle responses
+            # Normalize response
             if isinstance(result, tuple):
-                if len(result) == 2:
-                    status_code, response_body = result
-                elif len(result) == 3:
-                    status_code, response_body, extra_headers = result
-                else:
-                    status_code = 500
-                    response_body = "500 Internal Server Error: Invalid response tuple"
-                    await self._send_response(send, status_code, response_body)
-                    return
+                status_code, response_body = result[0], result[1]
+                extra_headers = result[2] if len(result) > 2 else []
             else:
-                # If result is not a tuple, treat it as body only
                 response_body = result
-
-            # Detect JSON responses
             if isinstance(response_body, (dict, list)):
                 response_body = json.dumps(response_body)
-                extra_headers.append(
-                    ("Content-Type", "application/json")
-                )
+                extra_headers.append(("Content-Type", "application/json"))
 
-            # Save session back if any session data exists.
+            # Save session
             if request.session:
-                if not session_id:
-                    session_id = str(uuid.uuid4())
+                session_id = cookies.get("session_id") or str(uuid.uuid4())
                 await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
-                extra_headers.append(
-                    ("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict")
-                )
+                if not cookies.get("session_id"):
+                    extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"))
 
-            # Run after_request middleware
+            # Middleware: after request
             for mw in self.middlewares:
-                result = await mw.after_request(request, status_code, response_body, extra_headers)
-                if result is not None:
-                    status_code = result.get("status_code", status_code)
-                    response_body = result.get("body", response_body)
-                    extra_headers = result.get("headers", extra_headers)
+                if result := await mw.after_request(request, status_code, response_body, extra_headers):
+                    status_code, response_body, extra_headers = (
+                        result.get("status_code", status_code),
+                        result.get("body", response_body),
+                        result.get("headers", extra_headers)
+                    )
 
             await self._send_response(send, status_code, response_body, extra_headers)
+
+        except Exception as e:
+            print(f"Request error: {e}")
+            await self._send_response(send, 500, "500 Internal Server Error")
         finally:
             current_request.reset(token)
 
@@ -440,7 +399,7 @@ class App:
             current_field_name: Optional[str] = None
             current_filename: Optional[str] = None
             current_content_type: Optional[str] = None
-            current_file: Optional[aiofiles.threadpool.binary.AsyncBufferedIOBase]= None
+            current_file: Optional[aiofiles.threadpool.binary.AsyncBufferedIOBase] = None
             form_value: str = ""
             upload_directory: str = "uploads"
             await aiofiles.os.makedirs(upload_directory, exist_ok=True)
