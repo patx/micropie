@@ -342,7 +342,7 @@ class App:
                 session_id = cookies.get("session_id") or str(uuid.uuid4())
                 await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
                 if not cookies.get("session_id"):
-                    extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; HttpOnly; SameSite=Strict"))
+                    extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; SameSite=Lax"))
 
             # Middleware: after request
             for mw in self.middlewares:
@@ -510,17 +510,21 @@ class App:
             "more_body": False
         })
 
-    def _redirect(self, location: str) -> Tuple[int, str]:
+    def _redirect(self, location: str, extra_headers: list = None) -> Tuple[int, str]:
         """
         Generate an HTTP redirect response.
 
         Args:
             location: The URL to redirect to.
+            extra_headers: Optional list of tuples (header_name, header_value) to include in the response.
 
         Returns:
-            A tuple containing the HTTP status code and the HTML body.
+            A tuple containing the HTTP status code, the HTML body, and headers list.
         """
-        return 302, "", [("Location", location)]
+        headers = [("Location", location)]
+        if extra_headers:
+            headers.extend(extra_headers)
+        return 302, "", headers
 
     async def _render_template(self, name: str, **kwargs: Any) -> str:
         """
