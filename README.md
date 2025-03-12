@@ -20,6 +20,7 @@
 - **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
 - **File Issue/Request**: [github.com/patx/micropie/issues](https://github.com/patx/micropie/issues)
 - **Example Applications**: [github.com/patx/micropie/tree/main/examples](https://github.com/patx/micropie/tree/main/examples)
+- **Introduction Lightning Talk**: [Introduction to MicroPie on YouTube](https://www.youtube.com/watch?v=BzkscTLy1So)
 
 ## **Installing MicroPie**
 
