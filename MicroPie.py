@@ -462,7 +462,8 @@ class App:
         Args:
             send: The ASGI send callable.
             status_code: The HTTP status code for the response.
-            body: The response body, which may be a string, bytes, or generator.
+            body: The response body, which may be a string, bytes, or
+            generator.
             extra_headers: Optional list of extra header tuples.
         """
         if extra_headers is None:

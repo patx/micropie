@@ -84,7 +84,7 @@ class MyApp(App):
         return f"Hello, {name}!"
 
     async def hello(self):
-        name = self.request.query_params.get("name", None)[0]
+        name = self.request.query_params.get("name", [None])[0]
         return f"Hello {name}!"
 ```
 **Access:**
