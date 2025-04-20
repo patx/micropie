@@ -430,11 +430,12 @@ class App:
                             file_path: str = os.path.join(upload_directory, safe_filename)
                             current_file = await aiofiles.open(file_path, "wb")
                         else:
-                            form_data[current_field_name] = ""
+                            form_data[current_field_name] = []
                     elif result:
                         if current_file:
                             await current_file.write(result)
                         else:
+                            if current_file:
                             form_value += result.decode("utf-8", "ignore")
                     else:
                         if current_file:
@@ -446,7 +447,12 @@ class App:
                                 "saved_path": os.path.join(upload_directory, safe_filename),
                             }
                         else:
-                            form_data[current_field_name] = form_value
+                            if form_value:
+                                form_data[current_field_name].append(form_value)
+                            form_value = ""
+            # Ensure any remaining form_value is appended
+            if current_field_name and form_value and not current_filename:
+                form_data[current_field_name].append(form_value)
             return form_data, files
 
     async def _send_response(
