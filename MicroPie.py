@@ -436,7 +436,7 @@ class App:
                             await current_file.write(result)
                         else:
                             if current_file:
-                            form_value += result.decode("utf-8", "ignore")
+                                form_value += result.decode("utf-8", "ignore")
                     else:
                         if current_file:
                             await current_file.close()
