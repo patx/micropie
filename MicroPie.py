@@ -342,7 +342,7 @@ class App:
                 session_id = cookies.get("session_id") or str(uuid.uuid4())
                 await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
                 if not cookies.get("session_id"):
-                    extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; SameSite=Lax"))
+                    extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"))
 
             # Middleware: after request
             for mw in self.middlewares:
