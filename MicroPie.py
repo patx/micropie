@@ -366,7 +366,7 @@ class App:
                 elif param.name in request.query_params:
                     param_value = request.query_params[param.name][0]
                 elif param.name in request.body_params:
-                    param_value = request.body_params[param.name][0]
+                    param_value = request.body_params[param.name][0] if request.body_params[param.name] else ""
                 elif param.name in request.files:
                     param_value = request.files[param.name]
                 elif param.name in request.session:
@@ -451,13 +451,16 @@ class App:
             await websocket.close(1008)  # Policy violation
             return
 
+        closed = False
         try:
             await handler(websocket, parts[1:] if len(parts) > 1 else [])
         except Exception as e:
             print(f"WebSocket error: {e}")
             await websocket.close(1011)  # Internal error
+            closed = True
         finally:
-            await websocket.close()
+            if not closed:
+                await websocket.close()
 
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
         """
@@ -531,13 +534,14 @@ class App:
                             file_path: str = os.path.join(upload_directory, safe_filename)
                             current_file = await aiofiles.open(file_path, "wb")
                         else:
-                            form_data[current_field_name] = []
+                            # Initialize form_data with an empty list for text fields
+                            if current_field_name not in form_data:
+                                form_data[current_field_name] = []
                     elif result:
                         if current_file:
                             await current_file.write(result)
                         else:
-                            if current_file:
-                                form_value += result.decode("utf-8", "ignore")
+                            form_value += result.decode("utf-8", "ignore")
                     else:
                         if current_file:
                             await current_file.close()
@@ -548,12 +552,13 @@ class App:
                                 "saved_path": os.path.join(upload_directory, safe_filename),
                             }
                         else:
-                            if form_value:
-                                form_data[current_field_name].append(form_value)
+                            # Append form_value to form_data, even if empty
+                            if current_field_name:
+                                form_data[current_field_name].append(form_value or "")
                             form_value = ""
             # Ensure any remaining form_value is appended
-            if current_field_name and form_value and not current_filename:
-                form_data[current_field_name].append(form_value)
+            if current_field_name and not current_filename:
+                form_data[current_field_name].append(form_value or "")
             return form_data, files
 
     async def _send_response(

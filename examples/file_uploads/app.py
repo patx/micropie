@@ -33,7 +33,10 @@ class FileUploadApp(App):
 <body>
     <h2>Upload a File</h2>
     <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file"><br><br>
+        <label for="username">Username:</label><br>
+        <input type="text" id="username" name="username" required><br><br>
+        <label for="file">Select File:</label><br>
+        <input type="file" id="file" name="file" required><br><br>
         <input type="submit" value="Upload">
     </form>
 </body>
@@ -42,7 +45,8 @@ class FileUploadApp(App):
     async def upload(self, file):
         filename = file["filename"]
         saved_path = file["saved_path"]
-        return f"File '{filename}' uploaded successfully, saved to: {saved_path}!"
+        username = self.request.body_params.get("username", ["Anonymous"])[0]
+        return f"File '{filename}' uploaded successfully by {username}, saved to: {saved_path}!"
 
 
 app = FileUploadApp()
