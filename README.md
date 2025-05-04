@@ -38,7 +38,7 @@ You can also install MicroPie without ANY dependencies via pip:
 pip install micropie
 ```
 
-For an ultra-minimalistic approach, download the standalone script:
+For the development version or an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
