@@ -131,69 +131,6 @@ class Request:
 
 
 # -----------------------------
-# WebSocket Object
-# -----------------------------
-class WebSocket:
-    """Represents a WebSocket connection in the MicroPie framework."""
-    def __init__(self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
-        """
-        Initialize a new WebSocket instance.
-
-        Args:
-            scope: The ASGI scope dictionary for the WebSocket connection.
-            receive: The callable to receive ASGI events.
-            send: The callable to send ASGI events.
-        """
-        self.scope = scope
-        self.receive = receive
-        self.send = send
-        self.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
-        self.headers = {
-            k.decode("utf-8", errors="replace").lower(): v.decode("utf-8", errors="replace")
-            for k, v in scope.get("headers", [])
-        }
-
-    async def accept(self) -> None:
-        """Accept the WebSocket connection."""
-        await self.send({
-            "type": "websocket.accept"
-        })
-
-    async def send_text(self, data: str) -> None:
-        """Send text data over the WebSocket."""
-        await self.send({
-            "type": "websocket.send",
-            "text": data
-        })
-
-    async def send_json(self, data: Any) -> None:
-        """Send JSON data over the WebSocket."""
-        await self.send({
-            "type": "websocket.send",
-            "text": json.dumps(data)
-        })
-
-    async def receive_text(self) -> str:
-        """Receive text data from the WebSocket."""
-        message = await self.receive()
-        if message["type"] == "websocket.disconnect":
-            raise ConnectionError("WebSocket disconnected")
-        return message.get("text", "")
-
-    async def receive_json(self) -> Any:
-        """Receive JSON data from the WebSocket."""
-        text = await self.receive_text()
-        return json.loads(text)
-
-    async def close(self, code: int = 1000) -> None:
-        """Close the WebSocket connection."""
-        await self.send({
-            "type": "websocket.close",
-            "code": code
-        })
-
-
-# -----------------------------
 # Middleware Abstraction
 # -----------------------------
 class HttpMiddleware(ABC):
@@ -229,7 +166,7 @@ class HttpMiddleware(ABC):
 # -----------------------------
 class App:
     """
-    ASGI application for handling HTTP and WebSocket requests in MicroPie.
+    ASGI application for handling HTTP requests in MicroPie.
     It supports pluggable session backends via the 'session_backend' attribute
     and pluggable middlewares via the 'middlewares' list.
     """
@@ -271,10 +208,8 @@ class App:
         """
         if scope["type"] == "http":
             await self._asgi_app_http(scope, receive, send)
-        elif scope["type"] == "websocket":
-            await self._handle_websocket(scope, receive, send)
         else:
-            pass  # Handle lifespan and other scope types in the future.
+            pass  # Handle websockets, lifespan and more in the future.
 
     async def _asgi_app_http(
         self,
@@ -340,7 +275,7 @@ class App:
                         request.get_json = json.loads(body_data.decode("utf-8"))
                         if isinstance(request.get_json, dict):
                             request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
-                    except Exception as e:
+                    except:
                         print(f"Request error: {e}")
                         await self._send_response(send, 400, "400 Bad Request: Bad JSON")
                         return
@@ -366,7 +301,7 @@ class App:
                 elif param.name in request.query_params:
                     param_value = request.query_params[param.name][0]
                 elif param.name in request.body_params:
-                    param_value = request.body_params[param.name][0] if request.body_params[param.name] else ""
+                    param_value = request.body_params[param.name][0]
                 elif param.name in request.files:
                     param_value = request.files[param.name]
                 elif param.name in request.session:
@@ -422,45 +357,6 @@ class App:
 
         finally:
             current_request.reset(token)
-
-    async def _handle_websocket(
-        self,
-        scope: Dict[str, Any],
-        receive: Callable[[], Awaitable[Dict[str, Any]]],
-        send: Callable[[Dict[str, Any]], Awaitable[None]]
-    ) -> None:
-        """
-        Handle WebSocket connections.
-
-        Args:
-            scope: The ASGI scope dictionary for the WebSocket connection.
-            receive: The callable to receive ASGI events.
-            send: The callable to send ASGI events.
-        """
-        websocket = WebSocket(scope, receive, send)
-        path: str = scope["path"].lstrip("/")
-        parts: List[str] = path.split("/") if path else []
-        func_name: str = parts[0] if parts else "ws_index"
-        if func_name.startswith("_"):
-            await websocket.close(1008)  # Policy violation
-            return
-
-        handler_name = f"ws_{func_name}"
-        handler = getattr(self, handler_name, None) or getattr(self, "ws_index", None)
-        if not handler:
-            await websocket.close(1008)  # Policy violation
-            return
-
-        closed = False
-        try:
-            await handler(websocket, parts[1:] if len(parts) > 1 else [])
-        except Exception as e:
-            print(f"WebSocket error: {e}")
-            await websocket.close(1011)  # Internal error
-            closed = True
-        finally:
-            if not closed:
-                await websocket.close()
 
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
         """
@@ -534,14 +430,13 @@ class App:
                             file_path: str = os.path.join(upload_directory, safe_filename)
                             current_file = await aiofiles.open(file_path, "wb")
                         else:
-                            # Initialize form_data with an empty list for text fields
-                            if current_field_name not in form_data:
-                                form_data[current_field_name] = []
+                            form_data[current_field_name] = []
                     elif result:
                         if current_file:
                             await current_file.write(result)
                         else:
-                            form_value += result.decode("utf-8", "ignore")
+                            if current_file:
+                                form_value += result.decode("utf-8", "ignore")
                     else:
                         if current_file:
                             await current_file.close()
@@ -552,13 +447,12 @@ class App:
                                 "saved_path": os.path.join(upload_directory, safe_filename),
                             }
                         else:
-                            # Append form_value to form_data, even if empty
-                            if current_field_name:
-                                form_data[current_field_name].append(form_value or "")
+                            if form_value:
+                                form_data[current_field_name].append(form_value)
                             form_value = ""
             # Ensure any remaining form_value is appended
-            if current_field_name and not current_filename:
-                form_data[current_field_name].append(form_value or "")
+            if current_field_name and form_value and not current_filename:
+                form_data[current_field_name].append(form_value)
             return form_data, files
 
     async def _send_response(
