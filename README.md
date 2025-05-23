@@ -46,7 +46,7 @@ Place it in your project directory, and you are good to go. Note that `jinja2` m
 pip install jinja2 multipart aiofiles
 ```
 
-By default MicroPie will use the `json` library from Python's standard library. If you need faster performance you can use `orjson`. MicroPie *will* use `orjson` *if installed* by default. If it is not installed, MicroPie will fallback to `json`. This means with or without `orjson` installed MicroPie will still handle JSON requests/responses the same. To install `orjson` to take advantage of it's performance use:
+By default MicroPie will use the `json` library from Python's standard library. If you need faster performance you can use `orjson`. MicroPie *will* use `orjson` *if installed* by default. If it is not installed, MicroPie will fallback to `json`. This means with or without `orjson` installed MicroPie will still handle JSON requests/responses the same. To install `orjson` and take advantage of it's performance, use:
 ```bash
 pip install orjson
 ```
