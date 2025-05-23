@@ -34,7 +34,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import asyncio
 import contextvars
 import inspect
-import json
 import os
 import re
 import time
@@ -42,6 +41,11 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs
+
+try:
+    import orjson as json  # Use `orjson` if installed as it is faster
+except ImportError:
+    import json
 
 try:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
