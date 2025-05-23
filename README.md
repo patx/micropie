@@ -29,7 +29,7 @@ Install MicroPie with all optional dependencies via pip:
 ```bash
 pip install micropie[all]
 ```
-This will install MicroPie along with `jinja2` for template rendering and `multipart`/`aiofiles` for parsing multipart form data.
+This will install MicroPie along with `jinja2` for template rendering, `orjson` for handling JSON requests/responses, and `multipart`/`aiofiles` for parsing multipart form data.
 
 ### **Minimal Setup**
 You can also install MicroPie without ANY dependencies via pip:
@@ -44,6 +44,11 @@ For an ultra-minimalistic approach, download the standalone script:
 Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use the `_render_template` method and/or `multipart` & `aiofiles` for handling file uploads (the `_parse_multipart` method), but this *is* optional and you can use MicroPie without them. To install the optional dependencies use:
 ```bash
 pip install jinja2 multipart aiofiles
+```
+
+By default MicroPie will use the `json` library from Python's standard library. If you need faster performance you can use `orjson`. MicroPie *will* use `orjson` *if installed* by default. If it is not installed, MicroPie will fallback to `json`. This means with or without `orjson` installed MicroPie will still handle JSON requests/responses the same. To install `orjson` to take advantage of it's performance use:
+```bash
+pip install orjson
 ```
 
 ### **Install an ASGI Web Server**
