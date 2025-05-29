@@ -1,28 +1,122 @@
+<!DOCTYPE html>
 <html>
 <head>
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-<script>
-var socket = io("http://localhost:8000");
-socket.on("connect", function() {
-    console.log("Connected to Socket.IO server");
-});
-socket.on("message", function(data) {
-    document.getElementById("output").innerHTML += data + "<br>";
-});
-function sendMessage() {
-    var message = document.getElementById("message").value;
-    socket.send(message);
-    document.getElementById("message").value = "";  // Clear input after sending
-}
-window.onbeforeunload = function() {
-    socket.disconnect();
-};
-</script>
+    <title>Socket.IO Chat</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #chat-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 400px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+        }
+        #user-list {
+            width: 200px;
+            float: right;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-left: 10px;
+        }
+        #message-form {
+            display: flex;
+            gap: 10px;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 5px;
+        }
+        #username-container {
+            margin-bottom: 10px;
+        }
+        .message {
+            margin: 5px 0;
+        }
+        .error {
+            color: red;
+        }
+    </style>
 </head>
-  <body>
-    <h1>Socket.IO Chat</h1>
-    <input type="text" id="message" placeholder="Type a message">
-    <button onclick="sendMessage()">Send</button>
-    <div id="output"></div>
-  </body>
+<body>
+    <div id="username-container">
+        <input type="text" id="username-input" placeholder="Enter your username">
+        <button onclick="setUsername()">Set Username</button>
+    </div>
+    <div id="user-list">
+        <h3>Connected Users</h3>
+        <ul id="users"></ul>
+    </div>
+    <div id="chat-container"></div>
+    <div id="message-form">
+        <input type="text" id="message-input" placeholder="Type a message...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('message', (data) => {
+            const chatContainer = document.getElementById('chat-container');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message';
+            messageElement.innerHTML = `<strong>${data.username}</strong> (${new Date(data.timestamp).toLocaleTimeString()}): ${data.message}`;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+
+        socket.on('user_list', (users) => {
+            const userList = document.getElementById('users');
+            userList.innerHTML = '';
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = user;
+                userList.appendChild(li);
+            });
+        });
+
+        socket.on('error', (data) => {
+            const chatContainer = document.getElementById('chat-container');
+            const errorElement = document.createElement('div');
+            errorElement.className = 'error';
+            errorElement.textContent = data.message;
+            chatContainer.appendChild(errorElement);
+        });
+
+        function setUsername() {
+            const usernameInput = document.getElementById('username-input');
+            const username = usernameInput.value.trim();
+            if (username) {
+                socket.emit('set_username', { username });
+                usernameInput.disabled = true;
+                document.querySelector('#username-container button').disabled = true;
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit('message', { message });
+                messageInput.value = '';
+            }
+        }
+
+        // Allow sending message with Enter key
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
 </html>

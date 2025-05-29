@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <!-- Import Google Fonts: Permanent Marker and Montserrat for the logo -->
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-bubble {
+            animation: fadeIn 0.3s ease-out;
+        }
+        /* Hide scrollbar but keep functionality */
+        #messages::-webkit-scrollbar, #user-list::-webkit-scrollbar {
+            display: none;
+        }
+        #messages, #user-list {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Mobile layout */
+        @media (max-width: 1023px) {
+            #chat-container {
+                min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+                margin-top: env(safe-area-inset-top);
+                margin-bottom: env(safe-area-inset-bottom);
+                border-radius: 0;
+            }
+            #chat-area {
+                padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+            }
+            #user-list {
+                max-height: 150px;
+                flex-shrink: 0;
+            }
+        }
+        /* Logo styling */
+        .app-name-vibe {
+            font-family: 'Permanent Marker', cursive;
+            font-size: 100px;
+            color: #2c3e50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .app-name-chat {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 50px;
+            font-weight: 700;
+            color: #2c3e50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-start pt-4 md:pt-8">
+    <!-- VibeChat logo at the top center with mixed fonts -->
+    <div class="w-full text-center mb-4 md:mb-6">
+        <h1 class="inline-flex items-baseline">
+            <span class="app-name-vibe">Vibechat</span>
+        </h1>
+    </div>
+
+    {% if is_index %}
+    <div id="create-channel-form" class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md m-4">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Create New Channel</h2>
+        <div id="error-create" class="text-red-500 text-sm mb-4"></div>
+        <input type="text" id="channel-name-create" placeholder="Channel name" class="w-full p-3 mb-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="password" id="channel-password" placeholder="Password (optional)" class="w-full p-3 mb-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button onclick="createChannel()" class="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 transition">Create Channel</button>
+    </div>
+    {% else %}
+    <div id="join-form" class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md m-4">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Join Channel: {{ channel }}</h2>
+        <div id="error-join" class="text-red-500 text-sm mb-4"></div>
+        <input type="text" id="username" placeholder="Your username" class="w-full p-3 mb-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="password" id="password" placeholder="Channel password (if required)" class="w-full p-3 mb-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button onclick="joinChannel()" class="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 transition">Join</button>
+    </div>
+    <div id="chat-container" style="display: none;" class="bg-white shadow-lg w-full flex flex-col lg:flex-row h-[calc(100vh-2rem)] md:rounded-2xl">
+        <div id="chat-area" class="flex-1 flex flex-col p-4 lg:p-6">
+            <div id="messages" class="flex-1 overflow-y-auto mb-4 space-y-2"></div>
+            <div id="input-container" class="flex items-center px-2">
+                <input type="text" id="message-input" placeholder="Type a message..." class="flex-1 p-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <button onclick="sendMessage()" class="ml-2 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition w-10 h-10 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="user-list" class="w-full lg:w-80 bg-gray-50 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-200 overflow-y-auto">
+            <h3 class="text-base font-semibold text-gray-800 mb-3">Connected Users</h3>
+            <div id="users" class="text-gray-600 text-sm"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        const socket = io();
+        let currentChannel = {% if channel %}'{{ channel }}'{% else %}null{% endif %};
+        let currentUsername = null;
+
+        // Pre-fill username input with stored username
+        const storedUsername = localStorage.getItem('chatUsername');
+        if (storedUsername && document.getElementById('username')) {
+            document.getElementById('username').value = storedUsername;
+        }
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('error', (data) => {
+            const errorDiv = document.getElementById(currentChannel ? 'error-join' : 'error-create');
+            errorDiv.textContent = data.message;
+            setTimeout(() => errorDiv.textContent = '', 3000);
+        });
+
+        socket.on('message', (data) => {
+            const messages = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            const isOwnMessage = currentUsername && data.username === currentUsername;
+            messageDiv.className = `message-bubble max-w-[80%] p-3 rounded-2xl ${isOwnMessage ? 'bg-blue-500 text-white ml-auto' : 'bg-gray-200 text-gray-800 mr-auto'}`;
+            messageDiv.innerHTML = `
+                <div class="text-sm">${data.username}: ${data.message}</div>
+                <div class="text-xs ${isOwnMessage ? 'text-blue-200' : 'text-gray-500'} mt-1">${new Date(data.timestamp).toLocaleTimeString()}</div>
+            `;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        });
+
+        socket.on('user_list', (users) => {
+            const usersDiv = document.getElementById('users');
+            if (users && Array.isArray(users)) {
+                usersDiv.innerHTML = users.length > 0 
+                    ? users.map(user => `<div class="py-1">${user}</div>`).join('')
+                    : '<div class="text-gray-500">No users connected</div>';
+            } else {
+                usersDiv.innerHTML = '<div class="text-gray-500">No users connected</div>';
+            }
+            console.log('Updated user list:', users);
+        });
+
+        socket.on('channel_created', (data) => {
+            window.location.href = `/channel/${encodeURIComponent(data.channel)}`;
+        });
+
+        socket.on('join_success', () => {
+            currentUsername = document.getElementById('username').value.trim();
+            localStorage.setItem('chatUsername', currentUsername);
+            document.getElementById('join-form').style.display = 'none';
+            document.getElementById('chat-container').style.display = 'flex';
+            console.log('Successfully joined channel:', currentChannel, 'as', currentUsername);
+        });
+
+        function createChannel() {
+            const channel = document.getElementById('channel-name-create').value.trim();
+            const password = document.getElementById('channel-password').value;
+            if (channel) {
+                socket.emit('create_channel', { channel, password });
+            } else {
+                const errorDiv = document.getElementById('error-create');
+                errorDiv.textContent = 'Channel name cannot be empty';
+                setTimeout(() => errorDiv.textContent = '', 3000);
+            }
+        }
+
+        function joinChannel() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            if (!username) {
+                const errorDiv = document.getElementById('error-join');
+                errorDiv.textContent = 'Username cannot be empty';
+                setTimeout(() => errorDiv.textContent = '', 3000);
+                return;
+            }
+            currentUsername = username; // Set username immediately for past messages
+            socket.emit('join_channel', { 
+                channel: currentChannel, 
+                username, 
+                password 
+            });
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            if (message && currentChannel) {
+                socket.emit('message', { channel: currentChannel, message });
+                messageInput.value = '';
+            }
+        }
+
+        // Allow sending message with Enter key
+        document.getElementById('message-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
