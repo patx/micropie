@@ -298,10 +298,18 @@ class App:
             # Build function arguments from path, query, body, files, and session values.
             sig = inspect.signature(handler)
             func_args: List[Any] = []
+            path_params_copy = request.path_params[:]  # Create a copy to avoid modifying original
             for param in sig.parameters.values():
+                if param.name == "self":  # Skip self parameter
+                    continue
+                if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                    # Pass all remaining path_params for *args
+                    func_args.extend(path_params_copy)
+                    path_params_copy = []  # Clear to prevent reuse
+                    continue  # Skip appending anything else
                 param_value = None
-                if request.path_params:
-                    param_value = request.path_params.pop(0)
+                if path_params_copy:
+                    param_value = path_params_copy.pop(0)
                 elif param.name in request.query_params:
                     param_value = request.query_params[param.name][0]
                 elif param.name in request.body_params:

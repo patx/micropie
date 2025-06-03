@@ -136,14 +136,6 @@ class Request:
 class WebSocket:
     """Represents a WebSocket connection in the MicroPie framework."""
     def __init__(self, scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
-        """
-        Initialize a new WebSocket instance.
-
-        Args:
-            scope: The ASGI scope dictionary for the WebSocket connection.
-            receive: The callable to receive ASGI events.
-            send: The callable to send ASGI events.
-        """
         self.scope = scope
         self.receive = receive
         self.send = send
@@ -152,46 +144,56 @@ class WebSocket:
             k.decode("utf-8", errors="replace").lower(): v.decode("utf-8", errors="replace")
             for k, v in scope.get("headers", [])
         }
+        self._closed = False
 
     async def accept(self) -> None:
-        """Accept the WebSocket connection."""
-        await self.send({
-            "type": "websocket.accept"
-        })
+        if not self._closed:
+            await self.send({
+                "type": "websocket.accept"
+            })
 
     async def send_text(self, data: str) -> None:
-        """Send text data over the WebSocket."""
-        await self.send({
-            "type": "websocket.send",
-            "text": data
-        })
+        if not self._closed:
+            await self.send({
+                "type": "websocket.send",
+                "text": data
+            })
 
     async def send_json(self, data: Any) -> None:
-        """Send JSON data over the WebSocket."""
-        await self.send({
-            "type": "websocket.send",
-            "text": json.dumps(data)
-        })
+        if not self._closed:
+            await self.send({
+                "type": "websocket.send",
+                "text": json.dumps(data)
+            })
 
     async def receive_text(self) -> str:
-        """Receive text data from the WebSocket."""
+        if self._closed:
+            raise ConnectionError("WebSocket already closed")
         message = await self.receive()
+        print(f"Raw WebSocket message: {message}")  # Debug raw message
         if message["type"] == "websocket.disconnect":
+            self._closed = True
             raise ConnectionError("WebSocket disconnected")
         return message.get("text", "")
 
     async def receive_json(self) -> Any:
-        """Receive JSON data from the WebSocket."""
         text = await self.receive_text()
-        return json.loads(text)
+        if not text.strip():
+            print("Received empty WebSocket message")
+            return None
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON received: {text}, error: {e}")
+            raise
 
     async def close(self, code: int = 1000) -> None:
-        """Close the WebSocket connection."""
-        await self.send({
-            "type": "websocket.close",
-            "code": code
-        })
-
+        if not self._closed:
+            await self.send({
+                "type": "websocket.close",
+                "code": code
+            })
+            self._closed = True
 
 # -----------------------------
 # Middleware Abstraction
