@@ -327,7 +327,7 @@ class App:
                     return
                 func_args.append(param_value)
 
-            if handler == getattr(self, "index", None) and not func_args and path:
+            if handler == getattr(self, "index", None) and not func_args and path and path != "index":
                 await self._send_response(send, 404, "404 Not Found")
                 return
 
