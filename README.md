@@ -109,6 +109,7 @@ class MyApp(App):
 ```
 
 By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
+You can use [middlware](https://github.com/patx/micropie#8-middleware) to add explicit routing when needed (often needed for complex APIs). See the [middleware router](https://github.com/patx/micropie/blob/main/examples/middleware/router.py) example.
 
 ### **3. Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
@@ -170,7 +171,7 @@ class MyApp(App):
 You also can use the `SessionBackend` class to create your own session backend. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
 
 ### **8. Middleware**
-MicroPie allows you to create pluggable middleware to hook into the request lifecycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed.
+MicroPie allows you to create pluggable middleware to hook into the request lifecycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
 ```python
 from MicroPie import App, HttpMiddleware
 
@@ -202,12 +203,12 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Template rendering
 - Custom HTTP request handling
 - File uploads
-- Serving static content with ServeStatic
+- Serving static content
 - Session usage
 - JSON Requests and Responses
-- Websockets with Socket.io
+- Socket.io Integration
 - Async Streaming
-- Middleware
+- Middleware, including rate limiting and explicit routing
 - Form handling and POST requests
 - And more
 
