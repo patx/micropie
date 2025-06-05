@@ -27,7 +27,7 @@
 ### **Installation**
 Install MicroPie with all optional dependencies via pip:
 ```bash
-pip install micropie[all]
+pip install micropie[standard]
 ```
 This will install MicroPie along with `jinja2` for template rendering, `orjson` for handling JSON requests/responses, and `multipart`/`aiofiles` for parsing multipart form data.
 
@@ -55,6 +55,10 @@ pip install orjson
 In order to test and deploy your apps you will need a ASGI web server like Uvicorn, Hypercorn or Daphne. Install `uvicorn` with:
 ```bash
 pip install uvicorn
+```
+You can also install MicroPie with `uvicorn` included using:
+```bash
+pip install micropie[all]
 ```
 
 ## **Getting Started**
@@ -109,7 +113,8 @@ class MyApp(App):
 ```
 
 By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
-You can use [middlware](https://github.com/patx/micropie#8-middleware) to add explicit routing when needed (often needed for complex APIs). See the [middleware router](https://github.com/patx/micropie/blob/main/examples/middleware/router.py) example.
+
+You can use [middlware](https://github.com/patx/micropie#8-middleware) to add explicit routing when needed. See the [middleware router](https://github.com/patx/micropie/blob/main/examples/middleware/router.py) example.
 
 ### **3. Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
