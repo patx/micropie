@@ -249,12 +249,18 @@ class App:
             # Parse path and find handler
             path: str = scope["path"].lstrip("/")
             parts: List[str] = path.split("/") if path else []
-            func_name: str = parts[0] if parts else "index"
-            if func_name.startswith("_"):
-                await self._send_response(send, 404, "404 Not Found")
-                return
+            # Check if request._route_handler has been set by middleware
+            if hasattr(request, "_route_handler"):
+                func_name: str = request._route_handler
+            else:
+                func_name: str = parts[0] if parts else "index"
+                if func_name.startswith("_"):
+                    await self._send_response(send, 404, "404 Not Found")
+                    return
 
-            request.path_params = parts[1:] if len(parts) > 1 else []
+            # Respect path_params set in middleware
+            if not request.path_params:
+                request.path_params = parts[1:] if len(parts) > 1 else []
             handler = getattr(self, func_name, None) or getattr(self, "index", None)
             if not handler:
                 await self._send_response(send, 404, "404 Not Found")
