@@ -1,44 +1,52 @@
-import os
-import re
-import aiofiles
-from MicroPie import App
+import os          # Used for file path handling and directory creation
+import aiofiles    # Asynchronous file I/O operations
+from MicroPie import App  # Import the base App class from MicroPie
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)  # Ensure directory exists
-MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
+# Ensure the "uploads" directory exists; create it if it doesn't
+os.makedirs("uploads", exist_ok=True)
 
 class Root(App):
+    """
+    This is the main application class that inherits from MicroPie's App.
+    It defines the HTTP routes and handles the logic for file uploading.
+    """
 
     async def index(self):
+        """
+        Serve a simple HTML form that lets the user choose a 
+        file and submit it via POST to /upload.
+        """
         return """<form action="/upload" method="post" enctype="multipart/form-data">
-            <label for="file">Choose a file:</label>
-            <input type="file" id="file" name="file" required>
+            <input type="file" name="file" required>
             <input type="submit" value="Upload">
-        </form>"""
+            </form>"""
 
     async def upload(self, file):
-        try:
-            filename = file["filename"]
-            # Sanitize filename
-            safe_filename = re.sub(r'[^\w\.-]', '_', os.path.basename(filename))
-            queue = file["content"]
-            total_bytes = 0
-            filepath = os.path.join(UPLOAD_DIR, safe_filename)
+        """
+        Handle the uploaded file from the client:
+        - Saves the file to disk in the "uploads" directory.
+        - Uses aiofiles to write the file asynchronously, in chunks.
+        
+        `file` is a dictionary with:
+            'filename': The original filename of the uploaded file.
+            'content_type': The MIME type of the file (defaults 
+                to application/octet-stream).
+            'content': An asyncio.Queue containing chunks of file data as 
+                bytes, with a None sentinel signaling the end of the stream.
+        """
 
-            async with aiofiles.open(filepath, "wb") as f:
-                while True:
-                    chunk = await queue.get()
-                    if chunk is None:
-                        break
-                    if total_bytes + len(chunk) > MAX_UPLOAD_SIZE:
-                        await aiofiles.os.remove(filepath)  # Clean up partial file
-                        return 400, "File exceeds maximum size of 100MB"
-                    await f.write(chunk)
-                    total_bytes += len(chunk)
+        # Construct a safe path to save the uploaded file
+        filepath = os.path.join("uploads", file["filename"])
+        
+        # Open the destination file asynchronously for writing
+        async with aiofiles.open(filepath, "wb") as f:
+            # Read and write the file in chunks
+            while chunk := await file["content"].get():
+                await f.write(chunk)
 
-            return 200, f"Uploaded {safe_filename} ({total_bytes} bytes) to {filepath}"
-        except Exception as e:
-            print(f"Upload error: {e}")
-            return 500, f"Failed to upload {filename}: {str(e)}"
+        # Return a confirmation response with the uploaded filename
+        return 200, f"Uploaded {file['filename']}"
 
+# Instantiate the app
 app = Root()
+
