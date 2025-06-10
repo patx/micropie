@@ -1,29 +1,11 @@
 import os
+import re
 import aiofiles
 from MicroPie import App
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)  # Ensure directory exists
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
-
-
-class MaxUploadSizeMiddleware(HttpMiddleware):
-    async def before_request(self, request):
-        # Check if we're dealing with a POST, PUT, or PATCH request
-        if request.method in ("POST", "PUT", "PATCH"):
-            content_length = request.headers.get("content-length")
-            # Make sure the file is not too large
-            if int(content_length) > MAX_UPLOAD_SIZE:
-                return {
-                    "status_code": 413,
-                    "body": "413 Payload Too Large: Uploaded file exceeds size limit."
-                }
-        # If the check passes, return None to continue processing.
-        return None
-
-    async def after_request(self, request, status_code, response_body, extra_headers):
-        return None
-
 
 class Root(App):
 
@@ -35,21 +17,28 @@ class Root(App):
         </form>"""
 
     async def upload(self, file):
-        filename = file["filename"]
-        queue = file["content"]
-        total_bytes = 0
-        filepath = os.path.join(UPLOAD_DIR, filename)
+        try:
+            filename = file["filename"]
+            # Sanitize filename
+            safe_filename = re.sub(r'[^\w\.-]', '_', os.path.basename(filename))
+            queue = file["content"]
+            total_bytes = 0
+            filepath = os.path.join(UPLOAD_DIR, safe_filename)
 
-        async with aiofiles.open(filepath, "wb") as f:
-            while True:
-                chunk = await queue.get()
-                if chunk is None:
-                    break
-                await f.write(chunk)
-                total_bytes += len(chunk)
+            async with aiofiles.open(filepath, "wb") as f:
+                while True:
+                    chunk = await queue.get()
+                    if chunk is None:
+                        break
+                    if total_bytes + len(chunk) > MAX_UPLOAD_SIZE:
+                        await aiofiles.os.remove(filepath)  # Clean up partial file
+                        return 400, "File exceeds maximum size of 100MB"
+                    await f.write(chunk)
+                    total_bytes += len(chunk)
 
-        return 200, f"Uploaded {filename} ({total_bytes} bytes) to {filepath}"
-
+            return 200, f"Uploaded {safe_filename} ({total_bytes} bytes) to {filepath}"
+        except Exception as e:
+            print(f"Upload error: {e}")
+            return 500, f"Failed to upload {filename}: {str(e)}"
 
 app = Root()
-

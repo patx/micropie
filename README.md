@@ -29,7 +29,7 @@ Install MicroPie with all optional dependencies via pip:
 ```bash
 pip install micropie[standard]
 ```
-This will install MicroPie along with `jinja2` for template rendering, and `multipart`/`aiofiles` for parsing multipart form data.
+This will install MicroPie along with `jinja2` for template rendering, and `multipart` for parsing multipart form data.
 
 If you would like to install **all** optional dependencies (everything from `standard` plus `orjson` and `uvicorn`) you can run:
 ```bash
@@ -46,9 +46,9 @@ For an ultra-minimalistic approach, download the standalone script:
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
-Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use the `_render_template` method and/or `multipart` & `aiofiles` for handling file uploads (the `_parse_multipart` method), but this *is* optional and you can use MicroPie without them. To install the optional dependencies use:
+Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use the `_render_template` method and/or `multipart` for handling file data (the `_parse_multipart` method), but this *is* optional and you can use MicroPie without them. To install the optional dependencies use:
 ```bash
-pip install jinja2 multipart aiofiles
+pip install jinja2 multipart
 ```
 
 By default MicroPie will use the `json` library from Python's standard library. If you need faster performance you can use `orjson`. MicroPie *will* use `orjson` *if installed* by default. If it is not installed, MicroPie will fallback to `json`. This means with or without `orjson` installed MicroPie will still handle JSON requests/responses the same. To install `orjson` and take advantage of it's performance, use:
@@ -312,7 +312,7 @@ Represents an HTTP request in the MicroPie framework.
 - `body_params`: Dictionary of body parameters.
 - `get_json`: JSON request body object.
 - `session`: Dictionary of session data.
-- `files`: Dictionary of uploaded files.
+- `files`: Dictionary of multipart data/streamed content.
 - `headers`: Dictionary of headers.
 
 ## Application Base
@@ -341,10 +341,14 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 - `_parse_cookies(cookie_header: str) -> Dict[str, str]`
   - Parses the Cookie header and returns a dictionary of cookie names and values.
 
-- `_parse_multipart(reader: asyncio.StreamReader, boundary: bytes)`
-  - Parses multipart/form-data from the given reader using the specified boundary.
-  - *Requires*: `multipart` and `aiofiles`
-
+- `_parse_multipart(reader: asyncio.StreamReader, boundary: bytes) -> Tuple[Dict[str, List[str]], Dict[str, Dict[str, Any]]]`
+  - Asynchronously parses multipart/form-data from the given reader using the specified boundary. Returns a tuple of two dictionaries: `form_data` (text fields as key-value pairs) and `files` (file fields with metadata). Each file entry in `files` contains:
+    - `filename`: The original filename of the uploaded file.
+    - `content_type`: The MIME type of the file (defaults to `application/octet-stream`).
+    - `content`: An `asyncio.Queue` containing chunks of file data as bytes, with a `None` sentinel signaling the end of the stream.
+  - Handlers can consume the file data by iterating over the queue (e.g., using `await queue.get()`).
+  - *Requires:* `multipart`
+  
 - `_send_response(send: Callable[[Dict[str, Any]], Awaitable[None]], status_code: int, body: Any, extra_headers: Optional[List[Tuple[str, str]]] = None) -> None`
   - Sends an HTTP response using the ASGI send callable.
 
