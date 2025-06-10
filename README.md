@@ -29,7 +29,12 @@ Install MicroPie with all optional dependencies via pip:
 ```bash
 pip install micropie[standard]
 ```
-This will install MicroPie along with `jinja2` for template rendering, `orjson` for handling JSON requests/responses, and `multipart`/`aiofiles` for parsing multipart form data.
+This will install MicroPie along with `jinja2` for template rendering, and `multipart`/`aiofiles` for parsing multipart form data.
+
+If you would like to install **all** optional dependencies (everything from `standard` plus `orjson` and `uvicorn` you can run:
+```bash
+pip install micropie[all]
+```
 
 ### **Minimal Setup**
 You can also install MicroPie without ANY dependencies via pip:
