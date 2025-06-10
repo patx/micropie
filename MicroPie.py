@@ -34,7 +34,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import asyncio
 import contextvars
 import inspect
-import os
 import re
 import time
 import uuid
@@ -54,7 +53,6 @@ except ImportError:
     JINJA_INSTALLED = False
 
 try:
-    import aiofiles, aiofiles.os
     from multipart import PushMultipartParser, MultipartSegment
     MULTIPART_INSTALLED = True
 except ImportError:
@@ -400,9 +398,8 @@ class App:
         Asynchronously parses a multipart form-data request.
 
         This method processes incoming multipart form-data, handling
-        both text fields and file uploads. It reads data from the provided
-        asyncio stream reader and extracts form values and files,
-        saving uploaded files to a designated directory.
+        both text fields and file uploads. File data is streamed to the handler
+        via an asyncio.Queue.
 
         Args:
             reader (asyncio.StreamReader): The stream reader from which
@@ -411,11 +408,11 @@ class App:
                 fields in the multipart request.
 
         Returns:
-            tuple[dict, dict]: A tuple containing form_data & files.
+            tuple[dict, dict]: A tuple containing form_data and files.
         """
         if not MULTIPART_INSTALLED:
-            print("For multipart form data support install 'multipart' and 'aiofiles'.")
-            await self._send_response(send, 500, "500 Internal Server Error")
+            print("For multipart form data support install 'multipart'.")
+            await self._send_response(None, 500, "500 Internal Server Error")
             return
 
         with PushMultipartParser(boundary) as parser:
@@ -424,10 +421,8 @@ class App:
             current_field_name: Optional[str] = None
             current_filename: Optional[str] = None
             current_content_type: Optional[str] = None
-            current_file: Optional[aiofiles.threadpool.binary.AsyncBufferedIOBase] = None
+            current_queue: Optional[asyncio.Queue] = None
             form_value: str = ""
-            upload_directory: str = "uploads"
-            await aiofiles.os.makedirs(upload_directory, exist_ok=True)
             while not parser.closed:
                 chunk: bytes = await reader.read(65536)
                 if not chunk:
@@ -438,39 +433,39 @@ class App:
                         current_filename = result.filename
                         current_content_type = None
                         form_value = ""
+                        if current_queue:
+                            await current_queue.put(None)  # Signal end of previous file stream
+                            current_queue = None
                         for header, value in result.headerlist:
                             if header.lower() == "content-type":
                                 current_content_type = value
-
                         if current_filename:
-                            safe_filename: str = f"{uuid.uuid4()}_{current_filename}"
-                            safe_filename = re.sub(r"[^a-zA-Z0-9_.-]", "_", safe_filename)
-                            file_path: str = os.path.join(upload_directory, safe_filename)
-                            current_file = await aiofiles.open(file_path, "wb")
-                        else:
-                            form_data[current_field_name] = []
-                    elif result:
-                        if current_file:
-                            await current_file.write(result)
-                        else:
-                            if current_file:
-                                form_value += result.decode("utf-8", "ignore")
-                    else:
-                        if current_file:
-                            await current_file.close()
-                            current_file = None
+                            current_queue = asyncio.Queue()
                             files[current_field_name] = {
                                 "filename": current_filename,
                                 "content_type": current_content_type or "application/octet-stream",
-                                "saved_path": os.path.join(upload_directory, safe_filename),
+                                "content": current_queue,
                             }
                         else:
-                            if form_value:
+                            form_data[current_field_name] = []
+                    elif result:
+                        if current_queue:
+                            await current_queue.put(result)
+                        else:
+                            form_value += result.decode("utf-8", "ignore")
+                    else:
+                        if current_queue:
+                            await current_queue.put(None)  # Signal end of file stream
+                            current_queue = None
+                        else:
+                            if form_value and current_field_name:
                                 form_data[current_field_name].append(form_value)
                             form_value = ""
-            # Ensure any remaining form_value is appended
+            # Ensure any remaining form_value or file stream is processed
             if current_field_name and form_value and not current_filename:
                 form_data[current_field_name].append(form_value)
+            if current_queue:
+                await current_queue.put(None)  # Signal end of final file stream
             return form_data, files
 
     async def _send_response(

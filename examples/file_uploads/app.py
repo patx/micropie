@@ -1,11 +1,11 @@
-"""
-This file demonstrates how to use a middleware to check file upload sizes
-before the request body is processed by the multipart parser.
-"""
+import os
+import aiofiles
+from MicroPie import App
 
-from MicroPie import App, HttpMiddleware
-
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)  # Ensure directory exists
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
+
 
 class MaxUploadSizeMiddleware(HttpMiddleware):
     async def before_request(self, request):
@@ -25,29 +25,31 @@ class MaxUploadSizeMiddleware(HttpMiddleware):
         return None
 
 
-class FileUploadApp(App):
+class Root(App):
+
     async def index(self):
-        """Serves an HTML form for file uploads."""
-        return """<html>
-<head><title>File Upload</title></head>
-<body>
-    <h2>Upload a File</h2>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <label for="username">Username:</label><br>
-        <input type="text" id="username" name="username" required><br><br>
-        <label for="file">Select File:</label><br>
-        <input type="file" id="file" name="file" required><br><br>
-        <input type="submit" value="Upload">
-    </form>
-</body>
-</html>"""
+        return """<form action="/upload" method="post" enctype="multipart/form-data">
+            <label for="file">Choose a file:</label>
+            <input type="file" id="file" name="file" required>
+            <input type="submit" value="Upload">
+        </form>"""
 
     async def upload(self, file):
         filename = file["filename"]
-        saved_path = file["saved_path"]
-        username = self.request.body_params.get("username", ["Anonymous"])[0]
-        return f"File '{filename}' uploaded successfully by {username}, saved to: {saved_path}!"
+        queue = file["content"]
+        total_bytes = 0
+        filepath = os.path.join(UPLOAD_DIR, filename)
+
+        async with aiofiles.open(filepath, "wb") as f:
+            while True:
+                chunk = await queue.get()
+                if chunk is None:
+                    break
+                await f.write(chunk)
+                total_bytes += len(chunk)
+
+        return 200, f"Uploaded {filename} ({total_bytes} bytes) to {filepath}"
 
 
-app = FileUploadApp()
-app.middlewares.insert(0, MaxUploadSizeMiddleware())
+app = Root()
+
