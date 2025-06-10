@@ -122,7 +122,7 @@ By default, MicroPie's route handlers can accept any request method, it's up to 
 You can use [middlware](https://github.com/patx/micropie#8-middleware) to add explicit routing when needed. See the [middleware router](https://github.com/patx/micropie/blob/main/examples/middleware/router.py) example.
 
 ### **3. Real-Time Communication with Socket.IO**
-Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets, you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
+Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets (*yet!*), you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
 
 
 ### **4. Jinja2 Template Rendering**
@@ -222,26 +222,17 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - Form handling and POST requests
 - And more
 
-## **Why ASGI?**
-ASGI is the future of Python web development, offering:
-- **Concurrency**: Handle thousands of simultaneous connections efficiently.
-- **WebSockets**: Use tools like Socket.IO for real-time communication.
-- **Scalability**: Ideal for modern, high-traffic applications.
-
-MicroPie allows you to take full advantage of these benefits while maintaining simplicity and ease of use you're used to with your WSGI apps and it lets you choose what libraries you want to work with instead of forcing our ideas onto you!
-
 
 ## **Comparisons**
 
 ### **Features vs Other Popular Frameworks**
 | Feature             | MicroPie      | Flask        | CherryPy   | Bottle       | Django       | FastAPI         |
 |---------------------|---------------|--------------|------------|--------------|--------------|-----------------|
-| **Ease of Use**     | Very Easy     | Easy         | Easy       | Easy         | Moderate     | Moderate        |
-| **Routing**         | Automatic     | Manual       | Manual     | Manual       | Views        | Manual          |
-| **Template Engine** | Jinja2 (Opt.) | Jinja2       | None       | SimpleTpl    | Django       | Jinja2          |
+| **Routing**         | Automatic     | Manual       | Automatic  | Manual       | Views        | Manual          |
+| **Template Engine** | Jinja2 (Opt.) | Jinja2       | Plugin     | SimpleTpl    | Django       | Jinja2          |
 | **Middleware**      | Yes           | Yes          | Yes        | Yes          | Yes          | Yes             |
-| **Session Handling**| Simple        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
-| **Async Support**   | Yes (ASGI)    | No (Quart)   | No         | No           | Limited      | Yes (ASGI)      |
+| **Session Handling**| Plugin        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
+| **Async Support**   | Yes           | No (Quart)   | No         | No           | Yes          | Yes             |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
 
 ## Benchmark Results
@@ -250,12 +241,10 @@ The table below summarizes the performance of various ASGI frameworks based on a
 
 | Framework   | Total Requests | Req/Sec   | Transfer/Sec (MB/s) | Avg Latency (ms) | Stdev Latency (ms) | Max Latency (ms) |
 |-------------|----------------|-----------|---------------------|------------------|--------------------|------------------|
-| Muffin      | 889,891        | 58,931.31 | 7.98                | 1.08             | 0.52               | 29.21            |
 | Blacksheep  | 831,432        | 55,060.05 | 7.98                | 1.15             | 0.39               | 15.11            |
 | MicroPie    | 791,721        | 52,685.82 | 8.09                | 1.35             | 1.09               | 21.59            |
 | Starlette   | 779,092        | 51,930.45 | 7.03                | 1.22             | 0.39               | 17.42            |
 | Litestar    | 610,059        | 40,401.18 | 5.47                | 1.57             | 0.63               | 33.66            |
-| Sanic       | 536,203        | 35,508.58 | 5.45                | 1.84             | 0.97               | 37.83            |
 | FastAPI     | 281,493        | 18,756.73 | 2.54                | 3.52             | 1.82               | 56.73            |
 
 ## **Suggestions or Feedback?**
