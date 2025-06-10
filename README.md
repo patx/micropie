@@ -24,7 +24,7 @@
 ## **Installing MicroPie**
 
 ### **Installation**
-Install MicroPie with all optional dependencies via pip:
+Install MicroPie with **standard** optional dependencies via pip:
 ```bash
 pip install micropie[standard]
 ```
@@ -40,8 +40,7 @@ You can also install MicroPie without ANY dependencies via pip:
 ```bash
 pip install micropie
 ```
-
-For an ultra-minimalistic approach, download the standalone script:
+0For an ultra-minimalistic approach, download the standalone script (development version):
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
@@ -217,7 +216,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - JSON Requests and Responses
 - Socket.io Integration
 - Async Streaming
-- Middleware, including rate limiting and explicit routing
+- Middleware including, rate limiting and explicit routing
 - Form handling and POST requests
 - And more
 
@@ -230,8 +229,8 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 | **Routing**         | Automatic     | Manual       | Automatic  | Manual       | Views        | Manual          |
 | **Template Engine** | Jinja2 (Opt.) | Jinja2       | Plugin     | SimpleTpl    | Django       | Jinja2          |
 | **Middleware**      | Yes           | Yes          | Yes        | Yes          | Yes          | Yes             |
-| **Session Handling**| Plugin        | Extension    | Built-in   | Plugin       | Built-in     | Extension       |
-| **Async Support**   | Yes           | No (Quart)   | No         | No           | Yes          | Yes             |
+| **Session Handling**| Plugin        | Plugin       | Built-in   | Plugin       | Built-in     | Plugin          |
+| **Async Support**   | Yes           | No           | No         | No           | Yes          | Yes             |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
 
 ## Benchmark Results
