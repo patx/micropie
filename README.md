@@ -40,7 +40,7 @@ You can also install MicroPie without ANY dependencies via pip:
 ```bash
 pip install micropie
 ```
-0For an ultra-minimalistic approach, download the standalone script (development version):
+For an ultra-minimalistic approach, download the standalone script (development version):
 
 [MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
 
@@ -55,13 +55,11 @@ pip install orjson
 ```
 
 ### **Install an ASGI Web Server**
-In order to test and deploy your apps you will need a ASGI web server like Uvicorn, Hypercorn or Daphne. Install `uvicorn` with:
+In order to test and deploy your apps you will need a ASGI web server like Uvicorn, Hypercorn or Daphne. 
+
+If you installed `micropie[all]` Uvicorn *should* be ready to use. If you didn't install all of MicroPie's optional dependencies, use:
 ```bash
 pip install uvicorn
-```
-You can also install MicroPie with `uvicorn` included using:
-```bash
-pip install micropie[all]
 ```
 
 ## **Getting Started**
@@ -117,7 +115,7 @@ class MyApp(App):
 
 By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
 
-You can use [middlware](https://github.com/patx/micropie#8-middleware) to add explicit routing when needed. See the [middleware router](https://github.com/patx/micropie/blob/main/examples/middleware/router.py) example.
+You can use [middlware](https://github.com/patx/micropie#8-middleware) to add explicit routing when needed. See the [middleware router](https://github.com/patx/micropie/blob/main/examples/middleware) example.
 
 ### **3. Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets (*yet!*), you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
@@ -148,7 +146,7 @@ class MyApp(App):
 ```
 
 ### **5. Static File Serving**
-Here again, like Websockets, MicroPie does not have a built in static file method. While MicroPie does not natively support static files, if you need them, you can easily integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
+Here again, like Websockets, MicroPie does not have a built in static file method. While MicroPie does not natively support static files, if you need them, you can easily implement it in your application code or integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
 
 
 ### **6. Streaming Responses**
@@ -179,7 +177,7 @@ class MyApp(App):
 You also can use the `SessionBackend` class to create your own session backend. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
 
 ### **8. Middleware**
-MicroPie allows you to create pluggable middleware to hook into the request lifecycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
+MicroPie allows you to create plug-able middleware to hook into the request life cycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
 ```python
 from MicroPie import App, HttpMiddleware
 
@@ -199,6 +197,7 @@ app = Root()
 app.middlewares.append(MiddlewareExample())
 ```
 
+Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, checking for max upload size in multipart requests, explicit routing, CSRF protection, and more.
 ### **9. Deployment**
 MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash
