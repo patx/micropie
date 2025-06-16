@@ -1,3 +1,10 @@
+"""
+Example of how you can implement explicit routes using middleware.
+For a comprehensive example of this (with route decorators and type
+checking see the `rest` example at 
+https://github.com/patx/micropie/tree/main/examples/rest
+"""
+
 import re
 from typing import Dict, List, Optional, Tuple, Any
 from MicroPie import App, HttpMiddleware, Request

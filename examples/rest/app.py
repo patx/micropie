@@ -1,6 +1,7 @@
 from micropie_rest import RESTApp, route
 
 class MyApp(RESTApp):
+
     @route("/api/users/{user:str}/records/{record:int}", method=["GET", "HEAD"])
     async def _get_record(self, user: str, record: int):
         return {"user": user, "record": record}
