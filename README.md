@@ -84,7 +84,32 @@ Access your app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 ## **Core Features**
 
-### **1. Flexible HTTP Routing for GET Requests**
+### **Route Handlers**
+
+MicroPie's route handlers map URLs to methods in your `App` subclass, handling HTTP requests with flexible parameter mapping and response formats.
+
+#### **Key Points**
+- **Automatic Mapping**: URLs map to method names (e.g., `/greet` → `greet`, `/` → `index`).
+- **Private Methods**: Methods starting with `_` (e.g., `_private_method`) are private and inaccessible via URLs, returning 404. **Security Note**: Use `_` for sensitive methods to prevent external access.
+- **Parameters**: Automatically populated from:
+  - Path segments (e.g., `/greet/Alice` → `name="Alice"`).
+  - Query strings (e.g., `?name=Alice`).
+  - Form data (POST/PUT/PATCH).
+  - Session data (`self.request.session`).
+  - File uploads (`self.request.files`).
+  - Default values in method signatures.
+- **HTTP Methods**: Handlers support all methods (GET, POST, etc.). Check `self.request.method` to handle specific methods.
+- **Responses**:
+  - String, bytes, or JSON-serializable object.
+  - Tuple: `(status_code, body)` or `(status_code, body, headers)`.
+  - Sync/async generator for streaming.
+
+#### **Advanced Usage**
+- **Custom Routing**: Use middleware for explicit routing (see [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) and [examples/rest](https://github.com/patx/micropie/tree/main/examples/rest)).
+- **Errors**: Auto-handled 404/400; customize via middleware.
+- **Dynamic Params**: Use `*args` for multiple path parameters.
+
+#### **Flexible HTTP Routing for GET Requests**
 MicroPie automatically maps URLs to methods within your `App` class. Routes can be defined as either synchronous or asynchronous functions, offering good flexibility.
 
 For GET requests, pass data through query strings or URL path segments, automatically mapped to method arguments.
@@ -101,7 +126,7 @@ class MyApp(App):
 - [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`, same as [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`.
 - [http://127.0.0.1:8000/hello/Alice](http://127.0.0.1:8000/hello/Alice) returns a `500 Internal Server Error` because it is expecting [http://127.0.0.1:8000/hello?name=Alice](http://127.0.0.1:8000/hello?name=Alice), which returns `Hello Alice!`
 
-### **2. Flexible HTTP POST Request Handling**
+#### **Flexible HTTP POST Request Handling**
 MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw/JSON POST data:
 ```python
 class MyApp(App):
@@ -115,13 +140,11 @@ class MyApp(App):
 
 By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
 
-You can use [middlware](https://github.com/patx/micropie#8-middleware) to add explicit routing when needed. See the [REST](https://github.com/patx/micropie/blob/main/examples/rest) example.
-
-### **3. Real-Time Communication with Socket.IO**
+### **Real-Time Communication with Socket.IO**
 Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets (*yet!*), you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
 
 
-### **4. Jinja2 Template Rendering**
+### **Jinja2 Template Rendering**
 Dynamic HTML generation is supported via Jinja2. This happens asynchronously using Pythons `asyncio` library, so make sure to use the `async` and `await` with this method.
 
 #### **`app.py`**
@@ -145,11 +168,11 @@ class MyApp(App):
 </html>
 ```
 
-### **5. Static File Serving**
+### **Static File Serving**
 Here again, like Websockets, MicroPie does not have a built in static file method. While MicroPie does not natively support static files, if you need them, you can easily implement it in your application code or integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
 
 
-### **6. Streaming Responses**
+### **Streaming Responses**
 Support for streaming responses makes it easy to send data in chunks.
 
 ```python
@@ -161,7 +184,7 @@ class MyApp(App):
         return generator()
 ```
 
-### **7. Sessions and Cookies**
+### **Sessions and Cookies**
 Built-in session handling simplifies state management:
 
 ```python
@@ -176,7 +199,7 @@ class MyApp(App):
 
 You also can use the `SessionBackend` class to create your own session backend. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
 
-### **8. Middleware**
+### **Middleware**
 MicroPie allows you to create plug-able middleware to hook into the request life cycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
 ```python
 from MicroPie import App, HttpMiddleware
@@ -198,7 +221,7 @@ app.middlewares.append(MiddlewareExample())
 ```
 
 Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, checking for max upload size in multipart requests, explicit routing, CSRF protection, and more.
-### **9. Deployment**
+### **Deployment**
 MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash
 uvicorn app:app --workers 4 --port 8000
