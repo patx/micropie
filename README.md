@@ -190,7 +190,7 @@ Built-in session handling simplifies state management:
 ```python
 class MyApp(App):
     async def index(self):
-        if "visits" not in self.session:
+        if "visits" not in self.request.session:
             self.request.session["visits"] = 1
         else:
             self.request.session["visits"] += 1
@@ -214,6 +214,7 @@ class MiddlewareExample(HttpMiddleware):
 
 class Root(App):
     async def index(self):
+        print("Hello, World!")
         return "Hello, World!"
 
 app = Root()
