@@ -217,7 +217,42 @@ class App:
         response_body: Any = ""
         extra_headers: List[Tuple[str, str]] = []
         try:
-            # Middleware: before request
+            # Parse request details (query params, cookies, session)
+            request.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
+            cookies = self._parse_cookies(request.headers.get("cookie", ""))
+            request.session = await self.session_backend.load(cookies.get("session_id", "")) or {}
+
+            # Parse body parameters for POST, PUT, PATCH requests
+            if request.method in ("POST", "PUT", "PATCH"):
+                body_data = bytearray()
+                while True:
+                    msg: Dict[str, Any] = await receive()
+                    body_data += msg.get("body", b"")
+                    if not msg.get("more_body"):
+                        break
+                content_type = request.headers.get("content-type", "")
+                if "application/json" in content_type:
+                    try:
+                        request.get_json = json.loads(body_data.decode("utf-8"))
+                        if isinstance(request.get_json, dict):
+                            request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
+                    except:
+                        await self._send_response(send, 400, "400 Bad Request: Bad JSON")
+                        return
+                elif "multipart/form-data" in content_type:
+                    if boundary := re.search(r"boundary=([^;]+)", content_type):
+                        reader = asyncio.StreamReader()
+                        reader.feed_data(body_data)
+                        reader.feed_eof()
+                        request.body_params, request.files = await self._parse_multipart(reader, boundary.group(1).encode("utf-8"))
+                    else:
+                        await self._send_response(send, 400, "400 Bad Request: Missing boundary")
+                        return
+                else:
+                    # Default to application/x-www-form-urlencoded
+                    request.body_params = parse_qs(body_data.decode("utf-8", "ignore"))
+
+            # Now run middleware before_request with populated request data
             for mw in self.middlewares:
                 if result := await mw.before_request(request):
                     status_code, response_body, extra_headers = (
@@ -248,41 +283,7 @@ class App:
                 await self._send_response(send, 404, "404 Not Found")
                 return
 
-            # Parse request details
-            request.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
-            cookies = self._parse_cookies(request.headers.get("cookie", ""))
-            request.session = await self.session_backend.load(cookies.get("session_id", "")) or {}
-
-            # Parse body parameters.
-            if request.method in ("POST", "PUT", "PATCH"):
-                body_data = bytearray()
-                while True:
-                    msg: Dict[str, Any] = await receive()
-                    body_data += msg.get("body", b"")
-                    if not msg.get("more_body"):
-                        break
-                content_type = request.headers.get("content-type", "")
-                if "application/json" in content_type:
-                    try:
-                        request.get_json = json.loads(body_data.decode("utf-8"))
-                        if isinstance(request.get_json, dict):
-                            request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
-                    except:
-                        await self._send_response(send, 400, "400 Bad Request: Bad JSON")
-                        return
-                elif "multipart/form-data" in content_type:
-                    if boundary := re.search(r"boundary=([^;]+)", content_type):
-                        reader = asyncio.StreamReader()
-                        reader.feed_data(body_data)
-                        reader.feed_eof()
-                        request.body_params, request.files = await self._parse_multipart(reader, boundary.group(1).encode("utf-8"))
-                    else:
-                        await self._send_response(send, 400, "400 Bad Request: Missing boundary")
-                        return
-                else:
-                    request.body_params = parse_qs(body_data.decode("utf-8", "ignore"))
-
-            # Build function arguments from path, query, body, files, and session values.
+            # Build function arguments from path, query, body, files, and session values
             sig = inspect.signature(handler)
             func_args: List[Any] = []
             path_params_copy = request.path_params[:]  # Create a copy to avoid modifying original
