@@ -4,10 +4,10 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "MicroPie"
-version = "0.12.1"
+version = "0.12.2"
 description = "An ultra micro ASGI web framework"
 keywords = ["micropie", "asgi", "microframework", "http"]
-readme = "README.md"
+readme = "docs/README.md"
 authors = [{ name = "Harrison Erd", email = "harrisonerd@gmail.com" }]
 license = {file = "LICENSE"}
 classifiers = [

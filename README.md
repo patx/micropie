@@ -140,9 +140,18 @@ class MyApp(App):
 
 By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
 
-### **Real-Time Communication with Socket.IO**
-Because of its designed simplicity, MicroPie does not handle WebSockets out of the box. While the underlying ASGI interface can theoretically handle WebSocket connections, MicroPie’s routing and request-handling logic is designed primarily for HTTP. While MicroPie does not natively support WebSockets (*yet!*), you can easily integrate dedicated Websockets libraries like **Socket.IO** alongside Uvicorn to handle real-time, bidirectional communication. Check out [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) to see this in action.
+### Real-Time Communication with WebSockets and Socket.IO
+MicroPie is designed to be lightweight and HTTP-first, so it does not natively support WebSockets. However, because it is built directly on the ASGI specification, WebSocket support can be added via middleware or external libraries.
 
+#### Add WebSockets with Middleware
+MicroPie supports middleware that can intercept the raw ASGI scope, allowing you to handle WebSocket connections yourself. You can build full-featured WebSocket routes using a custom middleware and a subclassed App. See [examples/middleware/ws.py](https://github.com/patx/micropie/blob/main/examples/middleware/ws.py) for a working implementation of this approach, including:
+
+- Route matching with path parameters
+- Session-aware WebSocket handling
+- Chat and notification examples
+
+#### Use Socket.IO for Advanced Real-Time Features
+If you want more advanced real-time features like automatic reconnection, broadcasting, or fallbacks (e.g., polling), you can integrate Socket.IO with your MicroPie app using Uvicorn as the server. See [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) for integration instructions and examples.
 
 ### **Jinja2 Template Rendering**
 Dynamic HTML generation is supported via Jinja2. This happens asynchronously using Pythons `asyncio` library, so make sure to use the `async` and `await` with this method.
@@ -221,8 +230,8 @@ app = Root()
 app.middlewares.append(MiddlewareExample())
 ```
 
-Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, checking for max upload size in multipart requests, explicit routing, CSRF protection, and more.
-### **Deployment**
+Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, checking for max upload size in multipart requests, websockets, explicit routing, CSRF protection, and more.
+
 MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash
 uvicorn app:app --workers 4 --port 8000
