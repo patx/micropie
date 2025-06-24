@@ -12,7 +12,7 @@ License: BSD3 (see LICENSE for details)
 """
 
 __author__ = 'Harrison Erd'
-__version__ = '0.12.2'
+__version__ = '0.13-dev'
 __license__ = 'BSD3'
 
 import asyncio
@@ -89,7 +89,7 @@ class InMemorySessionBackend(SessionBackend):
 
 
 # -----------------------------
-# Request Object
+# Request Objects
 # -----------------------------
 current_request: contextvars.ContextVar[Any] = contextvars.ContextVar("current_request")
 
@@ -103,7 +103,7 @@ class Request:
             scope: The ASGI scope dictionary for the request.
         """
         self.scope: Dict[str, Any] = scope
-        self.method: str = scope["method"]
+        self.method: str = scope.get("method", "")
         self.path_params: List[str] = []
         self.query_params: Dict[str, List[str]] = {}
         self.body_params: Dict[str, List[str]] = {}
@@ -114,6 +114,141 @@ class Request:
             k.decode("utf-8", errors="replace").lower(): v.decode("utf-8", errors="replace")
             for k, v in scope.get("headers", [])
         }
+
+class WebSocketRequest(Request):
+    """Represents a WebSocket request in the MicroPie framework."""
+    def __init__(self, scope: Dict[str, Any]) -> None:
+        super().__init__(scope)
+
+class WebSocket:
+    """Manages WebSocket communication in the MicroPie framework."""
+    def __init__(self, receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
+        """
+        Initialize a WebSocket instance.
+
+        Args:
+            receive: The ASGI receive callable.
+            send: The ASGI send callable.
+        """
+        self.receive = receive
+        self.send = send
+        self.accepted = False
+        self.session_id: Optional[str] = None
+
+    async def accept(self, subprotocol: Optional[str] = None, session_id: Optional[str] = None) -> None:
+        """
+        Accept the WebSocket connection.
+
+        Args:
+            subprotocol: Optional subprotocol to use.
+            session_id: Optional session ID to set in a cookie during the handshake.
+        """
+        if self.accepted:
+            raise RuntimeError("WebSocket connection already accepted")
+        # Handle initial connect event
+        message = await self.receive()
+        if message["type"] != "websocket.connect":
+            raise ValueError(f"Expected websocket.connect, got {message['type']}")
+        headers = []
+        if session_id:
+            headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"))
+            self.session_id = session_id
+        await self.send({
+            "type": "websocket.accept",
+            "subprotocol": subprotocol,
+            "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in headers]
+        })
+        self.accepted = True
+
+    async def receive_text(self) -> str:
+        """
+        Receive a text message from the WebSocket.
+
+        Returns:
+            The received text message.
+
+        Raises:
+            ConnectionClosed: If the connection is closed.
+            ValueError: If an unexpected message type is received.
+        """
+        message = await self.receive()
+        if message["type"] == "websocket.receive":
+            return message.get("text", message.get("bytes", b"").decode("utf-8", "ignore"))
+        elif message["type"] == "websocket.disconnect":
+            raise ConnectionClosed()
+        raise ValueError(f"Unexpected message type: {message['type']}")
+
+    async def receive_bytes(self) -> bytes:
+        """
+        Receive a binary message from the WebSocket.
+
+        Returns:
+            The received binary message.
+
+        Raises:
+            ConnectionClosed: If the connection is closed.
+            ValueError: If an unexpected message type is received.
+        """
+        message = await self.receive()
+        if message["type"] == "websocket.receive":
+            return message.get("bytes", b"") or message.get("text", "").encode("utf-8")
+        elif message["type"] == "websocket.disconnect":
+            raise ConnectionClosed()
+        raise ValueError(f"Unexpected message type: {message['type']}")
+
+    async def send_text(self, data: str) -> None:
+        """
+        Send a text message over the WebSocket.
+
+        Args:
+            data: The text message to send.
+
+        Raises:
+            RuntimeError: If the connection is not accepted.
+        """
+        if not self.accepted:
+            raise RuntimeError("WebSocket connection not accepted")
+        await self.send({
+            "type": "websocket.send",
+            "text": data
+        })
+
+    async def send_bytes(self, data: bytes) -> None:
+        """
+        Send a binary message over the WebSocket.
+
+        Args:
+            data: The binary message to send.
+
+        Raises:
+            RuntimeError: If the connection is not accepted.
+        """
+        if not self.accepted:
+            raise RuntimeError("WebSocket connection not accepted")
+        await self.send({
+            "type": "websocket.send",
+            "bytes": data
+        })
+
+    async def close(self, code: int = 1000, reason: Optional[str] = None) -> None:
+        """
+        Close the WebSocket connection.
+
+        Args:
+            code: The closure code (default: 1000).
+            reason: Optional reason for closure.
+        """
+        if self.accepted:
+            await self.send({
+                "type": "websocket.close",
+                "code": code,
+                "reason": reason or ""
+            })
+            self.accepted = False
+
+class ConnectionClosed(Exception):
+    """Raised when a WebSocket connection is closed."""
+    pass
 
 
 # -----------------------------
@@ -152,7 +287,7 @@ class HttpMiddleware(ABC):
 # -----------------------------
 class App:
     """
-    ASGI application for handling HTTP requests in MicroPie.
+    ASGI application for handling HTTP and WebSocket requests in MicroPie.
     It supports pluggable session backends via the 'session_backend' attribute
     and pluggable middlewares via the 'middlewares' list.
     """
@@ -194,8 +329,10 @@ class App:
         """
         if scope["type"] == "http":
             await self._asgi_app_http(scope, receive, send)
+        elif scope["type"] == "websocket":
+            await self._asgi_app_websocket(scope, receive, send)
         else:
-            pass  # Handle websockets, lifespan and more in the future.
+            pass  # Handle lifespan and other scopes in the future.
 
     async def _asgi_app_http(
         self,
@@ -358,6 +495,92 @@ class App:
         finally:
             current_request.reset(token)
 
+    async def _asgi_app_websocket(
+        self,
+        scope: Dict[str, Any],
+        receive: Callable[[], Awaitable[Dict[str, Any]]],
+        send: Callable[[Dict[str, Any]], Awaitable[None]]
+    ) -> None:
+        """
+        ASGI application entry point for handling WebSocket requests.
+
+        Args:
+            scope: The ASGI scope dictionary.
+            receive: The callable to receive ASGI events.
+            send: The callable to send ASGI events.
+        """
+        request: WebSocketRequest = WebSocketRequest(scope)
+        token = current_request.set(request)
+        try:
+            # Parse request details (query params, cookies, session)
+            request.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
+            cookies = self._parse_cookies(request.headers.get("cookie", ""))
+            request.session = await self.session_backend.load(cookies.get("session_id", "")) or {}
+
+            # Parse path and find handler
+            path: str = scope["path"].lstrip("/")
+            parts: List[str] = path.split("/") if path else []
+            func_name: str = parts[0] if parts else "ws_index"
+            if func_name.startswith("_"):
+                await self._send_websocket_close(send, 1008, "Private handler not allowed")
+                return
+
+            # Map WebSocket handler (e.g., /chat -> ws_chat)
+            handler_name = f"ws_{func_name}" if func_name else "ws_index"
+            request.path_params = parts[1:] if len(parts) > 1 else []
+            handler = getattr(self, handler_name, None)
+            if not handler:
+                await self._send_websocket_close(send, 1008, "No matching WebSocket route")
+                return
+
+            # Build function arguments
+            sig = inspect.signature(handler)
+            func_args: List[Any] = []
+            path_params_copy = request.path_params[:]
+            ws = WebSocket(receive, send)
+            func_args.append(ws)  # First non-self parameter is WebSocket object
+            for param in sig.parameters.values():
+                if param.name in ("self", "ws"):  # Skip self and ws parameters
+                    continue
+                if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                    func_args.extend(path_params_copy)
+                    path_params_copy = []
+                    continue
+                param_value = None
+                if path_params_copy:
+                    param_value = path_params_copy.pop(0)
+                elif param.name in request.query_params:
+                    param_value = request.query_params[param.name][0]
+                elif param.name in request.session:
+                    param_value = request.session[param.name]
+                elif param.default is not param.empty:
+                    param_value = param.default
+                else:
+                    await self._send_websocket_close(send, 1008, f"Missing required parameter '{param.name}'")
+                    return
+                func_args.append(param_value)
+
+            # Set session ID if needed
+            session_id = cookies.get("session_id") or str(uuid.uuid4())
+            ws.session_id = session_id
+
+            # Execute handler
+            try:
+                await handler(*func_args)
+            except ConnectionClosed:
+                pass  # Normal closure, no need to send another close message
+            except Exception as e:
+                print(f"WebSocket error: {e}")
+                await self._send_websocket_close(send, 1011, f"Handler error: {str(e)}")
+                return
+
+            # Save session
+            if request.session:
+                await self.session_backend.save(ws.session_id, request.session, SESSION_TIMEOUT)
+
+        finally:
+            current_request.reset(token)
+
     def _parse_cookies(self, cookie_header: str) -> Dict[str, str]:
         """
         Parse the Cookie header and return a dictionary of cookie names and values.
@@ -377,7 +600,7 @@ class App:
                 cookies[k] = v
         return cookies
 
-    async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes):
+    async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes) -> Optional[Tuple[Dict[str, List[str]], Dict[str, Any]]]:
         """
         Asynchronously parses a multipart form-data request.
 
@@ -397,7 +620,7 @@ class App:
         if not MULTIPART_INSTALLED:
             print("For multipart form data support install 'multipart'.")
             await self._send_response(None, 500, "500 Internal Server Error")
-            return
+            return None
 
         with PushMultipartParser(boundary) as parser:
             form_data: dict = {}
@@ -507,21 +730,72 @@ class App:
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
         response_body = (body if isinstance(body, bytes)
-                 else str(body).encode("utf-8"))
+                         else str(body).encode("utf-8"))
         await send({
             "type": "http.response.body",
             "body": response_body,
             "more_body": False
         })
 
-    def _redirect(self, location: str, extra_headers: list = None) -> Tuple[int, str]:
+    async def _send_websocket_response(
+        self,
+        send: Callable[[Dict[str, Any]], Awaitable[None]],
+        status_code: int,
+        body: bytes,
+        extra_headers: List[Tuple[str, str]]
+    ) -> None:
+        """
+        Send an HTTP response for WebSocket-related headers (e.g., cookies).
+
+        Args:
+            send: The ASGI send callable.
+            status_code: The HTTP status code.
+            body: The response body.
+            extra_headers: List of header tuples.
+        """
+        sanitized_headers: List[Tuple[str, str]] = []
+        for k, v in extra_headers:
+            if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
+                print(f"Header injection attempt detected: {k}: {v}")
+                continue
+            sanitized_headers.append((k, v))
+        await send({
+            "type": "http.response.start",
+            "status": status_code,
+            "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": body,
+            "more_body": False
+        })
+
+    async def _send_websocket_close(
+        self,
+        send: Callable[[Dict[str, Any]], Awaitable[None]],
+        code: int,
+        reason: str
+    ) -> None:
+        """
+        Send a WebSocket close message.
+
+        Args:
+            send: The ASGI send callable.
+            code: The closure code.
+            reason: The reason for closure.
+        """
+        await send({
+            "type": "websocket.close",
+            "code": code,
+            "reason": reason
+        })
+
+    def _redirect(self, location: str, extra_headers: list = None) -> Tuple[int, str, List[Tuple[str, str]]]:
         """
         Generate an HTTP redirect response.
-
         Args:
             location: The URL to redirect to.
             extra_headers: Optional list of tuples (header_name, header_value) to include in the response.
-
         Returns:
             A tuple containing the HTTP status code, the HTML body, and headers list.
         """
@@ -543,7 +817,7 @@ class App:
         """
         if not JINJA_INSTALLED:
             print("To use the `_render_template` method install 'jinja2'.")
-            return 500, "500 Internal Server Error"
+            return "500 Internal Server Error"
         assert self.env is not None
         template = await asyncio.to_thread(self.env.get_template, name)
         return await template.render_async(**kwargs)

@@ -141,14 +141,15 @@ class MyApp(App):
 By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
 
 ### Real-Time Communication with WebSockets and Socket.IO
-MicroPie is designed to be lightweight and HTTP-first, so it does not natively support WebSockets. However, because it is built directly on the ASGI specification, WebSocket support can be added via middleware or external libraries.
+MicroPie includes built-in support for WebSocket connections. WebSocket routes are defined in your App subclass using methods prefixed with `ws_`, mirroring the simplicity of MicroPie's HTTP routing. For example, a method named `ws_chat` handles WebSocket connections at `ws://<host>/chat`.
 
-#### Add WebSockets with Middleware
-MicroPie supports middleware that can intercept the raw ASGI scope, allowing you to handle WebSocket connections yourself. You can build full-featured WebSocket routes using a custom middleware and a subclassed App. See [examples/middleware/ws.py](https://github.com/patx/micropie/blob/main/examples/middleware/ws.py) for a working implementation of this approach, including:
+#### MicroPie’s WebSocket support allows you to:
 
-- Route matching with path parameters
-- Session-aware WebSocket handling
-- Chat and notification examples
+- Define WebSocket handlers with the same intuitive automatic routing as HTTP (e.g., `/chat` maps to `ws_chat` method).
+- Access query parameters, path parameters, and session data in WebSocket handlers, consistent with HTTP requests.
+- Manage WebSocket connections using the WebSocket class, which provides methods like `accept`, `receive_text`, `send_text`, and `close`.
+
+See the [websockets example](https://github.com/patx/micropie/tree/main/examples/websockets) to see how to use Websockets with MicroPie.
 
 #### Use Socket.IO for Advanced Real-Time Features
 If you want more advanced real-time features like automatic reconnection, broadcasting, or fallbacks (e.g., polling), you can integrate Socket.IO with your MicroPie app using Uvicorn as the server. See [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) for integration instructions and examples.
@@ -230,7 +231,7 @@ app = Root()
 app.middlewares.append(MiddlewareExample())
 ```
 
-Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, checking for max upload size in multipart requests, websockets, explicit routing, CSRF protection, and more.
+Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, checking for max upload size in multipart requests, **explicit routing**, CSRF protection, and more.
 
 MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash
@@ -248,8 +249,9 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - JSON Requests and Responses
 - Socket.io Integration
 - Async Streaming
-- Middleware including, explicit routing
+- Middleware including, explicit routing and more
 - Form handling and POST requests
+- Websockets
 - And more
 
 
@@ -327,7 +329,7 @@ MicroPie allows you to create pluggable middleware to hook into the request life
 - `after_request(request: Request, status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> None`
   - Abstract method called after the request is processed but before the final response is sent to the client.
 
-## Request Object
+## Request Objects
 
 ### `Request` Class
 
@@ -345,11 +347,57 @@ Represents an HTTP request in the MicroPie framework.
 - `files`: Dictionary of multipart data/streamed content.
 - `headers`: Dictionary of headers.
 
+### `WebSocketRequest` Class
+
+Represents a WebSocket request in the MicroPie framework, inheriting from `Request`.
+
+#### Attributes
+
+- Inherits all attributes from `Request`.
+
+## WebSocket Management
+
+### `WebSocket` Class
+
+Manages WebSocket communication in the MicroPie framework.
+
+#### Methods
+
+- `__init__(receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - Initializes a WebSocket instance with ASGI receive and send callables.
+
+- `accept(subprotocol: Optional[str] = None, session_id: Optional[str] = None) -> None`
+  - Accepts the WebSocket connection, optionally specifying a subprotocol and session ID for setting a cookie during the handshake.
+
+- `receive_text() -> str`
+  - Receives a text message from the WebSocket. Raises `ConnectionClosed` if the connection is closed or `ValueError` for unexpected message types.
+
+- `receive_bytes() -> bytes`
+  - Receives a binary message from the WebSocket. Raises `ConnectionClosed` if the connection is closed or `ValueError` for unexpected message types.
+
+- `send_text(data: str) -> None`
+  - Sends a text message over the WebSocket. Raises `RuntimeError` if the connection is not accepted.
+
+- `send_bytes(data: bytes) -> None`
+  - Sends a binary message over the WebSocket. Raises `RuntimeError` if the connection is not accepted.
+
+- `close(code: int = 1000, reason: Optional[str] = None) -> None`
+  - Closes the WebSocket connection with the specified code and optional reason.
+
+#### Attributes
+
+- `accepted`: Boolean indicating if the WebSocket connection is accepted.
+- `session_id`: Optional string storing the session ID set during the handshake.
+
+### `ConnectionClosed` Class
+
+An exception raised when a WebSocket connection is closed.
+
 ## Application Base
 
 ### `App` Class
 
-The main ASGI application class for handling HTTP requests in MicroPie.
+The main ASGI application class for handling HTTP and WebSocket requests in MicroPie.
 
 #### Methods
 
@@ -360,13 +408,16 @@ The main ASGI application class for handling HTTP requests in MicroPie.
   - Retrieves the current request from the context variable.
 
 - `__call__(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
-  - ASGI callable interface for the server. Checks `scope` type.
+  - ASGI callable interface for the server. Checks `scope` type and dispatches to HTTP or WebSocket handling.
 
 - `_asgi_app_http(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
   - ASGI application entry point for handling HTTP requests.
 
+- `_asgi_app_websocket(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - ASGI application entry point for handling WebSocket requests. Routes to methods prefixed with `ws_` (e.g., `ws_chat` for `/chat`).
+
 - `request(self) -> Request`
-  - Accessor for the current request object. - Returns the current request from the context variable.
+  - Accessor for the current request object. Returns the current request from the context variable.
 
 - `_parse_cookies(cookie_header: str) -> Dict[str, str]`
   - Parses the Cookie header and returns a dictionary of cookie names and values.
@@ -382,6 +433,9 @@ The main ASGI application class for handling HTTP requests in MicroPie.
 - `_send_response(send: Callable[[Dict[str, Any]], Awaitable[None]], status_code: int, body: Any, extra_headers: Optional[List[Tuple[str, str]]] = None) -> None`
   - Sends an HTTP response using the ASGI send callable.
 
+- `_send_websocket_close(send: Callable[[Dict[str, Any]], Awaitable[None]], code: int, reason: str) -> None`
+  - Sends a WebSocket close message with the specified code and reason.
+
 - `_redirect(location: str) -> Tuple[int, str]`
   - Generates an HTTP redirect response.
 
@@ -389,7 +443,7 @@ The main ASGI application class for handling HTTP requests in MicroPie.
   - Renders a template asynchronously using Jinja2.
   - *Requires*: `jinja2`
 
-The `App` class is the main entry point for creating MicroPie applications. It implements the ASGI interface and handles HTTP requests.
+The `App` class is the main entry point for creating MicroPie applications. It implements the ASGI interface and handles HTTP and WebSocket requests.
 
 ## Response Formats
 
@@ -410,6 +464,6 @@ MicroPie provides built-in error handling for common HTTP status codes:
 
 Custom error handling can be implemented through middleware.
 
-----
+---
 
 © 2025 Harrison Erd

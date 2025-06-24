@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <input id="message" type="text">
+    <button onclick="sendMessage()">Send</button>
+    <div id="output"></div>
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/chat?user=Alice");
+        ws.onmessage = function(event) {
+            document.getElementById("output").innerText += event.data + "\n";
+        };
+        ws.onclose = function(event) {
+            document.getElementById("output").innerText += `Closed: ${event.code} ${event.reason}\n`;
+        };
+        function sendMessage() {
+            const msg = document.getElementById("message").value;
+            ws.send(msg);
+            document.getElementById("message").value = "";
+        }
+    </script>
+</body>
+</html>
