@@ -256,13 +256,20 @@ class ConnectionClosed(Exception):
 # -----------------------------
 class HttpMiddleware(ABC):
     """
-    Pluggable middleware class that allows hooking into the request lifecycle.
+    Pluggable middleware class that allows hooking into the HTTP request lifecycle.
     """
 
     @abstractmethod
-    async def before_request(self, request: Request) -> None:
+    async def before_request(self, request: Request) -> Optional[Dict]:
         """
-        Called before the request is processed.
+        Called before the HTTP request is processed.
+        
+        Args:
+            request: The Request object.
+        
+        Returns:
+            Optional dictionary with response details (status_code, body, headers) to short-circuit the request,
+            or None to continue processing.
         """
         pass
 
@@ -273,11 +280,47 @@ class HttpMiddleware(ABC):
         status_code: int,
         response_body: Any,
         extra_headers: List[Tuple[str, str]]
-    ) -> None:
+    ) -> Optional[Dict]:
         """
-        Called after the request is processed, but before the final response
-        is sent to the client. You may alter the status_code, response_body,
-        or extra_headers if needed.
+        Called after the HTTP request is processed, but before the final response is sent.
+        
+        Args:
+            request: The Request object.
+            status_code: The HTTP status code.
+            response_body: The response body.
+            extra_headers: List of header tuples.
+        
+        Returns:
+            Optional dictionary with updated response details (status_code, body, headers), or None to use defaults.
+        """
+        pass
+
+class WebSocketMiddleware(ABC):
+    """
+    Pluggable middleware class that allows hooking into the WebSocket request lifecycle.
+    """
+
+    @abstractmethod
+    async def before_websocket(self, request: WebSocketRequest) -> Optional[Dict]:
+        """
+        Called before the WebSocket handler is invoked.
+        
+        Args:
+            request: The WebSocketRequest object.
+        
+        Returns:
+            Optional dictionary with close details (code, reason) to reject the connection,
+            or None to continue processing.
+        """
+        pass
+
+    @abstractmethod
+    async def after_websocket(self, request: WebSocketRequest) -> None:
+        """
+        Called after the WebSocket handler completes.
+        
+        Args:
+            request: The WebSocketRequest object.
         """
         pass
 
@@ -288,8 +331,8 @@ class HttpMiddleware(ABC):
 class App:
     """
     ASGI application for handling HTTP and WebSocket requests in MicroPie.
-    It supports pluggable session backends via the 'session_backend' attribute
-    and pluggable middlewares via the 'middlewares' list.
+    It supports pluggable session backends via the 'session_backend' attribute,
+    pluggable HTTP middlewares via the 'middlewares' list, and WebSocket middlewares via the 'ws_middlewares' list.
     """
 
     def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
@@ -303,6 +346,7 @@ class App:
             self.env = None
         self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
         self.middlewares: List[HttpMiddleware] = []
+        self.ws_middlewares: List[WebSocketMiddleware] = []
 
     @property
     def request(self) -> Request:
@@ -517,6 +561,13 @@ class App:
             cookies = self._parse_cookies(request.headers.get("cookie", ""))
             request.session = await self.session_backend.load(cookies.get("session_id", "")) or {}
 
+            # Run WebSocket middleware before_websocket
+            for mw in self.ws_middlewares:
+                if result := await mw.before_websocket(request):
+                    code, reason = result.get("code", 1008), result.get("reason", "Middleware rejected")
+                    await self._send_websocket_close(send, code, reason)
+                    return
+
             # Parse path and find handler
             path: str = scope["path"].lstrip("/")
             parts: List[str] = path.split("/") if path else []
@@ -527,6 +578,8 @@ class App:
 
             # Map WebSocket handler (e.g., /chat -> ws_chat)
             handler_name = f"ws_{func_name}" if func_name else "ws_index"
+            if hasattr(request, "_ws_route_handler"):
+                handler_name = request._ws_route_handler
             request.path_params = parts[1:] if len(parts) > 1 else []
             handler = getattr(self, handler_name, None)
             if not handler:
@@ -577,6 +630,10 @@ class App:
             # Save session
             if request.session:
                 await self.session_backend.save(ws.session_id, request.session, SESSION_TIMEOUT)
+
+            # Run WebSocket middleware after_websocket
+            for mw in self.ws_middlewares:
+                await mw.after_websocket(request)
 
         finally:
             current_request.reset(token)

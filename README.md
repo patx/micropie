@@ -106,7 +106,7 @@ MicroPie's route handlers map URLs to methods in your `App` subclass, handling H
   - Sync/async generator for streaming.
 
 #### **Advanced Usage**
-- **Custom Routing**: Use middleware for explicit routing (see [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) and [examples/rest](https://github.com/patx/micropie/tree/main/examples/rest)).
+- **Custom Routing**: Use middleware for explicit routing (see [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) and [examples/explicit_routing](https://github.com/patx/micropie/tree/main/examples/explicit_routing)).
 - **Errors**: Auto-handled 404/400; customize via middleware.
 - **Dynamic Params**: Use `*args` for multiple path parameters.
 
@@ -139,7 +139,7 @@ class MyApp(App):
         return f"Submitted by: {username}"
 ```
 
-By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api).
+By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api) and [examples/json](https://github.com/patx/micropie/tree/main/examples/json).
 
 ### Real-Time Communication with WebSockets and Socket.IO
 MicroPie includes built-in support for WebSocket connections. WebSocket routes are defined in your App subclass using methods prefixed with `ws_`, mirroring the simplicity of MicroPie's HTTP routing. For example, a method named `ws_chat` handles WebSocket connections at `ws://<host>/chat`.
@@ -318,17 +318,27 @@ An in-memory implementation of the `SessionBackend`.
 
 ## Middleware Abstraction
 
-MicroPie allows you to create pluggable middleware to hook into the request lifecycle.
+MicroPie allows you to create pluggable middleware to hook into the request lifecycle for both HTTP and WebSocket requests.
 
 ### `HttpMiddleware` Class
 
 #### Methods
 
-- `before_request(request: Request) -> None`
-  - Abstract method called before the request is processed.
+- `before_request(request: Request) -> Optional[Dict]`
+  - Abstract method called before the HTTP request is processed. Returns an optional dictionary with response details (status_code, body, headers) to short-circuit the request, or None to continue processing.
 
-- `after_request(request: Request, status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> None`
-  - Abstract method called after the request is processed but before the final response is sent to the client.
+- `after_request(request: Request, status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> Optional[Dict]`
+  - Abstract method called after the HTTP request is processed but before the final response is sent. Returns an optional dictionary with updated response details (status_code, body, headers), or None to use defaults.
+
+### `WebSocketMiddleware` Class
+
+#### Methods
+
+- `before_websocket(request: WebSocketRequest) -> Optional[Dict]`
+  - Abstract method called before the WebSocket handler is invoked. Returns an optional dictionary with close details (code, reason) to reject the connection, or None to continue processing.
+
+- `after_websocket(request: WebSocketRequest) -> None`
+  - Abstract method called after the WebSocket handler completes.
 
 ## Request Objects
 
@@ -400,10 +410,15 @@ An exception raised when a WebSocket connection is closed.
 
 The main ASGI application class for handling HTTP and WebSocket requests in MicroPie.
 
+#### Attributes
+
+- `middlewares`: List of `HttpMiddleware` instances for HTTP request processing.
+- `ws_middlewares`: List of `WebSocketMiddleware` instances for WebSocket request processing.
+
 #### Methods
 
 - `__init__(session_backend: Optional[SessionBackend] = None) -> None`
-  - Initializes the application with an optional session backend.
+  - Initializes the application with an optional session backend and empty middleware lists for HTTP and WebSocket requests.
 
 - `request -> Request`
   - Retrieves the current request from the context variable.

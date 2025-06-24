@@ -1,6 +1,6 @@
-from micropie_rest import RESTApp, route
+from micropie_routing import ExplicitApp, route
 
-class MyApp(RESTApp):
+class MyApp(ExplicitApp):
 
     @route("/api/users/{user:str}/records/{record:int}", method=["GET", "HEAD"])
     async def _get_record(self, user: str, record: int):
