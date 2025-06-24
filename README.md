@@ -1,13 +1,14 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## **Introduction**
-**MicroPie** is a fast, lightweight, modern Python web (HTTP) framework built on ASGI for asynchronous web applications. Designed for **flexibility** and **simplicity**, it enables high-concurrency web apps with built-in session management, middleware, and optional template rendering. **Extensible** for integration with ASGI-compatible tools like [python-socketio](https://python-socketio.readthedocs.io/en/stable/server.html#running-as-an-asgi-application) and [ServeStatic](https://archmonger.github.io/ServeStatic/latest/quick-start/#using-with-asgi), it’s inspired by CherryPy and licensed under the BSD 3-Clause License.
+**MicroPie** is a fast, lightweight, modern Python web framework built on ASGI for asynchronous web applications. Designed for **flexibility** and **simplicity**, it enables high-concurrency web apps with built-in WebSockets, session management, middleware, and optional template rendering. **Extensible** for integration with ASGI-compatible tools like [python-socketio](https://python-socketio.readthedocs.io/en/stable/server.html#running-as-an-asgi-application) and [ServeStatic](https://archmonger.github.io/ServeStatic/latest/quick-start/#using-with-asgi), it’s inspired by CherryPy and licensed under the BSD 3-Clause License.
 
 ### **Key Features**
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
 - 🔒 **Sessions:** Simple, plugable, session management using cookies.
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
 - ⚙️ **Middleware:** Support for custom request middleware enabling functions like rate limiting, authentication, logging, and more.
+- 🌐 **Real-Time Communication:** Built-in WebSocket support for real-time, bidirectional communication.
 - ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn, Hypercorn, and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Only optional dependencies for flexibility and faster development/deployment.
 - ⚡ **Blazing Fast:** Check out how MicroPie compares to other popular ASGI frameworks below!
