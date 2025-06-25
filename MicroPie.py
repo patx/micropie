@@ -452,7 +452,7 @@ class App:
                 func_name: str = request._route_handler
             else:
                 func_name: str = parts[0] if parts else "index"
-                if func_name.startswith("_"):
+                if func_name.startswith("_") or func_name.startswith("ws_"):
                     await self._send_response(send, 404, "404 Not Found")
                     return
 

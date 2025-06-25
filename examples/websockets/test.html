@@ -8,7 +8,7 @@
     <button onclick="sendMessage()">Send</button>
     <div id="output"></div>
     <script>
-        const ws = new WebSocket("ws://localhost:8000/chat/myroom?user=Alice");
+        const ws = new WebSocket("ws://localhost:8000/chat/MyRoom?user=Alice");
         ws.onmessage = function(event) {
             document.getElementById("output").innerText += event.data + "\n";
         };
