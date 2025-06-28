@@ -150,7 +150,20 @@ MicroPie includes built-in support for WebSocket connections. WebSocket routes a
 - Access query parameters, path parameters, and session data in WebSocket handlers, consistent with HTTP requests.
 - Manage WebSocket connections using the WebSocket class, which provides methods like `accept`, `receive_text`, `send_text`, and `close`.
 
-See the [websockets example](https://github.com/patx/micropie/tree/main/examples/websockets) to see how to use Websockets with MicroPie.
+Check out a basic example:
+```python                                
+from MicroPie import App
+
+class Root(App):
+
+    async def ws_echo(self, ws):
+        await ws.accept()
+        while True:
+            msg = await ws.receive_text()
+            await ws.send_text(f"Echo: {msg}")
+
+app = Root()
+```
 
 #### Use Socket.IO for Advanced Real-Time Features
 If you want more advanced real-time features like automatic reconnection, broadcasting, or fallbacks (e.g., polling), you can integrate Socket.IO with your MicroPie app using Uvicorn as the server. See [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) for integration instructions and examples.
