@@ -12,7 +12,7 @@ License: BSD3 (see LICENSE for details)
 """
 
 __author__ = 'Harrison Erd'
-__version__ = '0.13-dev'
+__version__ = '0.14-dev'
 __license__ = 'BSD3'
 
 import asyncio
