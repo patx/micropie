@@ -3,7 +3,7 @@ import unittest
 import uuid
 from urllib.parse import parse_qs
 from unittest.mock import AsyncMock
-from MicroPie import App, InMemorySessionBackend, Request, SESSION_TIMEOUT
+from micropie import App, InMemorySessionBackend, Request, SESSION_TIMEOUT
 
 class TestMicroPie(unittest.TestCase):
     def setUp(self):

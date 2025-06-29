@@ -1,5 +1,5 @@
 import socketio
-from MicroPie import App
+from micropie import App
 from kenobi import KenobiDB
 from datetime import datetime
 import asyncio

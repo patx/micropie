@@ -1,6 +1,6 @@
 import re
 from typing import Dict, List, Optional, Tuple, Any, Callable, Type, Union
-from MicroPie import App, HttpMiddleware, WebSocketMiddleware, Request, WebSocketRequest
+from micropie import App, HttpMiddleware, WebSocketMiddleware, Request, WebSocketRequest
 
 class RouteError(Exception):
     """Custom exception for route-related errors."""

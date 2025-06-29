@@ -1,4 +1,4 @@
-from MicroPie import App
+from micropie import App
 
 class MyApp(App):
     async def index(self):

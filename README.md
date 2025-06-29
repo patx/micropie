@@ -22,6 +22,10 @@
 - **Example Applications**: [github.com/patx/micropie/tree/main/examples](https://github.com/patx/micropie/tree/main/examples)
 - **Introduction Lightning Talk**: [Introduction to MicroPie on YouTube](https://www.youtube.com/watch?v=BzkscTLy1So)
 
+### Latest Release Notes
+View the latest release notes [here](https://github.com/patx/micropie/blob/main/docs/release_notes.md). It is useful to check release notes each time a new version of MicroPie is published. Any breaking changes (rare, but do happen) also appear here.
+
+
 ## **Installing MicroPie**
 
 ### **Installation**
@@ -69,7 +73,7 @@ pip install uvicorn
 
 Save the following as `app.py`:
 ```python
-from MicroPie import App
+from micropie import App
 
 class MyApp(App):
     async def index(self):
@@ -150,7 +154,20 @@ MicroPie includes built-in support for WebSocket connections. WebSocket routes a
 - Access query parameters, path parameters, and session data in WebSocket handlers, consistent with HTTP requests.
 - Manage WebSocket connections using the WebSocket class, which provides methods like `accept`, `receive_text`, `send_text`, and `close`.
 
-See the [websockets example](https://github.com/patx/micropie/tree/main/examples/websockets) to see how to use Websockets with MicroPie.
+Check out a basic example:
+```python                                
+from micropie import App
+
+class Root(App):
+
+    async def ws_echo(self, ws):
+        await ws.accept()
+        while True:
+            msg = await ws.receive_text()
+            await ws.send_text(f"Echo: {msg}")
+
+app = Root()
+```
 
 #### Use Socket.IO for Advanced Real-Time Features
 If you want more advanced real-time features like automatic reconnection, broadcasting, or fallbacks (e.g., polling), you can integrate Socket.IO with your MicroPie app using Uvicorn as the server. See [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) for integration instructions and examples.
@@ -213,7 +230,7 @@ You also can use the `SessionBackend` class to create your own session backend. 
 ### **Middleware**
 MicroPie allows you to create plug-able middleware to hook into the request life cycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
 ```python
-from MicroPie import App, HttpMiddleware
+from micropie import App, HttpMiddleware
 
 class MiddlewareExample(HttpMiddleware):
     async def before_request(self, request):

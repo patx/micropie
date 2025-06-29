@@ -5,7 +5,7 @@ with MicroPie.
 This application increments a visit counter stored in a MongoDB collection for sessions.
 """
 
-from MicroPie import App, SessionBackend
+from micropie import App, SessionBackend
 import motor.motor_asyncio
 import uuid
 from datetime import datetime, timedelta

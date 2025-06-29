@@ -7,7 +7,7 @@ https://github.com/patx/micropie/tree/main/examples/rest
 
 import re
 from typing import Dict, List, Optional, Tuple, Any
-from MicroPie import App, HttpMiddleware, Request
+from micropie import App, HttpMiddleware, Request
 
 class ExplicitRouter(HttpMiddleware):
     def __init__(self):

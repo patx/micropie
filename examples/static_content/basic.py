@@ -1,4 +1,4 @@
-from MicroPie import App
+from micropie import App
 import os
 import aiofiles
 import mimetypes

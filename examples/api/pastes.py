@@ -1,4 +1,4 @@
-from MicroPie import App
+from micropie import App
 from pickledb import AsyncPickleDB
 import orjson
 from uuid import uuid4

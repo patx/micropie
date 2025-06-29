@@ -1,6 +1,6 @@
 import asyncio
 import random
-from MicroPie import App
+from micropie import App
 
 
 class MyApp(App):

@@ -1,5 +1,5 @@
 from servestatic import ServeStaticASGI
-from MicroPie import App
+from micropie import App
 
 class Root(App):
     async def index(self):

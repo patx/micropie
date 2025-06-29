@@ -1,6 +1,6 @@
 import time
 
-from MicroPie import App, HttpMiddleware
+from micropie import App, HttpMiddleware
 
 
 class RateLimitMiddleware(HttpMiddleware):

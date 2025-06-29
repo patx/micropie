@@ -1,5 +1,5 @@
 from micropie_routing import ExplicitApp, route, ws_route
-from MicroPie import WebSocket, ConnectionClosed
+from micropie import WebSocket, ConnectionClosed
 
 class MyApp(ExplicitApp):
     @route("/api/users/{user_id:int}", method=["GET"])

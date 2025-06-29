@@ -1,4 +1,4 @@
-from MicroPie import App, ConnectionClosed
+from micropie import App, ConnectionClosed
 
 class MyApp(App):
     async def chat(self):

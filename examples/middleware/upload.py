@@ -3,7 +3,7 @@ This file demonstrates how to use a middleware to check file upload sizes
 before the request body is processed by the multipart parser.
 """
 
-from MicroPie import App, HttpMiddleware
+from micropie import App, HttpMiddleware
 
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
 

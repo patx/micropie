@@ -3,7 +3,7 @@ import os
 import uuid
 from typing import Optional, Dict, List, Tuple, Any
 from itsdangerous import URLSafeTimedSerializer, BadSignature
-from MicroPie import App, HttpMiddleware, Request, SESSION_TIMEOUT
+from micropie import App, HttpMiddleware, Request, SESSION_TIMEOUT
 
 
 class SignedSessionMiddleware(HttpMiddleware):

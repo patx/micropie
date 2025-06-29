@@ -2,7 +2,7 @@ from typing import Optional, Dict, List, Tuple, Any
 from html import escape
 import uuid
 from itsdangerous import URLSafeTimedSerializer, BadSignature
-from MicroPie import App, HttpMiddleware, Request
+from micropie import App, HttpMiddleware, Request
 
 
 class CSRFMiddleware(HttpMiddleware):

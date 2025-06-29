@@ -1,4 +1,4 @@
-from MicroPie import App
+from micropie import App
 import requests
 import os
 

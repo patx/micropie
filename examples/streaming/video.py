@@ -1,5 +1,5 @@
 import os
-from MicroPie import App
+from micropie import App
 
 VIDEO_PATH = "video.mp4"
 

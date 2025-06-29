@@ -1,6 +1,6 @@
 from uuid import uuid4
 import asyncio
-from MicroPie import App
+from micropie import App
 from markupsafe import escape
 from pickledb import AsyncPickleDB
 

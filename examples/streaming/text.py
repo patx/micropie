@@ -1,6 +1,6 @@
 import time
 import asyncio
-from MicroPie import App
+from micropie import App
 
 class Root(App):
 

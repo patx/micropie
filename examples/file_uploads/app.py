@@ -1,6 +1,6 @@
 import os          # Used for file path handling and directory creation
 import aiofiles    # Asynchronous file I/O operations
-from MicroPie import App  # Import the base App class from MicroPie
+from micropie import App  # Import the base App class from MicroPie
 
 # Ensure the "uploads" directory exists; create it if it doesn't
 os.makedirs("uploads", exist_ok=True)

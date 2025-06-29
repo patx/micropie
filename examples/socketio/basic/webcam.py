@@ -1,5 +1,5 @@
 import socketio
-from MicroPie import App
+from micropie import App
 
 # Create the Socket.IO server
 sio = socketio.AsyncServer(async_mode="asgi")
