@@ -47,7 +47,7 @@ pip install micropie
 ```
 For an ultra-minimalistic approach, download the standalone script (development version):
 
-[MicroPie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/MicroPie.py)
+[micropie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/micropie.py)
 
 Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use the `_render_template` method and/or `multipart` for handling file data (the `_parse_multipart` method), but this *is* optional and you can use MicroPie without them. To install the optional dependencies use:
 ```bash
