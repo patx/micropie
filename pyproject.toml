@@ -3,7 +3,7 @@ requires = ["flit_core>=3.9,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "MicroPie"
+name = "micropie"
 version = "0.14"
 description = "An ultra micro ASGI web framework"
 keywords = ["micropie", "asgi", "microframework", "http"]
