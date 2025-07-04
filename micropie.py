@@ -421,6 +421,10 @@ class App:
                         await self._send_response(send, 400, "400 Bad Request: Bad JSON")
                         return
                 elif "multipart/form-data" in content_type:
+                    if not MULTIPART_INSTALLED:
+                        print("For multipart form data support install 'multipart'.")
+                        await self._send_response(send, 500, "500 Internal Server Error")
+                        return
                     if boundary := re.search(r"boundary=([^;]+)", content_type):
                         reader = asyncio.StreamReader()
                         reader.feed_data(body_data)
@@ -674,11 +678,6 @@ class App:
         Returns:
             tuple[dict, dict]: A tuple containing form_data and files.
         """
-        if not MULTIPART_INSTALLED:
-            print("For multipart form data support install 'multipart'.")
-            await self._send_response(None, 500, "500 Internal Server Error")
-            return None
-
         with PushMultipartParser(boundary) as parser:
             form_data: dict = {}
             files: dict = {}
@@ -874,7 +873,7 @@ class App:
         """
         if not JINJA_INSTALLED:
             print("To use the `_render_template` method install 'jinja2'.")
-            return "500 Internal Server Error"
+            return "500 Internal Server Error: Jinja2 not installed."
         assert self.env is not None
         template = await asyncio.to_thread(self.env.get_template, name)
         return await template.render_async(**kwargs)
