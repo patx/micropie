@@ -1,16 +1,17 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## **Introduction**
-**MicroPie** is a fast, lightweight, modern Python web framework built on ASGI for asynchronous web applications. Designed for **flexibility** and **simplicity**, it enables high-concurrency web apps with built-in WebSockets, session management, middleware, and optional template rendering. **Extensible** for integration with ASGI-compatible tools like [python-socketio](https://python-socketio.readthedocs.io/en/stable/server.html#running-as-an-asgi-application) and [ServeStatic](https://archmonger.github.io/ServeStatic/latest/quick-start/#using-with-asgi), it’s inspired by CherryPy and licensed under the BSD 3-Clause License.
+**MicroPie** is a fast, lightweight, modern Python web framework built on ASGI for asynchronous web applications. Designed for **flexibility** and **simplicity**, it enables high-concurrency web apps with built-in WebSockets, session management, middleware, lifecycle event handling, and optional template rendering. **Extensible** for integration with ASGI-compatible tools like [python-socketio](https://python-socketio.readthedocs.io/en/stable/server.html#running-as-an-asgi-application) and [ServeStatic](https://archmonger.github.io/ServeStatic/latest/quick-start/#using-with-asgi), it’s inspired by CherryPy and licensed under the BSD 3-Clause License.
 
 ### **Key Features**
 - 🔄 **Routing:** Automatic mapping of URLs to functions with support for dynamic and query parameters.
-- 🔒 **Sessions:** Simple, plugable, session management using cookies.
+- 🔒 **Sessions:** Simple, pluggable session management using cookies.
 - 🎨 **Templates:** Jinja2, if installed, for rendering dynamic HTML pages.
 - ⚙️ **Middleware:** Support for custom request middleware enabling functions like rate limiting, authentication, logging, and more.
 - 🌐 **Real-Time Communication:** Built-in WebSocket support for real-time, bidirectional communication.
-- ✨ **ASGI-Powered:** Built w/ asynchronous support for modern web servers like Uvicorn, Hypercorn, and Daphne, enabling high concurrency.
+- ✨ **ASGI-Powered:** Built with asynchronous support for modern web servers like Uvicorn, Hypercorn, and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Only optional dependencies for flexibility and faster development/deployment.
+- 🔄 **Lifecycle Events:** ASGI lifespan event handling for startup and shutdown tasks (e.g., database initialization).
 - ⚡ **Blazing Fast:** Check out how MicroPie compares to other popular ASGI frameworks below!
 
 ### **Useful Links**
@@ -25,7 +26,6 @@
 ### Latest Release Notes
 View the latest release notes [here](https://github.com/patx/micropie/blob/main/docs/release_notes.md). It is useful to check release notes each time a new version of MicroPie is published. Any breaking changes (rare, but do happen) also appear here.
 
-
 ## **Installing MicroPie**
 
 ### **Installation**
@@ -33,7 +33,7 @@ Install MicroPie with **standard** optional dependencies via pip:
 ```bash
 pip install micropie[standard]
 ```
-This will install MicroPie along with `jinja2` for template rendering, and `multipart` for parsing multipart form data.
+This will install MicroPie along with `jinja2` for template rendering and `multipart` for parsing multipart form data.
 
 If you would like to install **all** optional dependencies (everything from `standard` plus `orjson` and `uvicorn`) you can run:
 ```bash
@@ -54,13 +54,13 @@ Place it in your project directory, and you are good to go. Note that `jinja2` m
 pip install jinja2 multipart
 ```
 
-By default MicroPie will use the `json` library from Python's standard library. If you need faster performance you can use `orjson`. MicroPie *will* use `orjson` *if installed* by default. If it is not installed, MicroPie will fallback to `json`. This means with or without `orjson` installed MicroPie will still handle JSON requests/responses the same. To install `orjson` and take advantage of it's performance, use:
+By default MicroPie will use the `json` library from Python's standard library. If you need faster performance you can use `orjson`. MicroPie *will* use `orjson` *if installed* by default. If it is not installed, MicroPie will fallback to `json`. This means with or without `orjson` installed MicroPie will still handle JSON requests/responses the same. To install `orjson` and take advantage of its performance, use:
 ```bash
 pip install orjson
 ```
 
 ### **Install an ASGI Web Server**
-In order to test and deploy your apps you will need a ASGI web server like Uvicorn, Hypercorn or Daphne. 
+In order to test and deploy your apps you will need an ASGI web server like Uvicorn, Hypercorn, or Daphne.
 
 If you installed `micropie[all]` Uvicorn *should* be ready to use. If you didn't install all of MicroPie's optional dependencies, use:
 ```bash
@@ -143,23 +143,56 @@ class MyApp(App):
         return f"Submitted by: {username}"
 ```
 
-By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and an number of other things specific to the current request state) in the handler with`self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api) and [examples/json](https://github.com/patx/micropie/tree/main/examples/json).
+By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and a number of other things specific to the current request state) in the handler with `self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api) and [examples/json](https://github.com/patx/micropie/tree/main/examples/json).
+
+### **Lifecycle Event Handling**
+MicroPie supports ASGI lifespan events, allowing you to register asynchronous handlers for application startup and shutdown. This is useful for tasks like initializing database connections or cleaning up resources.
+
+#### **Key Points**
+- **Startup Handlers**: Register async functions to run during `lifespan.startup` using `app.on_startup()`.
+- **Shutdown Handlers**: Register async functions to run during `lifespan.shutdown` using `app.on_shutdown()`.
+- **Error Handling**: Errors during startup or shutdown are caught and reported via `lifespan.startup.failed` or `lifespan.shutdown.failed` events.
+- **Use Cases**: Ideal for setting up database pools, external service connections, or logging systems on startup, and closing them on shutdown.
+
+#### **Example**
+```python
+from micropie import App
+
+class MyApp(App):
+    
+    async def _setup_db(self):
+        print("Setting up database...")
+        # DB init code here
+        print("Database setup complete!")
+
+    async def _close_db(self):
+        print("Closing database...")
+        # DB close code here
+        print("Database closed!")
+        
+    async def index(self):
+        return "Welcome to MicroPie ASGI."
+
+app = MyApp()
+app.on_startup([app._setup_db])
+app.on_shutdown([app._close_db])
+```
+
+On startup, the `setup_db` method initializes the database connection. On shutdown (e.g., Ctrl+C), the `close_db` method closes it. See [examples/lifespan](https://github.com/patx/micropie/tree/main/examples/lifespan) for more details.
 
 ### Real-Time Communication with WebSockets and Socket.IO
 MicroPie includes built-in support for WebSocket connections. WebSocket routes are defined in your App subclass using methods prefixed with `ws_`, mirroring the simplicity of MicroPie's HTTP routing. For example, a method named `ws_chat` handles WebSocket connections at `ws://<host>/chat`.
 
 #### MicroPie’s WebSocket support allows you to:
-
 - Define WebSocket handlers with the same intuitive automatic routing as HTTP (e.g., `/chat` maps to `ws_chat` method).
 - Access query parameters, path parameters, and session data in WebSocket handlers, consistent with HTTP requests.
 - Manage WebSocket connections using the WebSocket class, which provides methods like `accept`, `receive_text`, `send_text`, and `close`.
 
 Check out a basic example:
-```python                                
+```python
 from micropie import App
 
 class Root(App):
-
     async def ws_echo(self, ws):
         await ws.accept()
         while True:
@@ -173,7 +206,7 @@ app = Root()
 If you want more advanced real-time features like automatic reconnection, broadcasting, or fallbacks (e.g., polling), you can integrate Socket.IO with your MicroPie app using Uvicorn as the server. See [examples/socketio](https://github.com/patx/micropie/tree/main/examples/socketio) for integration instructions and examples.
 
 ### **Jinja2 Template Rendering**
-Dynamic HTML generation is supported via Jinja2. This happens asynchronously using Pythons `asyncio` library, so make sure to use the `async` and `await` with this method.
+Dynamic HTML generation is supported via Jinja2. This happens asynchronously using Python's `asyncio` library, so make sure to use `async` and `await` with this method.
 
 #### **`app.py`**
 ```python
@@ -197,8 +230,7 @@ class MyApp(App):
 ```
 
 ### **Static File Serving**
-Here again, like Websockets, MicroPie does not have a built in static file method. While MicroPie does not natively support static files, if you need them, you can easily implement it in your application code or integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
-
+Here again, like WebSockets, MicroPie does not have a built-in static file method. While MicroPie does not natively support static files, if you need them, you can easily implement it in your application code or integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
 
 ### **Streaming Responses**
 Support for streaming responses makes it easy to send data in chunks.
@@ -228,7 +260,7 @@ class MyApp(App):
 You also can use the `SessionBackend` class to create your own session backend. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
 
 ### **Middleware**
-MicroPie allows you to create plug-able middleware to hook into the request life cycle. Take a look a trivial example using `HttpMiddleware` to send the console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
+MicroPie allows you to create pluggable middleware to hook into the request lifecycle. Take a look at a trivial example using `HttpMiddleware` to send console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
 ```python
 from micropie import App, HttpMiddleware
 
@@ -238,7 +270,6 @@ class MiddlewareExample(HttpMiddleware):
 
     async def after_request(self, request, status_code, response_body, extra_headers):
         print("Hook after request")
-
 
 class Root(App):
     async def index(self):
@@ -256,7 +287,6 @@ MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn 
 uvicorn app:app --workers 4 --port 8000
 ```
 
-
 ## **Learn by Examples**
 The best way to get an idea of how MicroPie works is to see it in action! Check out the [examples folder](https://github.com/patx/micropie/tree/main/examples) for more advanced usage, including:
 - Template rendering
@@ -267,11 +297,11 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 - JSON Requests and Responses
 - Socket.io Integration
 - Async Streaming
-- Middleware including, explicit routing and more
+- Middleware including explicit routing and more
 - Form handling and POST requests
-- Websockets
+- WebSockets
+- Lifecycle event handling
 - And more
-
 
 ## **Comparisons**
 
@@ -284,6 +314,7 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 | **Session Handling**| Plugin        | Plugin       | Built-in   | Plugin       | Built-in     | Plugin          |
 | **Async Support**   | Yes           | No           | No         | No           | Yes          | Yes             |
 | **Built-in Server** | No            | No           | Yes        | Yes          | Yes          | No              |
+| **Lifecycle Events**| Yes           | No           | Yes        | No           | Yes          | Yes             |
 
 ## Benchmark Results
 
@@ -311,10 +342,8 @@ MicroPie provides an abstraction for session backends, allowing you to define cu
 ### `SessionBackend` Class
 
 #### Methods
-
 - `load(session_id: str) -> Dict[str, Any]`
   - Abstract method to load session data given a session ID.
-
 - `save(session_id: str, data: Dict[str, Any], timeout: int) -> None`
   - Abstract method to save session data.
 
@@ -323,13 +352,10 @@ MicroPie provides an abstraction for session backends, allowing you to define cu
 An in-memory implementation of the `SessionBackend`.
 
 #### Methods
-
 - `__init__()`
   - Initializes the in-memory session backend.
-
 - `load(session_id: str) -> Dict[str, Any]`
   - Loads session data for the given session ID.
-
 - `save(session_id: str, data: Dict[str, Any], timeout: int) -> None`
   - Saves session data for the given session ID.
 
@@ -340,20 +366,16 @@ MicroPie allows you to create pluggable middleware to hook into the request life
 ### `HttpMiddleware` Class
 
 #### Methods
-
 - `before_request(request: Request) -> Optional[Dict]`
   - Abstract method called before the HTTP request is processed. Returns an optional dictionary with response details (status_code, body, headers) to short-circuit the request, or None to continue processing.
-
 - `after_request(request: Request, status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]) -> Optional[Dict]`
   - Abstract method called after the HTTP request is processed but before the final response is sent. Returns an optional dictionary with updated response details (status_code, body, headers), or None to use defaults.
 
 ### `WebSocketMiddleware` Class
 
 #### Methods
-
 - `before_websocket(request: WebSocketRequest) -> Optional[Dict]`
   - Abstract method called before the WebSocket handler is invoked. Returns an optional dictionary with close details (code, reason) to reject the connection, or None to continue processing.
-
 - `after_websocket(request: WebSocketRequest) -> None`
   - Abstract method called after the WebSocket handler completes.
 
@@ -364,7 +386,6 @@ MicroPie allows you to create pluggable middleware to hook into the request life
 Represents an HTTP request in the MicroPie framework.
 
 #### Attributes
-
 - `scope`: The ASGI scope dictionary for the request.
 - `method`: The HTTP method of the request.
 - `path_params`: List of path parameters.
@@ -380,7 +401,6 @@ Represents an HTTP request in the MicroPie framework.
 Represents a WebSocket request in the MicroPie framework, inheriting from `Request`.
 
 #### Attributes
-
 - Inherits all attributes from `Request`.
 
 ## WebSocket Management
@@ -390,30 +410,22 @@ Represents a WebSocket request in the MicroPie framework, inheriting from `Reque
 Manages WebSocket communication in the MicroPie framework.
 
 #### Methods
-
 - `__init__(receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
   - Initializes a WebSocket instance with ASGI receive and send callables.
-
 - `accept(subprotocol: Optional[str] = None, session_id: Optional[str] = None) -> None`
   - Accepts the WebSocket connection, optionally specifying a subprotocol and session ID for setting a cookie during the handshake.
-
 - `receive_text() -> str`
   - Receives a text message from the WebSocket. Raises `ConnectionClosed` if the connection is closed or `ValueError` for unexpected message types.
-
 - `receive_bytes() -> bytes`
   - Receives a binary message from the WebSocket. Raises `ConnectionClosed` if the connection is closed or `ValueError` for unexpected message types.
-
 - `send_text(data: str) -> None`
   - Sends a text message over the WebSocket. Raises `RuntimeError` if the connection is not accepted.
-
 - `send_bytes(data: bytes) -> None`
   - Sends a binary message over the WebSocket. Raises `RuntimeError` if the connection is not accepted.
-
 - `close(code: int = 1000, reason: Optional[str] = None) -> None`
   - Closes the WebSocket connection with the specified code and optional reason.
 
 #### Attributes
-
 - `accepted`: Boolean indicating if the WebSocket connection is accepted.
 - `session_id`: Optional string storing the session ID set during the handshake.
 
@@ -425,36 +437,34 @@ An exception raised when a WebSocket connection is closed.
 
 ### `App` Class
 
-The main ASGI application class for handling HTTP and WebSocket requests in MicroPie.
+The main ASGI application class for handling HTTP, WebSocket, and lifespan events in MicroPie.
 
 #### Attributes
-
 - `middlewares`: List of `HttpMiddleware` instances for HTTP request processing.
 - `ws_middlewares`: List of `WebSocketMiddleware` instances for WebSocket request processing.
+- `_startup_handlers`: List of async callables to run during `lifespan.startup`.
+- `_shutdown_handlers`: List of async callables to run during `lifespan.shutdown`.
+- `_started`: Boolean indicating whether the application has completed startup.
 
 #### Methods
-
 - `__init__(session_backend: Optional[SessionBackend] = None) -> None`
-  - Initializes the application with an optional session backend and empty middleware lists for HTTP and WebSocket requests.
-
-- `request -> Request`
-  - Retrieves the current request from the context variable.
-
-- `__call__(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
-  - ASGI callable interface for the server. Checks `scope` type and dispatches to HTTP or WebSocket handling.
-
-- `_asgi_app_http(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
-  - ASGI application entry point for handling HTTP requests.
-
-- `_asgi_app_websocket(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
-  - ASGI application entry point for handling WebSocket requests. Routes to methods prefixed with `ws_` (e.g., `ws_chat` for `/chat`).
-
+  - Initializes the application with an optional session backend, empty middleware lists, and empty lifecycle handler lists.
+- `on_startup(handlers: List[Callable[[], Awaitable[None]]]) -> None`
+  - Registers async handlers to be executed during the ASGI `lifespan.startup` event.
+- `on_shutdown(handlers: List[Callable[[], Awaitable[None]]]) -> None`
+  - Registers async handlers to be executed during the ASGI `lifespan.shutdown` event.
 - `request(self) -> Request`
   - Accessor for the current request object. Returns the current request from the context variable.
-
+- `__call__(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - ASGI callable interface for the server. Dispatches to HTTP, WebSocket, or lifespan event handling based on `scope` type.
+- `_asgi_app_http(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - ASGI application entry point for handling HTTP requests.
+- `_asgi_app_websocket(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - ASGI application entry point for handling WebSocket requests. Routes to methods prefixed with `ws_` (e.g., `ws_chat` for `/chat`).
+- `_asgi_app_lifespan(receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
+  - ASGI application entry point for handling lifespan events. Executes registered startup and shutdown handlers.
 - `_parse_cookies(cookie_header: str) -> Dict[str, str]`
   - Parses the Cookie header and returns a dictionary of cookie names and values.
-
 - `_parse_multipart(reader: asyncio.StreamReader, boundary: bytes) -> Tuple[Dict[str, List[str]], Dict[str, Dict[str, Any]]]`
   - Asynchronously parses multipart/form-data from the given reader using the specified boundary. Returns a tuple of two dictionaries: `form_data` (text fields as key-value pairs) and `files` (file fields with metadata). Each file entry in `files` contains:
     - `filename`: The original filename of the uploaded file.
@@ -462,27 +472,23 @@ The main ASGI application class for handling HTTP and WebSocket requests in Micr
     - `content`: An `asyncio.Queue` containing chunks of file data as bytes, with a `None` sentinel signaling the end of the stream.
   - Handlers can consume the file data by iterating over the queue (e.g., using `await queue.get()`).
   - *Requires:* `multipart`
-  
 - `_send_response(send: Callable[[Dict[str, Any]], Awaitable[None]], status_code: int, body: Any, extra_headers: Optional[List[Tuple[str, str]]] = None) -> None`
   - Sends an HTTP response using the ASGI send callable.
-
 - `_send_websocket_close(send: Callable[[Dict[str, Any]], Awaitable[None]], code: int, reason: str) -> None`
   - Sends a WebSocket close message with the specified code and reason.
-
 - `_redirect(location: str) -> Tuple[int, str]`
   - Generates an HTTP redirect response.
-
 - `_render_template(name: str, **kwargs: Any) -> str`
   - Renders a template asynchronously using Jinja2.
   - *Requires*: `jinja2`
 
-The `App` class is the main entry point for creating MicroPie applications. It implements the ASGI interface and handles HTTP and WebSocket requests.
+The `App` class is the main entry point for creating MicroPie applications. It implements the ASGI interface and handles HTTP, WebSocket, and lifespan events.
 
 ## Response Formats
 
 Handlers can return responses in the following formats:
 
-1. String or bytes or JSON
+1. String, bytes, or JSON-serializable object
 2. Tuple of (status_code, body)
 3. Tuple of (status_code, body, headers)
 4. Async or sync generator for streaming responses
