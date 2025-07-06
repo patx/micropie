@@ -257,7 +257,6 @@ class HttpMiddleware(ABC):
     """
     Pluggable middleware class that allows hooking into the HTTP request lifecycle.
     """
-
     @abstractmethod
     async def before_request(self, request: Request) -> Optional[Dict]:
         """
@@ -298,7 +297,6 @@ class WebSocketMiddleware(ABC):
     """
     Pluggable middleware class that allows hooking into the WebSocket request lifecycle.
     """
-
     @abstractmethod
     async def before_websocket(self, request: WebSocketRequest) -> Optional[Dict]:
         """
@@ -331,9 +329,9 @@ class App:
     """
     ASGI application for handling HTTP and WebSocket requests in MicroPie.
     It supports pluggable session backends via the 'session_backend' attribute,
-    pluggable HTTP middlewares via the 'middlewares' list, and WebSocket middlewares via the 'ws_middlewares' list.
+    pluggable HTTP middlewares via the 'middlewares' list, WebSocket middlewares via the 'ws_middlewares' list,
+    and startup/shutdown handlers via 'on_startup' and 'on_shutdown' methods.
     """
-
     def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
         if JINJA_INSTALLED:
             self.env = Environment(
@@ -346,6 +344,27 @@ class App:
         self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
         self.middlewares: List[HttpMiddleware] = []
         self.ws_middlewares: List[WebSocketMiddleware] = []
+        self._startup_handlers: List[Callable[[], Awaitable[None]]] = []
+        self._shutdown_handlers: List[Callable[[], Awaitable[None]]] = []
+        self._started: bool = False
+
+    def on_startup(self, handlers: List[Callable[[], Awaitable[None]]]) -> None:
+        """
+        Register async handlers to be called on application startup.
+
+        Args:
+            handlers: List of async callables to execute during startup.
+        """
+        self._startup_handlers.extend(handlers)
+
+    def on_shutdown(self, handlers: List[Callable[[], Awaitable[None]]]) -> None:
+        """
+        Register async handlers to be called on application shutdown.
+
+        Args:
+            handlers: List of async callables to execute during shutdown.
+        """
+        self._shutdown_handlers.extend(handlers)
 
     @property
     def request(self) -> Request:
@@ -374,8 +393,47 @@ class App:
             await self._asgi_app_http(scope, receive, send)
         elif scope["type"] == "websocket":
             await self._asgi_app_websocket(scope, receive, send)
+        elif scope["type"] == "lifespan":
+            await self._asgi_app_lifespan(receive, send)
         else:
-            pass  # Handle lifespan and other scopes in the future.
+            pass  # Ignore other scopes for now
+
+    async def _asgi_app_lifespan(
+        self,
+        receive: Callable[[], Awaitable[Dict[str, Any]]],
+        send: Callable[[Dict[str, Any]], Awaitable[None]]
+    ) -> None:
+        """
+        Handle ASGI lifespan events for startup and shutdown.
+
+        Args:
+            receive: The callable to receive ASGI lifespan events.
+            send: The callable to send ASGI lifespan events.
+        """
+        while True:
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                try:
+                    if not self._started:
+                        for handler in self._startup_handlers:
+                            await handler()
+                        self._started = True
+                    await send({"type": "lifespan.startup.complete"})
+                except Exception as e:
+                    print(f"Startup error: {e}")
+                    await send({"type": "lifespan.startup.failed", "message": str(e)})
+                    return
+            elif message["type"] == "lifespan.shutdown":
+                try:
+                    if self._started:
+                        for handler in self._shutdown_handlers:
+                            await handler()
+                        self._started = False
+                    await send({"type": "lifespan.shutdown.complete"})
+                except Exception as e:
+                    print(f"Shutdown error: {e}")
+                    await send({"type": "lifespan.shutdown.failed", "message": str(e)})
+                return
 
     async def _asgi_app_http(
         self,
