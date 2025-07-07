@@ -149,8 +149,8 @@ By default, MicroPie's route handlers can accept any request method, it's up to 
 MicroPie supports ASGI lifespan events, allowing you to register asynchronous handlers for application startup and shutdown. This is useful for tasks like initializing database connections or cleaning up resources.
 
 #### **Key Points**
-- **Startup Handlers**: Register async functions to run during `lifespan.startup` using `app.on_startup()`.
-- **Shutdown Handlers**: Register async functions to run during `lifespan.shutdown` using `app.on_shutdown()`.
+- **Startup Handlers**: Register async handlers to run during `lifespan.startup` using `app.startup_handlers.append(handler)`.
+- **Shutdown Handlers**: Register async handlers to run during `lifespan.shutdown` using `app.shutdown_handlers.append(handler)`.
 - **Error Handling**: Errors during startup or shutdown are caught and reported via `lifespan.startup.failed` or `lifespan.shutdown.failed` events.
 - **Use Cases**: Ideal for setting up database pools, external service connections, or logging systems on startup, and closing them on shutdown.
 
