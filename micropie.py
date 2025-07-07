@@ -344,27 +344,9 @@ class App:
         self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
         self.middlewares: List[HttpMiddleware] = []
         self.ws_middlewares: List[WebSocketMiddleware] = []
-        self._startup_handlers: List[Callable[[], Awaitable[None]]] = []
-        self._shutdown_handlers: List[Callable[[], Awaitable[None]]] = []
+        self.startup_handlers: List[Callable[[], Awaitable[None]]] = []
+        self.shutdown_handlers: List[Callable[[], Awaitable[None]]] = []
         self._started: bool = False
-
-    def on_startup(self, handlers: List[Callable[[], Awaitable[None]]]) -> None:
-        """
-        Register async handlers to be called on application startup.
-
-        Args:
-            handlers: List of async callables to execute during startup.
-        """
-        self._startup_handlers.extend(handlers)
-
-    def on_shutdown(self, handlers: List[Callable[[], Awaitable[None]]]) -> None:
-        """
-        Register async handlers to be called on application shutdown.
-
-        Args:
-            handlers: List of async callables to execute during shutdown.
-        """
-        self._shutdown_handlers.extend(handlers)
 
     @property
     def request(self) -> Request:
@@ -415,7 +397,7 @@ class App:
             if message["type"] == "lifespan.startup":
                 try:
                     if not self._started:
-                        for handler in self._startup_handlers:
+                        for handler in self.startup_handlers:
                             await handler()
                         self._started = True
                     await send({"type": "lifespan.startup.complete"})
@@ -426,7 +408,7 @@ class App:
             elif message["type"] == "lifespan.shutdown":
                 try:
                     if self._started:
-                        for handler in self._shutdown_handlers:
+                        for handler in self.shutdown_handlers:
                             await handler()
                         self._started = False
                     await send({"type": "lifespan.shutdown.complete"})

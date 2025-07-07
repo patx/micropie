@@ -173,11 +173,10 @@ class MyApp(App):
         return "Welcome to MicroPie ASGI."
 
 app = MyApp()
-app.on_startup([setup_db])
-app.on_shutdown([close_db])
+app.startup_handlers.append(setup_db)
+app.shutdown_handlers.append(close_db)
 ```
-
-On startup, the `setup_db` method initializes the database connection. On shutdown (e.g., Ctrl+C), the `close_db` method closes it. See [examples/lifespan](https://github.com/patx/micropie/tree/main/examples/lifespan) for more details.
+On startup, the `setup_db` method initializes the database connection. On shutdown (e.g., Ctrl+C), the `close_db` method closes it.
 
 ### Real-Time Communication with WebSockets and Socket.IO
 MicroPie includes built-in support for WebSocket connections. WebSocket routes are defined in your App subclass using methods prefixed with `ws_`, mirroring the simplicity of MicroPie's HTTP routing. For example, a method named `ws_chat` handles WebSocket connections at `ws://<host>/chat`.
@@ -441,17 +440,13 @@ The main ASGI application class for handling HTTP, WebSocket, and lifespan event
 #### Attributes
 - `middlewares`: List of `HttpMiddleware` instances for HTTP request processing.
 - `ws_middlewares`: List of `WebSocketMiddleware` instances for WebSocket request processing.
-- `_startup_handlers`: List of async callables to run during `lifespan.startup`.
-- `_shutdown_handlers`: List of async callables to run during `lifespan.shutdown`.
+- `startup_handlers`: List of async callables to run during `lifespan.startup`.
+- `shutdown_handlers`: List of async callables to run during `lifespan.shutdown`.
 - `_started`: Boolean indicating whether the application has completed startup.
 
 #### Methods
 - `__init__(session_backend: Optional[SessionBackend] = None) -> None`
   - Initializes the application with an optional session backend, empty middleware lists, and empty lifecycle handler lists.
-- `on_startup(handlers: List[Callable[[], Awaitable[None]]]) -> None`
-  - Registers async handlers to be executed during the ASGI `lifespan.startup` event.
-- `on_shutdown(handlers: List[Callable[[], Awaitable[None]]]) -> None`
-  - Registers async handlers to be executed during the ASGI `lifespan.shutdown` event.
 - `request(self) -> Request`
   - Accessor for the current request object. Returns the current request from the context variable.
 - `__call__(scope: Dict[str, Any], receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None`
