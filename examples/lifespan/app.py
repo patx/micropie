@@ -3,10 +3,10 @@ from micropie import App
 
 class MyApp(App):
     def __init__(self):
-        super().__init__()  # Defaults to InMemorySessionBackend
+        super().__init__()
         self.connection_pool = None
     
-    async def setup_db(self):
+    async def _setup_db(self):
         print("Setting up database...")
         self.connection_pool = await asyncpg.create_pool(
             user="dbuser",
@@ -17,7 +17,7 @@ class MyApp(App):
         )
         print("Database setup complete!")
 
-    async def close_db(self):
+    async def _close_db(self):
         print("Closing database...")
         if self.connection_pool:
             await self.connection_pool.close()
@@ -28,5 +28,5 @@ class MyApp(App):
         return "Welcome to MicroPie ASGI."
 
 app = MyApp()
-app.on_startup([app.setup_db])
-app.on_shutdown([app.close_db])
+app.on_startup([app._setup_db])
+app.on_shutdown([app._close_db])

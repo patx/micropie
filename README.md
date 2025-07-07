@@ -158,24 +158,23 @@ MicroPie supports ASGI lifespan events, allowing you to register asynchronous ha
 ```python
 from micropie import App
 
-class MyApp(App):
-    
-    async def _setup_db(self):
-        print("Setting up database...")
-        # DB init code here
-        print("Database setup complete!")
+async def _setup_db():
+    print("Setting up database...")
+    # DB init code here
+    print("Database setup complete!")
 
-    async def _close_db(self):
-        print("Closing database...")
-        # DB close code here
-        print("Database closed!")
-        
+async def _close_db():
+    print("Closing database...")
+    # DB close code here
+    print("Database closed!")
+
+class MyApp(App):
     async def index(self):
         return "Welcome to MicroPie ASGI."
 
 app = MyApp()
-app.on_startup([app._setup_db])
-app.on_shutdown([app._close_db])
+app.on_startup([setup_db])
+app.on_shutdown([close_db])
 ```
 
 On startup, the `setup_db` method initializes the database connection. On shutdown (e.g., Ctrl+C), the `close_db` method closes it. See [examples/lifespan](https://github.com/patx/micropie/tree/main/examples/lifespan) for more details.
