@@ -402,7 +402,6 @@ class App:
                         self._started = True
                     await send({"type": "lifespan.startup.complete"})
                 except Exception as e:
-                    print(f"Startup error: {e}")
                     await send({"type": "lifespan.startup.failed", "message": str(e)})
                     return
             elif message["type"] == "lifespan.shutdown":
@@ -413,7 +412,6 @@ class App:
                         self._started = False
                     await send({"type": "lifespan.shutdown.complete"})
                 except Exception as e:
-                    print(f"Shutdown error: {e}")
                     await send({"type": "lifespan.shutdown.failed", "message": str(e)})
                 return
 
