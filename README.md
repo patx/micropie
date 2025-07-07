@@ -229,7 +229,7 @@ class MyApp(App):
 ```
 
 ### **Static File Serving**
-Here again, like WebSockets, MicroPie does not have a built-in static file method. While MicroPie does not natively support static files, if you need them, you can easily implement it in your application code or integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
+MicroPie does not natively support static files, if you need them, you can easily implement it in your application code or integrate dedicated libraries like **ServeStatic** or **Starlette’s StaticFiles** alongside Uvicorn to handle async static file serving. Check out [examples/static_content](https://github.com/patx/micropie/tree/main/examples/static_content) to see this in action.
 
 ### **Streaming Responses**
 Support for streaming responses makes it easy to send data in chunks.
