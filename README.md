@@ -158,12 +158,12 @@ MicroPie supports ASGI lifespan events, allowing you to register asynchronous ha
 ```python
 from micropie import App
 
-async def _setup_db():
+async def setup_db():
     print("Setting up database...")
     # DB init code here
     print("Database setup complete!")
 
-async def _close_db():
+async def close_db():
     print("Closing database...")
     # DB close code here
     print("Database closed!")
