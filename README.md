@@ -316,15 +316,14 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 
 ## Benchmark Results
 
-The table below summarizes the performance of various ASGI frameworks based on a 15-second `wrk` test with 4 threads and 64 connections, measuring a simple "hello world" JSON response. [Learn More](https://gist.github.com/patx/26ad4babd662105007a6e728f182e1db).
+The table below summarizes the performance of various ASGI frameworks based on a 15-second `wrk` test with 4 threads and 64 connections, measuring a simple "hello world" JSON response. [Learn More](https://gist.github.com/patx/39e846ed66bead3e42270ff193db35f8).
 
-| Framework   | Total Requests | Req/Sec   | Transfer/Sec (MB/s) | Avg Latency (ms) | Stdev Latency (ms) | Max Latency (ms) |
-|-------------|----------------|-----------|---------------------|------------------|--------------------|------------------|
-| Blacksheep  | 831,432        | 55,060.05 | 7.98                | 1.15             | 0.39               | 15.11            |
-| MicroPie    | 791,721        | 52,685.82 | 8.09                | 1.35             | 1.09               | 21.59            |
-| Starlette   | 779,092        | 51,930.45 | 7.03                | 1.22             | 0.39               | 17.42            |
-| Litestar    | 610,059        | 40,401.18 | 5.47                | 1.57             | 0.63               | 33.66            |
-| FastAPI     | 281,493        | 18,756.73 | 2.54                | 3.52             | 1.82               | 56.73            |
+| Framework  | Requests/sec | Avg Latency (ms) | Max Latency (ms) | Transfer/sec (MB) | Total Requests | Data Read (MB) |
+|------------|--------------|------------------|------------------|-------------------|----------------|----------------|
+| Starlette  | 21615.41     | 3.00             | 90.34            | 2.93              | 324374         | 43.93          |
+| MicroPie   | 18519.02     | 3.53             | 105.00           | 2.84              | 277960         | 42.68          |
+| FastAPI    | 8899.40      | 7.22             | 56.09            | 1.21              | 133542         | 18.08          |
+| Quart      | 8601.40      | 7.52             | 117.99           | 1.17              | 129089         | 17.60          |
 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!
