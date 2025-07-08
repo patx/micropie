@@ -1,11 +1,7 @@
 """
 MicroPie: An ultra micro ASGI web framework.
 
-MicroPie is designed for lightweight web applications, offering 
-a minimalistic API for building ASGI-compatible web services. 
-It prioritizes simplicity and performance.
-
-Homepage and documentation: https://patx.github.io/micropie
+Homepage: https://patx.github.io/micropie
 
 Copyright (c) 2025, Harrison Erd.
 License: BSD3 (see LICENSE for details)
