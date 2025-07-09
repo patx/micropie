@@ -571,7 +571,76 @@ class App:
                         result.get("headers", extra_headers)
                     )
 
-            await self._send_response(send, status_code, response_body, extra_headers)
+            # --- BEGIN PATCH FOR SSE CLIENT DISCONNECT ---
+            if hasattr(response_body, "__aiter__"):
+                sanitized_headers: List[Tuple[str, str]] = []
+                for k, v in extra_headers:
+                    if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
+                        print(f"Header injection attempt detected: {k}: {v}")
+                        continue
+                    sanitized_headers.append((k, v))
+                if not any(h[0].lower() == "content-type" for h in sanitized_headers):
+                    sanitized_headers.append(("Content-Type", "text/html; charset=utf-8"))
+                await send({
+                    "type": "http.response.start",
+                    "status": status_code,
+                    "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers],
+                })
+
+                gen = response_body
+
+                async def streamer():
+                    try:
+                        async for chunk in gen:
+                            if isinstance(chunk, str):
+                                chunk = chunk.encode("utf-8")
+                            await send({
+                                "type": "http.response.body",
+                                "body": chunk,
+                                "more_body": True
+                            })
+                        await send({
+                            "type": "http.response.body",
+                            "body": b"",
+                            "more_body": False
+                        })
+                    except asyncio.CancelledError:
+                        # Optional: do any extra logging here
+                        raise
+                    finally:
+                        if hasattr(gen, "aclose"):
+                            await gen.aclose()
+
+                streaming_task = asyncio.create_task(streamer())
+                try:
+                    while True:
+                        msg_task = asyncio.create_task(receive())
+                        done, pending = await asyncio.wait(
+                            [streaming_task, msg_task],
+                            return_when=asyncio.FIRST_COMPLETED
+                        )
+                        if streaming_task in done:
+                            break
+                        if msg_task in done:
+                            msg = msg_task.result()
+                            if msg["type"] == "http.disconnect":
+                                streaming_task.cancel()
+                                try:
+                                    await streaming_task
+                                except asyncio.CancelledError:
+                                    pass
+                                break
+                finally:
+                    if not streaming_task.done():
+                        streaming_task.cancel()
+                        try:
+                            await streaming_task
+                        except asyncio.CancelledError:
+                            pass
+                return
+            # --- END PATCH FOR SSE CLIENT DISCONNECT ---
+            else:
+                await self._send_response(send, status_code, response_body, extra_headers)
 
         finally:
             current_request.reset(token)
