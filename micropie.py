@@ -865,6 +865,7 @@ class App:
             "status": status_code,
             "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers],
         })
+        # Handle async generators (non-SSE cases; SSE is handled in _asgi_app_http)
         if hasattr(body, "__aiter__"):
             async for chunk in body:
                 if isinstance(chunk, str):
