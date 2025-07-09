@@ -43,7 +43,7 @@ class MyApp(App):
                     await asyncio.sleep(1)
             except asyncio.CancelledError:
                 print("Client disconnected")
-                raise
+                pass
 
         # Return status code, async generator, and headers for SSE
         return 200, event_generator(), [("Content-Type", "text/event-stream")]
