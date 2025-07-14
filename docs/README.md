@@ -1,6 +1,6 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
-micropie is an ultra-micro ASGI Python web framework that gets out of your way, 
+[MicroPie](https://patx.github.io/micropie) is an ultra-micro ASGI Python web framework that gets out of your way, 
 letting you build fast and dynamic web apps with ease. Inspired by CherryPy and
 licensed under the BSD three-clause license.
 
