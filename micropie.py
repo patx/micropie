@@ -15,6 +15,7 @@ import contextvars
 import inspect
 import re
 import time
+import traceback
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
@@ -540,8 +541,8 @@ class App:
             # Execute handler
             try:
                 result = await handler(*func_args) if inspect.iscoroutinefunction(handler) else handler(*func_args)
-            except Exception as e:
-                print(f"Request error: {e}")
+            except Exception:
+                traceback.print_exc()
                 await self._send_response(send, 500, "500 Internal Server Error")
                 return
 
@@ -729,7 +730,7 @@ class App:
             except ConnectionClosed:
                 pass  # Normal closure, no need to send another close message
             except Exception as e:
-                print(f"WebSocket error: {e}")
+                traceback.print_exc()
                 await self._send_websocket_close(send, 1011, f"Handler error: {str(e)}")
                 return
 
