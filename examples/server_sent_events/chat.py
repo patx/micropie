@@ -67,7 +67,6 @@ class ChatApp(App):
     async def events(self):
         async def stream():
             queue = asyncio.Queue()
-            setattr(stream, "_micropie_disconnect_queue", queue)
             self.clients.add(queue)
             try:
                 for msg in self.messages:
