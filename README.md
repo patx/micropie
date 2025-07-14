@@ -1,5 +1,9 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
+[![License](https://img.shields.io/github/license/patx/micropie)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/micropie)](https://pypi.org/project/micropie/)
+[![PyPI Downloads](https://static.pepy.tech/badge/micropie)](https://pepy.tech/projects/micropie)
+
 ## **Introduction**
 **MicroPie** is a fast, lightweight, modern Python web framework built on ASGI for asynchronous web applications. Designed for **flexibility** and **simplicity**, it enables high-concurrency web apps with built-in WebSockets, session management, middleware, lifecycle event handling, and optional template rendering. **Extensible** for integration with ASGI-compatible tools like [python-socketio](https://python-socketio.readthedocs.io/en/stable/server.html#running-as-an-asgi-application) and [ServeStatic](https://archmonger.github.io/ServeStatic/latest/quick-start/#using-with-asgi), it’s inspired by CherryPy and licensed under the BSD 3-Clause License.
 
