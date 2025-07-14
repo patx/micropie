@@ -7,8 +7,8 @@ Copyright (c) 2025, Harrison Erd.
 License: BSD3 (see LICENSE for details)
 """
 
-__author__ = 'Harrison Erd'
-__license__ = 'BSD3'
+__author__ = "Harrison Erd"
+__license__ = "BSD3"
 
 import asyncio
 import contextvars
