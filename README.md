@@ -16,7 +16,7 @@
 - ✨ **ASGI-Powered:** Built with asynchronous support for modern web servers like Uvicorn, Hypercorn, and Daphne, enabling high concurrency.
 - 🛠️ **Lightweight Design:** Only optional dependencies for flexibility and faster development/deployment.
 - 🔄 **Lifecycle Events:** ASGI lifespan event handling for startup and shutdown tasks (e.g., database initialization).
-- ⚡ **Blazing Fast:** Check out how MicroPie compares to other popular ASGI frameworks below!
+- ⚡ **Competitive Performance:** Check out how MicroPie compares to other popular ASGI frameworks below!
 
 ### **Useful Links**
 - **Homepage**: [patx.github.io/micropie](https://patx.github.io/micropie)
