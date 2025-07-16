@@ -4,17 +4,23 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "micropie"
-version = "0.18"
+version = "0.19"
 description = "An ultra micro ASGI web framework"
 keywords = ["micropie", "asgi", "microframework", "http"]
 readme = "docs/README.md"
 authors = [{ name = "Harrison Erd", email = "harrisonerd@gmail.com" }]
 license = {file = "LICENSE"}
 classifiers = [
+    "Framework :: MicroPie",
     "Framework :: AsyncIO",
     "Environment :: Web Environment",
     "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: WSGI",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
 ]
 
 [project.optional-dependencies]
