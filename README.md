@@ -147,7 +147,7 @@ class MyApp(App):
         return f"Submitted by: {username}"
 ```
 
-By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and a number of other things specific to the current request state) in the handler with `self.request.method`. You can see how to handle POST JSON data at [examples/api](https://github.com/patx/micropie/tree/main/examples/api) and [examples/json](https://github.com/patx/micropie/tree/main/examples/json).
+By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and a number of other things specific to the current request state) in the handler with `self.request.method`. You can see how to handle POST JSON data at [examples/json_api](https://github.com/patx/micropie/tree/main/examples/json_api).
 
 ### **Lifecycle Event Handling**
 MicroPie supports ASGI lifespan events, allowing you to register asynchronous handlers for application startup and shutdown. This is useful for tasks like initializing database connections or cleaning up resources.
