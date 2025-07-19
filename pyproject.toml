@@ -11,7 +11,6 @@ readme = "docs/README.md"
 authors = [{ name = "Harrison Erd", email = "harrisonerd@gmail.com" }]
 license = {file = "LICENSE"}
 classifiers = [
-    "Framework :: MicroPie",
     "Framework :: AsyncIO",
     "Environment :: Web Environment",
     "Topic :: Internet :: WWW/HTTP",
