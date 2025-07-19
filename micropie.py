@@ -481,7 +481,12 @@ class App:
                     )
                     await self._send_response(send, status_code, response_body, extra_headers)
                     return
-
+            if hasattr(request, "_subapp"):
+                new_scope = dict(scope)
+                new_scope["path"] = request._subapp_path
+                new_scope["root_path"] = scope.get("root_path", "") + "/" + self.middlewares[0].mount_path
+                await request._subapp(new_scope, receive, send)
+                return
             # Parse path and find handler
             path: str = scope["path"].lstrip("/")
             parts: List[str] = path.split("/") if path else []
