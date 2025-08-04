@@ -8,6 +8,14 @@ class ApiApp(App):
     async def users(self, user_id: str):
         return {"user_id": user_id, "message": f"User {user_id} from API"}
 
+    async def visits(self):
+        if "visits" not in self.request.session:
+            self.request.session["visits"] = 1
+        else:
+            self.request.session["visits"] += 1
+        visits = self.request.session["visits"]
+        return f"You have visited {visits} times."
+
 # Define a Middleware to Mount the Sub-App
 class SubAppMiddleware(HttpMiddleware):
     def __init__(self, mount_path: str, subapp: App):

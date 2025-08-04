@@ -55,7 +55,7 @@ class Root(App):
         csrf_token = self.request.session.get("csrf_token", "")
         print(f"Rendering form with CSRF token: {csrf_token}")
         return f"""<form method="POST" action="/submit">
-            <input type="hidden" name="csrf_token" value="{escape(csrf_token)}">
+            <input type="hidden" name="csrf_token" value="{csrf_token}">
             <input type="text" name="name">
             <button type="submit">Submit</button>
             </form>"""
