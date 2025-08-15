@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Glossary &#8212; MicroPie 0.20 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=f6a572b4" />
+    <script src="_static/documentation_options.js?v=0144e382"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Architecture and design" href="explanation/architecture.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">MicroPie</a></h1>
+
+
+
+<p class="blurb">A minimal ASGI web framework</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=patx&repo=micropie&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howto/index.html">How‑to guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="explanation/index.html">Explanations</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="explanation/architecture.html" title="previous chapter">Architecture and design</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="glossary">
+<h1>Glossary<a class="headerlink" href="#glossary" title="Link to this heading">¶</a></h1>
+<p>This glossary defines terms used throughout the MicroPie documentation.</p>
+<dl class="simple glossary">
+<dt id="term-ASGI">ASGI<a class="headerlink" href="#term-ASGI" title="Link to this term">¶</a></dt><dd><p>The Asynchronous Server Gateway Interface.  A standard for
+asynchronous communication between Python applications and
+servers.  MicroPie applications implement the ASGI call
+interface.  See the <a class="reference external" href="https://asgi.readthedocs.io">ASGI specification</a>.</p>
+</dd>
+<dt id="term-route-handler">route handler<a class="headerlink" href="#term-route-handler" title="Link to this term">¶</a></dt><dd><p>A method on your <code class="xref py py-class docutils literal notranslate"><span class="pre">App</span></code> subclass that handles an
+incoming HTTP request.  The first segment of the URL path maps to
+the handler name, and remaining segments or query parameters map
+to arguments.  Handlers may be synchronous or asynchronous.</p>
+</dd>
+<dt id="term-session">session<a class="headerlink" href="#term-session" title="Link to this term">¶</a></dt><dd><p>A dictionary of data associated with a client across multiple
+requests.  MicroPie stores the session in a pluggable back‑end
+and identifies it using a <code class="docutils literal notranslate"><span class="pre">session_id</span></code> cookie.  See
+<a class="reference internal" href="howto/sessions.html"><span class="doc">Managing sessions</span></a>.</p>
+</dd>
+<dt id="term-middleware">middleware<a class="headerlink" href="#term-middleware" title="Link to this term">¶</a></dt><dd><p>Code that runs before and/or after a request handler.  Middleware
+can short‑circuit requests, modify responses, enforce security
+policies or implement custom routing.  MicroPie defines
+<code class="xref py py-class docutils literal notranslate"><span class="pre">HttpMiddleware</span></code> and
+<code class="xref py py-class docutils literal notranslate"><span class="pre">WebSocketMiddleware</span></code> base classes.</p>
+</dd>
+<dt id="term-WebSocket">WebSocket<a class="headerlink" href="#term-WebSocket" title="Link to this term">¶</a></dt><dd><p>A persistent, bidirectional communication channel over TCP.  In
+MicroPie, WebSocket handlers are methods prefixed with <code class="docutils literal notranslate"><span class="pre">ws_</span></code>.
+They receive an instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">WebSocket</span></code> and
+optionally additional parameters.  See <a class="reference internal" href="tutorial/websockets.html"><span class="doc">WebSocket support</span></a>.</p>
+</dd>
+<dt id="term-context-variable">context variable<a class="headerlink" href="#term-context-variable" title="Link to this term">¶</a></dt><dd><p>An object from the <code class="xref py py-mod docutils literal notranslate"><span class="pre">contextvars</span></code> module that stores data
+local to the current asynchronous context.  MicroPie stores the
+current request in a context variable so it is accessible via
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">request()</span></code> without passing it through your
+function calls.</p>
+</dd>
+</dl>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/glossary.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

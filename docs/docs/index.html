@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>MicroPie ASGI Web Framework &#8212; MicroPie 0.20 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=f6a572b4" />
+    <script src="_static/documentation_options.js?v=0144e382"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorials" href="tutorial/index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">MicroPie</a></h1>
+
+
+
+<p class="blurb">A minimal ASGI web framework</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=patx&repo=micropie&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howto/index.html">How‑to guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="explanation/index.html">Explanations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="tutorial/index.html" title="next chapter">Tutorials</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="micropie-asgi-web-framework">
+<h1>MicroPie ASGI Web Framework<a class="headerlink" href="#micropie-asgi-web-framework" title="Link to this heading">¶</a></h1>
+<p>MicroPie is a small, asynchronous web framework built on top of the
+ASGI specification.  It is designed to be simple to learn and easy to
+extend while still providing the features necessary to build modern web
+applications.  MicroPie offers automatic URL routing, pluggable
+session back‑ends, middleware hooks, WebSocket support and optional
+template rendering.  Its focus on minimalism makes it a good choice for
+lightweight services, APIs and educational projects.</p>
+<p>This documentation is organized according to the
+Diátaxis documentation framework. That framework separates documentation into
+four distinct types:</p>
+<ul class="simple">
+<li><p><strong>Tutorials</strong> – step‑by‑step introductions that teach you how to
+accomplish a task.  Tutorials should avoid deep explanations and help
+you get started quickly.</p></li>
+<li><p><strong>How‑to guides</strong> – recipes focused on solving a particular problem.
+Guides assume you already know the basics and want to apply MicroPie
+to a concrete task.</p></li>
+<li><p><strong>Reference</strong> – authoritative descriptions of classes, functions and
+modules.  These documents are factual and concise.</p></li>
+<li><p><strong>Explanation</strong> – discussions that explore the rationale behind
+design choices and deeper concepts in MicroPie.</p></li>
+</ul>
+<p>In addition to these four types, a small glossary collects
+terminology used throughout the framework.  If you are new to
+MicroPie, start with the tutorial.  If you want to accomplish a
+specific task, head to the how‑to guides.  If you need to look up a
+particular method or class, consult the reference manual.  For
+background and design considerations, see the explanation section.</p>
+</section>
+<section id="contents">
+<h1>Contents<a class="headerlink" href="#contents" title="Link to this heading">¶</a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorial/index.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorial/quickstart.html">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial/routing.html">Routing and handlers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial/websockets.html">WebSocket support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="howto/index.html">How‑to guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="howto/sessions.html">Managing sessions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howto/middleware.html">Writing middleware</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howto/templates.html">Rendering templates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howto/streaming.html">Streaming responses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howto/static_files.html">Serving static files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="howto/socketio.html">Integrating Socket.IO</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">API reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/app.html">App class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/request.html">Request objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/websocket.html">WebSocket class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/middleware.html">Middleware classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/session.html">Session back‑ends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/exceptions.html">Exceptions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="explanation/index.html">Explanations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="explanation/architecture.html">Architecture and design</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

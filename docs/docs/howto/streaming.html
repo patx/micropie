@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Streaming responses &#8212; MicroPie 0.20 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=f6a572b4" />
+    <script src="../_static/documentation_options.js?v=0144e382"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Serving static files" href="static_files.html" />
+    <link rel="prev" title="Rendering templates" href="templates.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">MicroPie</a></h1>
+
+
+
+<p class="blurb">A minimal ASGI web framework</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=patx&repo=micropie&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">How‑to guides</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="sessions.html">Managing sessions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="middleware.html">Writing middleware</a></li>
+<li class="toctree-l2"><a class="reference internal" href="templates.html">Rendering templates</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Streaming responses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="static_files.html">Serving static files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="socketio.html">Integrating Socket.IO</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/index.html">Explanations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">How‑to guides</a><ul>
+      <li>Previous: <a href="templates.html" title="previous chapter">Rendering templates</a></li>
+      <li>Next: <a href="static_files.html" title="next chapter">Serving static files</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="streaming-responses">
+<h1>Streaming responses<a class="headerlink" href="#streaming-responses" title="Link to this heading">¶</a></h1>
+<p>For long‑running tasks or large responses it is often desirable to
+stream data to the client in chunks rather than return a single
+buffer.  MicroPie supports streaming by allowing your handler to
+return an iterator or asynchronous generator.  Each chunk yielded by
+the generator is sent as part of the response body.  When the
+generator finishes, MicroPie automatically sends an empty chunk to
+signal completion.</p>
+<section id="example-number-stream">
+<h2>Example: number stream<a class="headerlink" href="#example-number-stream" title="Link to this heading">¶</a></h2>
+<p>The following handler streams a sequence of numbers to the client one
+per second:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">micropie</span> <span class="kn">import</span> <span class="n">App</span>
+<span class="kn">import</span> <span class="nn">asyncio</span>
+
+<span class="k">class</span> <span class="nc">MyApp</span><span class="p">(</span><span class="n">App</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">numbers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">async</span> <span class="k">def</span> <span class="nf">generator</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="sa">f</span><span class="s2">&quot;Number: </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">generator</span><span class="p">()</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">MyApp</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Visiting <code class="docutils literal notranslate"><span class="pre">/numbers</span></code> will produce output like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Number: 0
+Number: 1
+Number: 2
+Number: 3
+Number: 4
+</pre></div>
+</div>
+<p>MicroPie automatically sets <code class="docutils literal notranslate"><span class="pre">Content‑Type</span></code> to <code class="docutils literal notranslate"><span class="pre">text/html</span></code> if you
+do not specify a content type.  You can override or add headers by
+returning a tuple <code class="docutils literal notranslate"><span class="pre">(status_code,</span> <span class="pre">body,</span> <span class="pre">headers)</span></code> and making the
+generator the body.</p>
+</section>
+<section id="handling-client-disconnects">
+<h2>Handling client disconnects<a class="headerlink" href="#handling-client-disconnects" title="Link to this heading">¶</a></h2>
+<p>If the client disconnects while a generator is running, MicroPie
+cancels the generator and closes the underlying response.  This
+behaviour is important for long‑lived streams such as server‑sent
+events (SSE).  When writing a generator, use <code class="docutils literal notranslate"><span class="pre">try</span></code>/<code class="docutils literal notranslate"><span class="pre">finally</span></code> or
+<code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">with</span></code> to perform cleanup when the stream is cancelled.</p>
+</section>
+<section id="serversent-events">
+<h2>Server‑sent events<a class="headerlink" href="#serversent-events" title="Link to this heading">¶</a></h2>
+<p>MicroPie treats any iterable response body as a general stream.
+Implementing true server‑sent events requires you to set the
+<code class="docutils literal notranslate"><span class="pre">Content‑Type</span></code> header to <code class="docutils literal notranslate"><span class="pre">text/event-stream</span></code> and send
+properly‑formatted SSE messages (<code class="docutils literal notranslate"><span class="pre">data:</span> <span class="pre">...\n\n</span></code>).  Additionally,
+MicroPie includes a patch that handles early disconnection of SSE
+clients in its HTTP handling code.  For a full example, see the
+<code class="docutils literal notranslate"><span class="pre">examples/sse</span></code> directory in the MicroPie source distribution.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/howto/streaming.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

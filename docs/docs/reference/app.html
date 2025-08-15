@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>App class &#8212; MicroPie 0.20 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=f6a572b4" />
+    <script src="../_static/documentation_options.js?v=0144e382"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Request objects" href="request.html" />
+    <link rel="prev" title="API reference" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">MicroPie</a></h1>
+
+
+
+<p class="blurb">A minimal ASGI web framework</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=patx&repo=micropie&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howto/index.html">How‑to guides</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">App class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="request.html">Request objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="websocket.html">WebSocket class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="middleware.html">Middleware classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="session.html">Session back‑ends</a></li>
+<li class="toctree-l2"><a class="reference internal" href="exceptions.html">Exceptions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/index.html">Explanations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">API reference</a></li>
+      <li>Next: <a href="request.html" title="next chapter">Request objects</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="app-class">
+<h1>App class<a class="headerlink" href="#app-class" title="Link to this heading">¶</a></h1>
+<p id="id1">The <code class="xref py py-class docutils literal notranslate"><span class="pre">App</span></code> class is the core of a MicroPie application.
+It implements the ASGI call interface and dispatches HTTP, WebSocket
+and lifespan events to your handlers.  Subclass <code class="xref py py-class docutils literal notranslate"><span class="pre">App</span></code>
+and add public methods to create route handlers.  Instantiate your
+subclass and pass the resulting object to an ASGI server such as
+Uvicorn.</p>
+<section id="constructor">
+<h2>Constructor<a class="headerlink" href="#constructor" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="App">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">App</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#App" title="Link to this definition">¶</a></dt>
+<dd><p>Create a new application.  If <em>session_backend</em> is provided it must
+be an instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">SessionBackend</span></code>.  When omitted,
+MicroPie uses an in‑memory back‑end.</p>
+</dd></dl>
+
+</section>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h2>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="middlewares">
+<span class="sig-name descname"><span class="pre">middlewares</span></span><a class="headerlink" href="#middlewares" title="Link to this definition">¶</a></dt>
+<dd><p>A list of <code class="xref py py-class docutils literal notranslate"><span class="pre">HttpMiddleware</span></code> instances.  Middlewares
+run before and after every HTTP request.  Append a middleware
+instance to enable it.  See <a class="reference internal" href="../howto/middleware.html"><span class="doc">Writing middleware</span></a> for examples.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="ws_middlewares">
+<span class="sig-name descname"><span class="pre">ws_middlewares</span></span><a class="headerlink" href="#ws_middlewares" title="Link to this definition">¶</a></dt>
+<dd><p>A list of <code class="xref py py-class docutils literal notranslate"><span class="pre">WebSocketMiddleware</span></code> instances used for
+WebSocket connections.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="startup_handlers">
+<span class="sig-name descname"><span class="pre">startup_handlers</span></span><a class="headerlink" href="#startup_handlers" title="Link to this definition">¶</a></dt>
+<dd><p>A list of asynchronous callables that run during the ASGI
+<code class="docutils literal notranslate"><span class="pre">lifespan.startup</span></code> event.  Use this to set up resources such as
+database connections.  See <a class="reference internal" href="../tutorial/quickstart.html"><span class="doc">Quick start</span></a> for an
+example.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="shutdown_handlers">
+<span class="sig-name descname"><span class="pre">shutdown_handlers</span></span><a class="headerlink" href="#shutdown_handlers" title="Link to this definition">¶</a></dt>
+<dd><p>A list of asynchronous callables that run during the ASGI
+<code class="docutils literal notranslate"><span class="pre">lifespan.shutdown</span></code> event.  Use this to clean up resources.</p>
+</dd></dl>
+
+</section>
+<section id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Link to this heading">¶</a></h2>
+<dl class="py method">
+<dt class="sig sig-object py" id="call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scope</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">receive</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">send</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#call__" title="Link to this definition">¶</a></dt>
+<dd><p>The ASGI entry point.  Dispatches to HTTP, WebSocket or lifespan
+handlers based on <code class="docutils literal notranslate"><span class="pre">scope['type']</span></code>.  You normally do not call this
+directly; the ASGI server calls it for you.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="request">
+<span class="sig-name descname"><span class="pre">request</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#request" title="Link to this definition">¶</a></dt>
+<dd><p>Return the current <code class="xref py py-class docutils literal notranslate"><span class="pre">Request</span></code> object.  This is
+stored in a context variable so that it is available throughout
+asynchronous callbacks.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="redirect">
+<span class="sig-name descname"><span class="pre">_redirect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">location</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_headers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#redirect" title="Link to this definition">¶</a></dt>
+<dd><p>Return a tuple <code class="docutils literal notranslate"><span class="pre">(302,</span> <span class="pre">'',</span> <span class="pre">headers)</span></code> representing an HTTP redirect
+to <em>location</em>.  Use this helper in your handlers to redirect the
+client.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="render_template">
+<span class="sig-name descname"><span class="pre">_render_template</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#render_template" title="Link to this definition">¶</a></dt>
+<dd><p>Render a Jinja2 template asynchronously.  Returns a string
+containing the rendered output.  Requires Jinja2 to be installed.
+See <a class="reference internal" href="../howto/templates.html"><span class="doc">Rendering templates</span></a> for details.</p>
+</dd></dl>
+
+<p>Additionally, MicroPie defines several private helper methods such as
+<code class="docutils literal notranslate"><span class="pre">_parse_cookies</span></code> and <code class="docutils literal notranslate"><span class="pre">_send_response</span></code>.  These are considered
+internal and not part of the public API.  They may change without
+notice.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/reference/app.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Rendering templates &#8212; MicroPie 0.20 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=f6a572b4" />
+    <script src="../_static/documentation_options.js?v=0144e382"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Streaming responses" href="streaming.html" />
+    <link rel="prev" title="Writing middleware" href="middleware.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">MicroPie</a></h1>
+
+
+
+<p class="blurb">A minimal ASGI web framework</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=patx&repo=micropie&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">How‑to guides</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="sessions.html">Managing sessions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="middleware.html">Writing middleware</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Rendering templates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="streaming.html">Streaming responses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="static_files.html">Serving static files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="socketio.html">Integrating Socket.IO</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/index.html">Explanations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">How‑to guides</a><ul>
+      <li>Previous: <a href="middleware.html" title="previous chapter">Writing middleware</a></li>
+      <li>Next: <a href="streaming.html" title="next chapter">Streaming responses</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="rendering-templates">
+<h1>Rendering templates<a class="headerlink" href="#rendering-templates" title="Link to this heading">¶</a></h1>
+<p>MicroPie can render HTML templates using the Jinja2 template engine.
+Templates allow you to separate presentation from code by placing
+HTML in separate files.  Template rendering is optional; you can use
+MicroPie without Jinja2 installed, but the
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_render_template()</span></code> method will not be available.</p>
+<section id="installing-jinja2">
+<h2>Installing Jinja2<a class="headerlink" href="#installing-jinja2" title="Link to this heading">¶</a></h2>
+<p>If you installed MicroPie with the <code class="docutils literal notranslate"><span class="pre">[standard]</span></code> extra, Jinja2 is
+already available.  Otherwise install it with pip:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>jinja2
+</pre></div>
+</div>
+</section>
+<section id="creating-templates">
+<h2>Creating templates<a class="headerlink" href="#creating-templates" title="Link to this heading">¶</a></h2>
+<p>MicroPie looks for templates in a directory called <code class="docutils literal notranslate"><span class="pre">templates</span></code> in
+your current working directory.  Use normal Jinja2 syntax in your
+templates.  Here is a simple <code class="docutils literal notranslate"><span class="pre">templates/index.html</span></code> file:</p>
+<div class="highlight-html notranslate"><div class="highlight"><pre><span></span><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="p">&lt;</span><span class="nt">html</span> <span class="na">lang</span><span class="o">=</span><span class="s">&quot;en&quot;</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">charset</span><span class="o">=</span><span class="s">&quot;UTF-8&quot;</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>{{ title }}<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+<span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">h1</span><span class="p">&gt;</span>{{ message }}<span class="p">&lt;/</span><span class="nt">h1</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="rendering-a-template">
+<h2>Rendering a template<a class="headerlink" href="#rendering-a-template" title="Link to this heading">¶</a></h2>
+<p>To render a template, call <code class="xref py py-meth docutils literal notranslate"><span class="pre">_render_template()</span></code> from
+within an asynchronous handler.  The method returns a string containing
+the rendered HTML.  Because template loading and rendering may block,
+MicroPie runs it in a background thread using <code class="docutils literal notranslate"><span class="pre">asyncio.to_thread</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">micropie</span> <span class="kn">import</span> <span class="n">App</span>
+
+<span class="k">class</span> <span class="nc">MyApp</span><span class="p">(</span><span class="n">App</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_render_template</span><span class="p">(</span>
+            <span class="s2">&quot;index.html&quot;</span><span class="p">,</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Welcome&quot;</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Hello from MicroPie!&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">MyApp</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>When you visit <code class="docutils literal notranslate"><span class="pre">/</span></code> in your browser, MicroPie returns the rendered
+HTML with a <code class="docutils literal notranslate"><span class="pre">Content‑Type</span></code> of <code class="docutils literal notranslate"><span class="pre">text/html;</span> <span class="pre">charset=utf‑8</span></code>.</p>
+</section>
+<section id="template-variables">
+<h2>Template variables<a class="headerlink" href="#template-variables" title="Link to this heading">¶</a></h2>
+<p>You can pass arbitrary keyword arguments to <cite>_render_template</cite>.  These
+become variables in the Jinja2 template.  For more information on
+creating complex templates, including inheritance and control flow,
+refer to the <a class="reference external" href="https://jinja.palletsprojects.com">Jinja2 documentation</a>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/howto/templates.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

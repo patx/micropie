@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Architecture and design &#8212; MicroPie 0.20 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=f6a572b4" />
+    <script src="../_static/documentation_options.js?v=0144e382"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Glossary" href="../glossary.html" />
+    <link rel="prev" title="Explanations" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">MicroPie</a></h1>
+
+
+
+<p class="blurb">A minimal ASGI web framework</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=patx&repo=micropie&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howto/index.html">How‑to guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Explanations</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Architecture and design</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Explanations</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Explanations</a></li>
+      <li>Next: <a href="../glossary.html" title="next chapter">Glossary</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="architecture-and-design">
+<h1>Architecture and design<a class="headerlink" href="#architecture-and-design" title="Link to this heading">¶</a></h1>
+<p>MicroPie is intentionally small.  Its goal is to provide just enough
+functionality to build asynchronous web applications without locking
+you into a rigid structure.  This section discusses some of the key
+design choices and how they influence the API.</p>
+<section id="asgi-application">
+<h2>ASGI application<a class="headerlink" href="#asgi-application" title="Link to this heading">¶</a></h2>
+<p>MicroPie is built on top of the <a class="reference external" href="https://asgi.readthedocs.io/">ASGI</a> specification, which defines
+how Python applications communicate with asynchronous servers.  Your
+application subclass inherits from <code class="xref py py-class docutils literal notranslate"><span class="pre">App</span></code> and
+implements the ASGI call interface via the <code class="docutils literal notranslate"><span class="pre">__call__</span></code> method.  The
+framework inspects the <code class="docutils literal notranslate"><span class="pre">scope['type']</span></code> field to dispatch to HTTP,
+WebSocket or lifespan handling code.</p>
+</section>
+<section id="routing-by-naming">
+<h2>Routing by naming<a class="headerlink" href="#routing-by-naming" title="Link to this heading">¶</a></h2>
+<p>Unlike frameworks that require you to declare routes in advance,
+MicroPie derives routing information from the names of your methods.
+The first segment of the path becomes the handler name.  This allows
+you to add new endpoints simply by defining a new method on your
+application subclass.  The remaining path segments, query string
+parameters and form data are mapped to arguments via function
+signature inspection.  This approach reduces boilerplate but may
+surprise users expecting explicit routing.  You can always regain
+control by writing a custom middleware to map paths to handlers or by
+checking <code class="docutils literal notranslate"><span class="pre">self.request.method</span></code> and <code class="docutils literal notranslate"><span class="pre">self.request.path_params</span></code> inside
+your handlers.</p>
+</section>
+<section id="contextlocal-request">
+<h2>Context‑local request<a class="headerlink" href="#contextlocal-request" title="Link to this heading">¶</a></h2>
+<p>MicroPie stores the current request in a <code class="xref py py-mod docutils literal notranslate"><span class="pre">contextvars</span></code>
+ContextVar.  This allows you to access <code class="docutils literal notranslate"><span class="pre">self.request</span></code> within your
+handler as well as from deeper helper functions without passing the
+request around explicitly.  The context variable is reset at the end
+of each request to avoid leaking state.</p>
+</section>
+<section id="session-management">
+<h2>Session management<a class="headerlink" href="#session-management" title="Link to this heading">¶</a></h2>
+<p>Sessions are stored in a pluggable back‑end and identified by a
+random <code class="docutils literal notranslate"><span class="pre">session_id</span></code> cookie.  The default in‑memory back‑end keeps
+session data in dictionaries keyed by session ID and updates a last
+access timestamp to implement expiration.  You can customise the
+back‑end by providing your own implementation of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">SessionBackend</span></code>.  MicroPie saves sessions after a
+handler returns, only if <code class="docutils literal notranslate"><span class="pre">self.request.session</span></code> is non‑empty, to
+avoid creating unnecessary cookies.</p>
+</section>
+<section id="middleware-pipeline">
+<h2>Middleware pipeline<a class="headerlink" href="#middleware-pipeline" title="Link to this heading">¶</a></h2>
+<p>The middleware hooks allow you to intercept requests before and after
+handlers.  Middleware can modify the request object, provide early
+responses (useful for authentication), and alter the final response.
+For WebSockets, separate middleware hooks run before the connection
+handler starts and after it finishes.</p>
+</section>
+<section id="streaming-and-sse-support">
+<h2>Streaming and SSE support<a class="headerlink" href="#streaming-and-sse-support" title="Link to this heading">¶</a></h2>
+<p>Handlers may return an iterator or asynchronous generator to stream
+data to the client.  MicroPie detects such responses and iterates
+over them, sending each chunk to the client.  When using server‑sent
+events (SSE) there is an additional challenge: if the client
+disconnects, the iterator must be cancelled.  MicroPie wraps SSE
+responses in a small loop that listens for disconnect events and
+cancels the generator accordingly.  Remember to include a
+<code class="docutils literal notranslate"><span class="pre">Content‑Type:</span> <span class="pre">text/event-stream</span></code> header when sending SSE.</p>
+</section>
+<section id="error-handling">
+<h2>Error handling<a class="headerlink" href="#error-handling" title="Link to this heading">¶</a></h2>
+<p>MicroPie automatically handles common error cases.  Requests for
+unknown routes result in a <code class="docutils literal notranslate"><span class="pre">404</span> <span class="pre">Not</span> <span class="pre">Found</span></code>.  If a required
+parameter is missing, MicroPie responds with <code class="docutils literal notranslate"><span class="pre">400</span> <span class="pre">Bad</span> <span class="pre">Request</span></code>.
+Unhandled exceptions inside handlers produce a <code class="docutils literal notranslate"><span class="pre">500</span> <span class="pre">Internal</span> <span class="pre">Server</span>
+<span class="pre">Error</span></code> and are printed to standard error.  You can override these
+behaviours via middleware.</p>
+</section>
+<section id="extensibility">
+<h2>Extensibility<a class="headerlink" href="#extensibility" title="Link to this heading">¶</a></h2>
+<p>The minimalist core is designed to be extended.  You can mount your
+application behind other ASGI middleware, integrate additional
+protocols like Socket.IO, or implement your own session storage.  The
+framework imposes few constraints so that you remain in control of
+your stack.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/explanation/architecture.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

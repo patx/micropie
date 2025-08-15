@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quick start &#8212; MicroPie 0.20 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=f6a572b4" />
+    <script src="../_static/documentation_options.js?v=0144e382"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Routing and handlers" href="routing.html" />
+    <link rel="prev" title="Tutorials" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  <div class="document">
+    
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">MicroPie</a></h1>
+
+
+
+<p class="blurb">A minimal ASGI web framework</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=patx&repo=micropie&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="routing.html">Routing and handlers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="websockets.html">WebSocket support</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../howto/index.html">How‑to guides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/index.html">Explanations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../glossary.html">Glossary</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Tutorials</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Tutorials</a></li>
+      <li>Next: <a href="routing.html" title="next chapter">Routing and handlers</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="quick-start">
+<h1>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h1>
+<p>This tutorial shows you how to install MicroPie and run a very simple
+application.  By the end you will be able to serve an HTTP
+endpoint that returns plain text.  This section assumes that you
+already have Python 3.8 or later installed.</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<p>MicroPie is distributed on the Python Package Index (PyPI).  The
+recommended way to install it is via <code class="docutils literal notranslate"><span class="pre">pip</span></code> with the standard
+optional dependencies:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>micropie<span class="o">[</span>standard<span class="o">]</span>
+</pre></div>
+</div>
+<p>This command installs MicroPie along with the Jinja2 template engine
+and the <code class="docutils literal notranslate"><span class="pre">multipart</span></code> parser for handling file uploads.  If you want
+the fastest JSON parsing and a preconfigured ASGI server, you can
+install all optional extras:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>micropie<span class="o">[</span>all<span class="o">]</span>
+</pre></div>
+</div>
+<p>See <span class="xref std std-ref">reference/session</span> for details about session back‑ends and
+the <span class="xref std std-ref">howto/templates</span> guide for information on templates.</p>
+</section>
+<section id="writing-your-first-application">
+<h2>Writing your first application<a class="headerlink" href="#writing-your-first-application" title="Link to this heading">¶</a></h2>
+<p>Create a file called <code class="docutils literal notranslate"><span class="pre">app.py</span></code> with the following contents:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">micropie</span> <span class="kn">import</span> <span class="n">App</span>
+
+<span class="k">class</span> <span class="nc">MyApp</span><span class="p">(</span><span class="n">App</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Welcome to MicroPie ASGI.&quot;</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">MyApp</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>MicroPie applications are defined by subclassing <code class="xref py py-class docutils literal notranslate"><span class="pre">App</span></code>.
+Each public method of your subclass becomes a potential route handler
+automatically mapped to an HTTP path.  The special method <code class="docutils literal notranslate"><span class="pre">index</span></code>
+handles requests to the root path <code class="docutils literal notranslate"><span class="pre">/</span></code>.  Handlers may be asynchronous
+(<code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span></code>) or synchronous functions and can return strings,
+bytes, JSON‑serialisable objects, tuples of status and body, or an
+async generator for streaming responses.</p>
+</section>
+<section id="running-the-application">
+<h2>Running the application<a class="headerlink" href="#running-the-application" title="Link to this heading">¶</a></h2>
+<p>MicroPie itself is not a web server; it is an ASGI application.  To
+run it you will need an ASGI server such as Uvicorn, Hypercorn or
+Daphne.  Install Uvicorn if you have not already:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>uvicorn
+</pre></div>
+</div>
+<p>Start your application with Uvicorn:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>uvicorn<span class="w"> </span>app:app
+</pre></div>
+</div>
+<p>By default Uvicorn listens on <code class="docutils literal notranslate"><span class="pre">http://127.0.0.1:8000</span></code>.  Open that URL
+in your browser and you should see the text “Welcome to MicroPie ASGI.”</p>
+</section>
+<section id="whats-next">
+<h2>What’s next?<a class="headerlink" href="#whats-next" title="Link to this heading">¶</a></h2>
+<p>Now that you have a running MicroPie application, proceed to the
+<a class="reference internal" href="routing.html"><span class="doc">routing</span></a> tutorial to learn how URL paths map to
+methods and how to pass parameters to your handlers.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+    <div class="clearer"></div>
+  </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/tutorial/quickstart.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
