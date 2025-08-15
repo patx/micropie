@@ -20,7 +20,8 @@
 
 ### **Useful Links**
 - **Homepage**: [patx.github.io/micropie](https://patx.github.io/micropie)
-- **API Reference**: [README.md#api-documentation](https://github.com/patx/micropie/blob/main/README.md#api-documentation)
+- **Official Documentation**: [micropie.readthedocs.io](https://micropie.readthedocs.io/)
+- **Quick API Reference**: [README.md#api-documentation](https://github.com/patx/micropie/blob/main/README.md#api-documentation)
 - **PyPI Page**: [pypi.org/project/MicroPie](https://pypi.org/project/MicroPie/)
 - **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
 - **File Issue/Request**: [github.com/patx/micropie/issues](https://github.com/patx/micropie/issues)
