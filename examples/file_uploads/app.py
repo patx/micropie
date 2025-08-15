@@ -42,6 +42,7 @@ class Root(App):
         async with aiofiles.open(filepath, "wb") as f:
             # Read and write the file in chunks
             while chunk := await file["content"].get():
+                print(f"Chunk size: {len(chunk)} bytes")  # <-- log here
                 await f.write(chunk)
 
         # Return a confirmation response with the uploaded filename
