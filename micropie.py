@@ -420,58 +420,83 @@ class App:
     ) -> None:
         """
         ASGI application entry point for handling HTTP requests.
-
-        Args:
-            scope: The ASGI scope dictionary.
-            receive: The callable to receive ASGI events.
-            send: The callable to send ASGI events.
         """
         request: Request = Request(scope)
         token = current_request.set(request)
         status_code: int = 200
         response_body: Any = ""
         extra_headers: List[Tuple[str, str]] = []
+        parse_task = None  # background multipart task if started
+
+        async def _await_file_param(name: str) -> Optional[Any]:
+            """
+            Wait until a multipart file field named `name` is available in request.files,
+            or until the background parse_task (if any) completes.
+            """
+            # Fast path
+            if name in request.files:
+                return request.files[name]
+            # If no background parse, nothing to wait for
+            if parse_task is None:
+                return None
+            # Wait until the field appears or parse ends
+            while True:
+                if name in request.files:
+                    return request.files[name]
+                if parse_task.done():
+                    # parsing finished and field never arrived
+                    return None
+                await asyncio.sleep(0)
+
         try:
-            # Parse request details (query params, cookies, session)
+            # Parse query/cookies/session
             request.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
             cookies = self._parse_cookies(request.headers.get("cookie", ""))
             request.session = await self.session_backend.load(cookies.get("session_id", "")) or {}
 
-            # Parse body parameters for POST, PUT, PATCH requests
+            # Body parsing setup
+            content_type = request.headers.get("content-type", "")
             if request.method in ("POST", "PUT", "PATCH"):
-                body_data = bytearray()
-                while True:
-                    msg: Dict[str, Any] = await receive()
-                    body_data += msg.get("body", b"")
-                    if not msg.get("more_body"):
-                        break
-                content_type = request.headers.get("content-type", "")
-                if "application/json" in content_type:
-                    try:
-                        request.get_json = json.loads(body_data.decode("utf-8"))
-                        if isinstance(request.get_json, dict):
-                            request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
-                    except:
-                        await self._send_response(send, 400, "400 Bad Request: Bad JSON")
-                        return
-                elif "multipart/form-data" in content_type:
+                if "multipart/form-data" in content_type:
                     if not MULTIPART_INSTALLED:
                         print("For multipart form data support install 'multipart'.")
                         await self._send_response(send, 500, "500 Internal Server Error")
                         return
-                    if boundary := re.search(r"boundary=([^;]+)", content_type):
-                        reader = asyncio.StreamReader()
-                        reader.feed_data(body_data)
-                        reader.feed_eof()
-                        request.body_params, request.files = await self._parse_multipart(reader, boundary.group(1).encode("utf-8"))
-                    else:
+                    boundary_match = re.search(r"boundary=([^;]+)", content_type)
+                    if not boundary_match:
                         await self._send_response(send, 400, "400 Bad Request: Missing boundary")
                         return
+                    # Start TRUE streaming parser in background, populate request.* live
+                    # Tune file_queue_maxsize as desired (e.g., 512 ≈ ~32MB if ~64KB chunks)
+                    parse_task = asyncio.create_task(
+                        self._parse_multipart_into_request(
+                            receive,
+                            boundary_match.group(1).encode("utf-8"),
+                            request,
+                            file_queue_maxsize=512,
+                        )
+                    )
                 else:
-                    # Default to application/x-www-form-urlencoded
-                    request.body_params = parse_qs(body_data.decode("utf-8", "ignore"))
+                    # Small-body buffering for JSON / x-www-form-urlencoded
+                    body_data = bytearray()
+                    while True:
+                        msg: Dict[str, Any] = await receive()
+                        if chunk := msg.get("body", b""):
+                            body_data += chunk
+                        if not msg.get("more_body"):
+                            break
+                    if "application/json" in content_type:
+                        try:
+                            request.get_json = json.loads(body_data.decode("utf-8"))
+                            if isinstance(request.get_json, dict):
+                                request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
+                        except Exception:
+                            await self._send_response(send, 400, "400 Bad Request: Bad JSON")
+                            return
+                    else:
+                        request.body_params = parse_qs(body_data.decode("utf-8", "ignore"))
 
-            # Now run middleware before_request with populated request data
+            # HTTP middlewares (before)
             for mw in self.middlewares:
                 if result := await mw.before_request(request):
                     status_code, response_body, extra_headers = (
@@ -481,16 +506,18 @@ class App:
                     )
                     await self._send_response(send, status_code, response_body, extra_headers)
                     return
+
+            # Subapp handoff
             if hasattr(request, "_subapp"):
                 new_scope = dict(scope)
                 new_scope["path"] = request._subapp_path
                 new_scope["root_path"] = scope.get("root_path", "") + "/" + self.middlewares[0].mount_path
                 await request._subapp(new_scope, receive, send)
                 return
-            # Parse path and find handler
+
+            # Routing
             path: str = scope["path"].lstrip("/")
             parts: List[str] = path.split("/") if path else []
-            # Check if request._route_handler has been set by middleware
             if hasattr(request, "_route_handler"):
                 func_name: str = request._route_handler
             else:
@@ -499,7 +526,6 @@ class App:
                     await self._send_response(send, 404, "404 Not Found")
                     return
 
-            # Respect path_params set in middleware
             if not request.path_params:
                 request.path_params = parts[1:] if len(parts) > 1 else []
             handler = getattr(self, func_name, None) or getattr(self, "index", None)
@@ -507,19 +533,21 @@ class App:
                 await self._send_response(send, 404, "404 Not Found")
                 return
 
-            # Build function arguments from path, query, body, files, and session values
+            # Build handler args (query/body/files/session)
             sig = inspect.signature(handler)
             func_args: List[Any] = []
-            path_params_copy = request.path_params[:]  # Create a copy to avoid modifying original
+            path_params_copy = request.path_params[:]
+
             for param in sig.parameters.values():
-                if param.name == "self":  # Skip self parameter
+                if param.name == "self":
                     continue
                 if param.kind == inspect.Parameter.VAR_POSITIONAL:
-                    # Pass all remaining path_params for *args
                     func_args.extend(path_params_copy)
-                    path_params_copy = []  # Clear to prevent reuse
-                    continue  # Skip appending anything else
+                    path_params_copy = []
+                    continue
+
                 param_value = None
+
                 if path_params_copy:
                     param_value = path_params_copy.pop(0)
                 elif param.name in request.query_params:
@@ -528,6 +556,16 @@ class App:
                     param_value = request.body_params[param.name][0]
                 elif param.name in request.files:
                     param_value = request.files[param.name]
+                elif "multipart/form-data" in content_type:
+                    # If multipart and file field not yet available, wait for it to show up
+                    param_value = await _await_file_param(param.name)
+                    if param_value is None and param.default is param.empty:
+                        status_code = 400
+                        response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
+                        await self._send_response(send, status_code, response_body)
+                        return
+                    if param_value is None:
+                        param_value = param.default
                 elif param.name in request.session:
                     param_value = request.session[param.name]
                 elif param.default is not param.empty:
@@ -537,6 +575,7 @@ class App:
                     response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
                     await self._send_response(send, status_code, response_body)
                     return
+
                 func_args.append(param_value)
 
             if handler == getattr(self, "index", None) and not func_args and path and path != "index":
@@ -551,6 +590,14 @@ class App:
                 await self._send_response(send, 500, "500 Internal Server Error")
                 return
 
+            # Ensure background parser (if any) is finished before finalizing response
+            if parse_task is not None:
+                try:
+                    await parse_task
+                except Exception:
+                    traceback.print_exc()
+                    # Decide policy: you could 500 here; often handler already succeeded.
+
             # Normalize response
             if isinstance(result, tuple):
                 status_code, response_body = result[0], result[1]
@@ -561,14 +608,14 @@ class App:
                 response_body = json.dumps(response_body)
                 extra_headers.append(("Content-Type", "application/json"))
 
-            # Save session
+            # Persist session
             if request.session:
                 session_id = cookies.get("session_id") or str(uuid.uuid4())
                 await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
                 if not cookies.get("session_id"):
                     extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"))
 
-            # Middleware: after request
+            # HTTP middlewares (after)
             for mw in self.middlewares:
                 if result := await mw.after_request(request, status_code, response_body, extra_headers):
                     status_code, response_body, extra_headers = (
@@ -611,7 +658,6 @@ class App:
                             "more_body": False
                         })
                     except asyncio.CancelledError:
-                        # Optional: do any extra logging here
                         raise
                     finally:
                         if hasattr(gen, "aclose"):
@@ -621,10 +667,7 @@ class App:
                 try:
                     while True:
                         msg_task = asyncio.create_task(receive())
-                        done, pending = await asyncio.wait(
-                            [streaming_task, msg_task],
-                            return_when=asyncio.FIRST_COMPLETED
-                        )
+                        done, _ = await asyncio.wait([streaming_task, msg_task], return_when=asyncio.FIRST_COMPLETED)
                         if streaming_task in done:
                             break
                         if msg_task in done:
@@ -769,75 +812,89 @@ class App:
                 cookies[k] = v
         return cookies
 
-    async def _parse_multipart(self, reader: asyncio.StreamReader, boundary: bytes) -> Optional[Tuple[Dict[str, List[str]], Dict[str, Any]]]:
+    async def _parse_multipart_into_request(
+        self,
+        receive: Callable[[], Awaitable[Dict[str, Any]]],
+        boundary: bytes,
+        request: "Request",
+        *,
+        file_queue_maxsize: int = 100000
+    ) -> None:
         """
-        Asynchronously parses a multipart form-data request.
-
-        This method processes incoming multipart form-data, handling
-        both text fields and file uploads. File data is streamed to the handler
-        via an asyncio.Queue.
-
-        Args:
-            reader (asyncio.StreamReader): The stream reader from which
-                to read the multipart data.
-            boundary (bytes): The boundary string used to separate form
-                fields in the multipart request.
-
-        Returns:
-            tuple[dict, dict]: A tuple containing form_data and files.
+        Parse multipart directly from ASGI receive() and populate
+        request.body_params / request.files as parts arrive.
+        Uses bounded queues for file parts to apply backpressure.
         """
+        if request.body_params is None:
+            request.body_params = {}
+        if request.files is None:
+            request.files = {}
+
         with PushMultipartParser(boundary) as parser:
-            form_data: dict = {}
-            files: dict = {}
             current_field_name: Optional[str] = None
             current_filename: Optional[str] = None
             current_content_type: Optional[str] = None
             current_queue: Optional[asyncio.Queue] = None
             form_value: str = ""
-            while not parser.closed:
-                chunk: bytes = await reader.read(65536)
-                if not chunk:
-                    break
-                for result in parser.parse(chunk):
-                    if isinstance(result, MultipartSegment):
-                        current_field_name = result.name
-                        current_filename = result.filename
-                        current_content_type = None
-                        form_value = ""
-                        if current_queue:
-                            await current_queue.put(None)  # Signal end of previous file stream
-                            current_queue = None
-                        for header, value in result.headerlist:
-                            if header.lower() == "content-type":
-                                current_content_type = value
-                        if current_filename:
-                            current_queue = asyncio.Queue()
-                            files[current_field_name] = {
-                                "filename": current_filename,
-                                "content_type": current_content_type or "application/octet-stream",
-                                "content": current_queue,
-                            }
-                        else:
-                            form_data[current_field_name] = []
-                    elif result:
-                        if current_queue:
-                            await current_queue.put(result)
-                        else:
-                            form_value += result.decode("utf-8", "ignore")
-                    else:
-                        if current_queue:
-                            await current_queue.put(None)  # Signal end of file stream
-                            current_queue = None
-                        else:
-                            if form_value and current_field_name:
-                                form_data[current_field_name].append(form_value)
+
+            while True:
+                msg = await receive()
+                body_chunk = msg.get("body", b"")
+                if body_chunk:
+                    for result in parser.parse(body_chunk):
+                        if isinstance(result, MultipartSegment):
+                            # New part
+                            current_field_name = result.name
+                            current_filename = result.filename
+                            current_content_type = None
                             form_value = ""
-            # Ensure any remaining form_value or file stream is processed
+
+                            # Close previous file stream if open
+                            if current_queue:
+                                await current_queue.put(None)
+                                current_queue = None
+
+                            # Pick up content-type for this part if present
+                            for header, value in result.headerlist:
+                                if header.lower() == "content-type":
+                                    current_content_type = value
+
+                            if current_filename:
+                                # File field → bounded queue enforces backpressure
+                                current_queue = asyncio.Queue(maxsize=file_queue_maxsize)
+                                request.files[current_field_name] = {
+                                    "filename": current_filename,
+                                    "content_type": current_content_type or "application/octet-stream",
+                                    "content": current_queue,
+                                }
+                            else:
+                                # Text field
+                                request.body_params.setdefault(current_field_name, [])
+                        elif result:
+                            # Part body
+                            if current_queue:
+                                # May block here if handler isn't draining the queue
+                                await current_queue.put(result)
+                            else:
+                                form_value += result.decode("utf-8", "ignore")
+                        else:
+                            # End of current part
+                            if current_queue:
+                                await current_queue.put(None)
+                                current_queue = None
+                            else:
+                                if form_value and current_field_name:
+                                    request.body_params[current_field_name].append(form_value)
+                                form_value = ""
+
+                if not msg.get("more_body"):
+                    break
+
+            # Flush leftovers
             if current_field_name and form_value and not current_filename:
-                form_data[current_field_name].append(form_value)
+                request.body_params[current_field_name].append(form_value)
             if current_queue:
-                await current_queue.put(None)  # Signal end of final file stream
-            return form_data, files
+                await current_queue.put(None)
 
     async def _send_response(
         self,
