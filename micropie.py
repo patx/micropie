@@ -467,13 +467,12 @@ class App:
                         await self._send_response(send, 400, "400 Bad Request: Missing boundary")
                         return
                     # Start TRUE streaming parser in background, populate request.* live
-                    # Tune file_queue_maxsize as desired (e.g., 512 ≈ ~32MB if ~64KB chunks)
                     parse_task = asyncio.create_task(
                         self._parse_multipart_into_request(
                             receive,
                             boundary_match.group(1).encode("utf-8"),
                             request,
-                            file_queue_maxsize=512,
+                            file_queue_maxsize=2048,
                         )
                     )
                 else:
@@ -818,7 +817,7 @@ class App:
         boundary: bytes,
         request: "Request",
         *,
-        file_queue_maxsize: int = 100000
+        file_queue_maxsize: int = 2048
     ) -> None:
         """
         Parse multipart directly from ASGI receive() and populate
