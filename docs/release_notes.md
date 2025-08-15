@@ -1,6 +1,7 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## Releases Notes
+- **[0.20](https://github.com/patx/micropie/releases/tag/v0.20)** - Enable concurrent multipart parsing and file writing with bounded queues
 - **[0.19](https://github.com/patx/micropie/releases/tag/v0.19)** - Easier debugging with `traceback`. Add `_sub_app` attribute to allow middleware to mount other ASGI applications
 - **[0.18](https://github.com/patx/micropie/releases/tag/v0.18)** - Ensure handlers that return async generators are killed upon client disconnect to prevent memory leaks
 - **[0.17](https://github.com/patx/micropie/releases/tag/v0.17)** - Change API of lifespan events to match API of middlewaress, eg. `app.startup_handlers.append(handler)`
