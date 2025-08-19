@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroPie Blog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <header class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">MicroPie Blog</h1>
+            <nav>
+                <a href="/" class="px-4 hover:underline" aria-label="Home">Home</a>
+                <a href="/new" class="px-4 hover:underline" aria-label="Create New Post">New Post</a>
+            </nav>
+        </div>
+    </header>
+    <main class="container mx-auto p-6">
+        <div class="grid gap-6">
+            {% for post in posts %}
+                <article class="bg-white p-6 rounded-lg shadow-md" role="article">
+                    <h2 class="text-xl font-semibold">
+                        <a href="/post/{{ post.id }}" class="text-blue-600 hover:underline">{{ post.title }}</a>
+                    </h2>
+                    <p class="text-gray-500 text-sm">Posted on {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    <div class="prose max-w-none mt-4">{{ post.html_content | safe }}</div>
+                </article>
+            {% else %}
+                <p class="text-gray-600">No posts yet. <a href="/new" class="text-blue-600 hover:underline">Create one!</a></p>
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>

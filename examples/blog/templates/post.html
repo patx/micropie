@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ post.title }} - MicroPie Blog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <header class="bg-blue-600 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">MicroPie Blog</h1>
+            <nav>
+                <a href="/" class="px-4 hover:underline" aria-label="Home">Home</a>
+                <a href="/new" class="px-4 hover:underline" aria-label="Create New Post">New Post</a>
+            </nav>
+        </div>
+    </header>
+    <main class="container mx-auto p-6">
+        <article class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto" role="article">
+            <h1 class="text-2xl font-semibold mb-2">{{ post.title }}</h1>
+            <p class="text-gray-500 text-sm mb-4">Posted on {{ post.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            <div class="prose max-w-none">{{ post.html_content | safe }}</div>
+            <p class="mt-4">
+                <a href="/" class="text-blue-600 hover:underline" aria-label="Back to Home">Back to Home</a>
+            </p>
+        </article>
+    </main>
+</body>
+</html>

@@ -532,9 +532,23 @@ class App:
                 await self._send_response(send, 404, "404 Not Found")
                 return
 
+            # Initialize func_args early to avoid UnboundLocalError
+            func_args: List[Any] = []
+
+            # Check if index handler accepts parameters (for non-root paths)
+            if handler == getattr(self, "index", None) and path and path != "index":
+                sig = inspect.signature(handler)
+                accepts_params = any(
+                    param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+                    for param in sig.parameters.values() if param.name != "self"
+                )
+                if not accepts_params:
+                    await self._send_response(send, 404, "404 Not Found")
+                    return
+                request.path_params = parts  # Pass all path parts to index handler
+
             # Build handler args (query/body/files/session)
             sig = inspect.signature(handler)
-            func_args: List[Any] = []
             path_params_copy = request.path_params[:]
 
             for param in sig.parameters.values():
@@ -576,10 +590,6 @@ class App:
                     return
 
                 func_args.append(param_value)
-
-            if handler == getattr(self, "index", None) and not func_args and path and path != "index":
-                await self._send_response(send, 404, "404 Not Found")
-                return
 
             # Execute handler
             try:
