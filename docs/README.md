@@ -18,5 +18,13 @@ app = MyApp()  # Run with `uvicorn app:app`
 
 ### And Easy to Install
 ```bash
-$ pip install micropie
+$ pip install micropie[all]
 ```
+
+### Useful Links
+- **Homepage**: [patx.github.io/micropie](https://patx.github.io/micropie)
+- **Official Documentation**: [micropie.readthedocs.io](https://micropie.readthedocs.io/)
+- **PyPI Page**: [pypi.org/project/MicroPie](https://pypi.org/project/MicroPie/)
+- **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
+
+
