@@ -74,6 +74,13 @@ class ApiApp(App):
     async def plogin(self, name):
         return f"Hello {name}"
 
+class UserApp(App):
+    async def index(self):
+        return {"msg": "Hello world"}
+    
+    async def hello(self, name="world"):
+        return f"hello {name}"
+
 # Define a Middleware to Mount the Sub-App
 class SubAppMiddleware(HttpMiddleware):
     def __init__(self, mount_path: str, subapp: App):
@@ -105,7 +112,10 @@ class MainApp(App):
 app = MainApp()
 api_app = ApiApp()
 api_app.middlewares.append(CSRFMiddleware(app=app, secret_key="my-secret-key"))
+user_app = UserApp()
 
-# Mount the sub-app at /api
-subapp_middleware = SubAppMiddleware(mount_path="/api", subapp=api_app)
-app.middlewares.append(subapp_middleware)
+apiapp_middleware = SubAppMiddleware(mount_path="/api", subapp=api_app)
+userapp_middleware = SubAppMiddleware(mount_path="/user", subapp=user_app)
+
+app.middlewares.append(apiapp_middleware)
+app.middlewares.append(userapp_middleware)
