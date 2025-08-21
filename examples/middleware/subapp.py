@@ -64,18 +64,15 @@ class ApiApp(App):
         return f"You have visited {visits} times."
 
     async def login(self):
-        if self.request.method == "GET":
-            csrf_token = self.request.session.get("csrf_token", "")
-            print(f"Rendering form with CSRF token: {csrf_token}")
-            return f"""<form method="POST" action="/submit">
-                <input type="hidden" name="csrf_token" value="{escape(csrf_token)}">
-                <input type="text" name="name">
-                <button type="submit">Submit</button>
-                </form>"""
-        if self.request.method == "POST":
-            name = self.request.body_params.get("name", ["World"])[0]
-            return f"Hello {name}"
-        return None
+        csrf_token = self.request.session.get("csrf_token", "")
+        return f"""<form method="POST" action="/api/plogin">
+            <input type="hidden" name="csrf_token" value="{escape(csrf_token)}">
+            <input type="text" name="name">
+            <button type="submit">Submit</button>
+            </form>"""
+        
+    async def plogin(self, name):
+        return f"Hello {name}"
 
 # Define a Middleware to Mount the Sub-App
 class SubAppMiddleware(HttpMiddleware):
