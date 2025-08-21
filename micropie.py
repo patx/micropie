@@ -427,7 +427,20 @@ class App:
         status_code: int = 200
         response_body: Any = ""
         extra_headers: List[Tuple[str, str]] = []
-        parse_task = None  # background multipart task if started
+        parse_task: Optional[asyncio.Task] = None  # background multipart task if started
+
+        async def _cancel_parse_task():
+            if parse_task is not None and not parse_task.done():
+                parse_task.cancel()
+                try:
+                    await parse_task
+                except asyncio.CancelledError:
+                    pass
+
+        async def _early_exit(code: int, body: Any, headers: Optional[List[Tuple[str, str]]] = None):
+            await _cancel_parse_task()
+            await self._send_response(send, code, body, headers or [])
+            return
 
         async def _await_file_param(name: str) -> Optional[Any]:
             """
@@ -457,12 +470,13 @@ class App:
                 if "multipart/form-data" in content_type:
                     if not MULTIPART_INSTALLED:
                         print("For multipart form data support install 'multipart'.")
-                        await self._send_response(send, 500, "500 Internal Server Error")
+                        await _early_exit(500, "500 Internal Server Error")
                         return
                     boundary_match = re.search(r"boundary=([^;]+)", content_type)
                     if not boundary_match:
-                        await self._send_response(send, 400, "400 Bad Request: Missing boundary")
+                        await _early_exit(400, "400 Bad Request: Missing boundary")
                         return
+                    # Start parsing in the background; do NOT await here so handlers/middleware can run concurrently.
                     parse_task = asyncio.create_task(
                         self._parse_multipart_into_request(
                             receive,
@@ -471,12 +485,6 @@ class App:
                             file_queue_maxsize=2048,
                         )
                     )
-                    try:
-                        await parse_task
-                        request.body_parsed = True
-                    except Exception as e:
-                        await self._send_response(send, 500, "500 Internal Server Error: Multipart parsing failed")
-                        return
                 else:
                     body_data = bytearray()
                     try:
@@ -488,7 +496,7 @@ class App:
                                 if not msg.get("more_body"):
                                     break
                     except asyncio.TimeoutError:
-                        await self._send_response(send, 408, "408 Request Timeout: Failed to receive body")
+                        await _early_exit(408, "408 Request Timeout: Failed to receive body")
                         return
                     decoded_body = body_data.decode("utf-8", "ignore")
                     if "application/json" in content_type:
@@ -496,8 +504,8 @@ class App:
                             request.get_json = json.loads(decoded_body)
                             if isinstance(request.get_json, dict):
                                 request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
-                        except Exception as e:
-                            await self._send_response(send, 400, "400 Bad Request: Bad JSON")
+                        except Exception:
+                            await _early_exit(400, "400 Bad Request: Bad JSON")
                             return
                     else:
                         request.body_params = parse_qs(decoded_body)
@@ -511,11 +519,13 @@ class App:
                         result["body"],
                         result.get("headers", []),
                     )
-                    await self._send_response(send, status_code, response_body, extra_headers)
+                    await _early_exit(status_code, response_body, extra_headers)
                     return
 
             # Subapp handoff
             if hasattr(request, "_subapp"):
+                # If we started a multipart parse, cancel it before handing off
+                await _cancel_parse_task()
                 new_scope = dict(scope)
                 new_scope["path"] = request._subapp_path
                 new_scope["root_path"] = scope.get("root_path", "") + "/" + self.middlewares[0].mount_path
@@ -524,11 +534,12 @@ class App:
                 new_scope["get_json"] = getattr(request, "get_json", {})
                 new_scope["files"] = request.files
                 new_scope["session"] = request.session
-                # Create a receive callable that returns an empty body if already parsed
+
                 async def subapp_receive():
                     if request.body_parsed or request.body_params:
                         return {"type": "http.request", "body": b"", "more_body": False}
                     return await receive()
+
                 await request._subapp(new_scope, subapp_receive, send)
                 return
 
@@ -540,14 +551,14 @@ class App:
             else:
                 func_name: str = parts[0] if parts else "index"
                 if func_name.startswith("_") or func_name.startswith("ws_"):
-                    await self._send_response(send, 404, "404 Not Found")
+                    await _early_exit(404, "404 Not Found")
                     return
 
             if not request.path_params:
                 request.path_params = parts[1:] if len(parts) > 1 else []
             handler = getattr(self, func_name, None) or getattr(self, "index", None)
             if not handler:
-                await self._send_response(send, 404, "404 Not Found")
+                await _early_exit(404, "404 Not Found")
                 return
 
             # Initialize func_args early to avoid UnboundLocalError
@@ -561,7 +572,7 @@ class App:
                     for param in sig.parameters.values() if param.name != "self"
                 )
                 if not accepts_params:
-                    await self._send_response(send, 404, "404 Not Found")
+                    await _early_exit(404, "404 Not Found")
                     return
                 request.path_params = parts  # Pass all path parts to index handler
 
@@ -590,9 +601,7 @@ class App:
                 elif "multipart/form-data" in content_type:
                     param_value = await _await_file_param(param.name)
                     if param_value is None and param.default is param.empty:
-                        status_code = 400
-                        response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
-                        await self._send_response(send, status_code, response_body)
+                        await _early_exit(400, f"400 Bad Request: Missing required parameter '{param.name}'")
                         return
                     if param_value is None:
                         param_value = param.default
@@ -601,9 +610,7 @@ class App:
                 elif param.default is not param.empty:
                     param_value = param.default
                 else:
-                    status_code = 400
-                    response_body = f"400 Bad Request: Missing required parameter '{param.name}'"
-                    await self._send_response(send, status_code, response_body)
+                    await _early_exit(400, f"400 Bad Request: Missing required parameter '{param.name}'")
                     return
 
                 func_args.append(param_value)
@@ -613,16 +620,16 @@ class App:
                 result = await handler(*func_args) if inspect.iscoroutinefunction(handler) else handler(*func_args)
             except Exception:
                 traceback.print_exc()
-                await self._send_response(send, 500, "500 Internal Server Error")
+                await _early_exit(500, "500 Internal Server Error")
                 return
 
             # Ensure background parser (if any) is finished before finalizing response
             if parse_task is not None:
                 try:
                     await parse_task
+                    request.body_parsed = True
                 except Exception:
                     traceback.print_exc()
-                    # Decide policy: you could 500 here; often handler already succeeded.
 
             # Normalize response
             if isinstance(result, tuple):

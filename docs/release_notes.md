@@ -1,6 +1,7 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## Releases Notes
+- **[0.22](https://github.com/patx/micropie/releases/tag/v0.23)** - Bug fix release. Make sure background multipart parsing stops when the request is terminated by middleware
 - **[0.22](https://github.com/patx/micropie/releases/tag/v0.22)** - Bug fix release. Fix sub-app body parsing bug by ensuring `Request` object inherits scope's `body_params` and `body_parsed`, preventing redundant parsing in sub-app
 - **[0.21](https://github.com/patx/micropie/releases/tag/v0.21)** - Bug fix release. Make sure index route handler can handle path params
 - **[0.20](https://github.com/patx/micropie/releases/tag/v0.20)** - Enable concurrent multipart parsing and file writing with bounded queues
