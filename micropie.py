@@ -328,7 +328,7 @@ class App:
     ASGI application for handling HTTP and WebSocket requests in MicroPie.
     It supports pluggable session backends via the 'session_backend' attribute,
     pluggable HTTP middlewares via the 'middlewares' list, WebSocket middlewares via the 'ws_middlewares' list,
-    and startup/shutdown handlers via 'on_startup' and 'on_shutdown' methods.
+    and startup/shutdown handlers via 'startup_handlers' and 'shutdown_handlers'.
     """
     def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
         if JINJA_INSTALLED:

@@ -7,19 +7,25 @@ sio = socketio.AsyncServer(async_mode="asgi")
 # Keep track of "active" usernames for demonstration
 active_users = set()
 
+# Map session IDs to usernames for cleanup on disconnect
+sid_to_username = {}
+
 # 2) Create a MicroPie server class with routes
 class MyApp(App):
     async def index(self):
         # A simple response for the root path
-        return 'Use /stream/*username* or /watch/*username*'
+        return 'Use /stream/<room name here> or /watch/<room name here>'
 
     async def stream(self, username: str):
+        # Check if the username is already actively streaming
+        if username in active_users:
+            return {'error': f'Username {username} is already actively streaming'}, 403
         # Mark the username active, render the streamer template
         active_users.add(username)
         return await self._render_template("stream.html", username=username)
 
     async def watch(self, username: str):
-        # Mark the username active, render the watcher template
+        # Render the watcher template (no need to mark as active here since it's handled in join_room)
         return await self._render_template("watch.html", username=username)
 
 #
@@ -33,6 +39,11 @@ async def connect(sid, environ):
 @sio.event
 async def disconnect(sid):
     print(f"[disconnect] Client disconnected: {sid}")
+    # Remove the username associated with this sid from active_users
+    if sid in sid_to_username:
+        username = sid_to_username.pop(sid)
+        active_users.discard(username)
+        print(f"[disconnect] Removed {username} from active_users")
 
 @sio.on("join_room")
 async def join_room(sid, data):
@@ -40,6 +51,7 @@ async def join_room(sid, data):
     username = data.get("username")
     if username:
         active_users.add(username)
+        sid_to_username[sid] = username  # Map sid to username
         await sio.enter_room(sid, username)
         print(f"[join_room] {sid} joined room '{username}'")
 
@@ -125,7 +137,5 @@ async def handle_ice_candidate(sid, data):
                        },
                        to=target_sid)
 
-
 asgi_app = MyApp()
 app = socketio.ASGIApp(sio, asgi_app)
-
