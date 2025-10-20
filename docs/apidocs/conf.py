@@ -21,13 +21,8 @@ napoleon_numpy_docstring = False
 todo_include_todos = True
 
 intersphinx_mapping = {
-<<<<<<< ours
     "python": ("https://docs.python.org/3", {}),
     "asgiref": ("https://asgiref.readthedocs.io/en/latest", {}),
-=======
-    "python": ("https://docs.python.org/3", None),
-    "asgiref": ("https://asgiref.readthedocs.io/en/latest", None),
->>>>>>> theirs
 }
 
 templates_path = ["_templates"]
