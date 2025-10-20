@@ -17,3 +17,4 @@ introduction.
    streaming
    static_files
    socketio
+   testing

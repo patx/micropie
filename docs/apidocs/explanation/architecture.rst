@@ -73,6 +73,27 @@ responses in a small loop that listens for disconnect events and
 cancels the generator accordingly.  Remember to include a
 ``Content‑Type: text/event-stream`` header when sending SSE.
 
+Lifespan hooks
+--------------
+
+ASGI defines a lifespan protocol for startup and shutdown events.  MicroPie
+exposes ``startup_handlers`` and ``shutdown_handlers`` lists on the
+:class:`~micropie.App` instance.  Handlers are executed sequentially and
+may be synchronous or asynchronous.  Use them to open database connections,
+prime caches or register background tasks.  Lifespan functions run before
+any request or WebSocket traffic is accepted, ensuring your dependencies
+are ready.
+
+Templating and JSON helpers
+---------------------------
+
+If :mod:`jinja2` is installed, MicroPie enables the
+:func:`~micropie.App.render_template` helper to render templates from a
+``templates`` directory, returning HTML responses with the correct
+``Content-Type``.  For JSON, the framework prefers :mod:`orjson` when
+available and gracefully falls back to :mod:`json`.  This keeps the core
+lean while letting you opt into performance boosts.
+
 Error handling
 --------------
 
@@ -91,5 +112,15 @@ application behind other ASGI middleware, integrate additional
 protocols like Socket.IO, or implement your own session storage.  The
 framework imposes few constraints so that you remain in control of
 your stack.
+
+WebSocket pipeline
+------------------
+
+WebSocket connections follow a parallel flow to HTTP requests.  The
+``ws_`` method naming convention resolves handlers, middleware gates the
+connection before :meth:`~micropie.WebSocket.accept` is called, and the
+:class:`~micropie.WebSocket` helper manages receive/send coroutines.  Session
+data is shared with HTTP handlers so users can authenticate once and reuse
+the same session across protocols.
 
 .. _ASGI: https://asgi.readthedocs.io/

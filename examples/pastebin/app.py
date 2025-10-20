@@ -9,9 +9,9 @@ db = AsyncPickleDB('pastes.json')
 
 class Root(App):
 
-    async def index(self):
+    async def index(self, paste_content=None):
         if self.request.method == "POST":
-            paste_content = self.request.body_params.get('paste_content', [''])[0]
+            #paste_content = self.request.body_params.get('paste_content', [''])[0]
             pid = str(uuid4())
             await db.aset(pid, escape(paste_content))
             await db.asave()

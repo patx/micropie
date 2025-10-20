@@ -11,3 +11,4 @@ precise definitions consult the reference.
    :caption: Explanations
 
    architecture
+   design_philosophy

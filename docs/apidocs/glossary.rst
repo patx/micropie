@@ -42,3 +42,20 @@ This glossary defines terms used throughout the MicroPie documentation.
      current request in a context variable so it is accessible via
      :meth:`~micropie.App.request` without passing it through your
      function calls.
+
+   lifespan
+     The ASGI lifecycle protocol that allows applications to run
+     startup and shutdown hooks.  MicroPie exposes
+     ``startup_handlers`` and ``shutdown_handlers`` lists so you can
+     register functions that prepare resources before serving traffic.
+
+   session backend
+     The implementation responsible for persisting session data.
+     MicroPie ships with an in-memory backend but allows you to
+     implement :class:`~micropie.SessionBackend` to store sessions in
+     Redis, databases or other stores.
+
+   ASGI server
+     A web server capable of speaking the ASGI protocol and invoking
+     your application callable.  Examples include ``uvicorn``,
+     ``hypercorn`` and ``daphne``.
