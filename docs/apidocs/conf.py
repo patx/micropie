@@ -20,11 +20,6 @@ napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 todo_include_todos = True
 
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", {}),
-    "asgiref": ("https://asgiref.readthedocs.io/en/latest", {}),
-}
-
 templates_path = ["_templates"]
 exclude_patterns = []
 
