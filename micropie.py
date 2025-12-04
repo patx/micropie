@@ -72,19 +72,29 @@ class InMemorySessionBackend(SessionBackend):
         self.sessions: Dict[str, Dict[str, Any]] = {}
         self.last_access: Dict[str, float] = {}
 
-    async def load(self, session_id: str) -> Dict[str, Any]:
+    def _cleanup(self):
+        """Remove expired sessions based on SESSION_TIMEOUT."""
         now = time.time()
-        if session_id in self.sessions and (now - self.last_access.get(session_id, now)) < SESSION_TIMEOUT:
+        expired = [
+            sid for sid, ts in self.last_access.items()
+            if now - ts >= SESSION_TIMEOUT
+        ]
+        for sid in expired:
+            self.sessions.pop(sid, None)
+            self.last_access.pop(sid, None)
+
+    async def load(self, session_id: str) -> Dict[str, Any]:
+        self._cleanup()
+        now = time.time()
+        if session_id in self.sessions:
             self.last_access[session_id] = now
             return self.sessions[session_id]
         return {}
 
     async def save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None:
-        """
-        If `data` is empty, treat this as a logout and remove the session.
-        Otherwise, upsert the session and update last_access.
-        """
+        self._cleanup()
         if not data:
+            # treat empty as delete
             self.sessions.pop(session_id, None)
             self.last_access.pop(session_id, None)
         else:
