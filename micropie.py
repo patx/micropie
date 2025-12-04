@@ -832,13 +832,16 @@ class App:
                 await self._send_websocket_close(send, 1011, f"Handler error: {str(e)}")
                 return
 
-            # Save session
-            if request.session:
-                await self.session_backend.save(ws.session_id, request.session, SESSION_TIMEOUT)
-
             # Run WebSocket middleware after_websocket
             for mw in self.ws_middlewares:
                 await mw.after_websocket(request)
+
+            # Save / clear session after middlewares
+            if request.session:
+                await self.session_backend.save(ws.session_id, request.session, SESSION_TIMEOUT)
+            else:
+                # Treat empty session as logout/delete
+                await self.session_backend.save(ws.session_id, {}, 0)
 
         finally:
             current_request.reset(token)
