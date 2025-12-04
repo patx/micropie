@@ -649,14 +649,7 @@ class App:
                 response_body = json.dumps(response_body)
                 extra_headers.append(("Content-Type", "application/json"))
 
-            # Persist session
-            if request.session:
-                session_id = cookies.get("session_id") or str(uuid.uuid4())
-                await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
-                if not cookies.get("session_id"):
-                    extra_headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"))
-
-            # HTTP middlewares (after)
+            # HTTP middlewares
             for mw in self.middlewares:
                 if result := await mw.after_request(request, status_code, response_body, extra_headers):
                     status_code, response_body, extra_headers = (
@@ -664,6 +657,23 @@ class App:
                         result.get("body", response_body),
                         result.get("headers", extra_headers)
                     )
+
+            # Session persistence after middlewares so they can mutate request.session
+            session_id = cookies.get("session_id")
+
+            if request.session:
+                # New or updated session
+                if not session_id:
+                    session_id = str(uuid.uuid4())
+                    extra_headers.append((
+                        "Set-Cookie",
+                        f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"
+                    ))
+                await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
+            elif session_id:
+                # Empty session and existing cookie -> treat as logout/delete
+                await self.session_backend.save(session_id, {}, 0)
+
 
             # Handle async generators (e.g., SSE)
             if hasattr(response_body, "__aiter__"):
