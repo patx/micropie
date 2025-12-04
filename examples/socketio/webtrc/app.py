@@ -19,7 +19,7 @@ class MyApp(App):
     async def stream(self, username: str):
         # Check if the username is already actively streaming
         if username in active_users:
-            return {'error': f'Username {username} is already actively streaming'}, 403
+            return 403, {'error': f'Username {username} is already actively streaming'}
         # Mark the username active, render the streamer template
         active_users.add(username)
         return await self._render_template("stream.html", username=username)

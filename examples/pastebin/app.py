@@ -1,33 +1,32 @@
-from uuid import uuid4
-import asyncio
 from micropie import App
-from markupsafe import escape
-from pickledb import AsyncPickleDB
+import dataset
 
-db = AsyncPickleDB('pastes.json')
+db = dataset.connect('sqlite:///pastes.db')
+pastes = db['pastes']
 
 
 class Root(App):
 
     async def index(self, paste_content=None):
-        if self.request.method == "POST":
-            #paste_content = self.request.body_params.get('paste_content', [''])[0]
-            pid = str(uuid4())
-            await db.aset(pid, escape(paste_content))
-            await db.asave()
-            return self._redirect(f'/paste/{pid}')
+        if self.request.method == 'POST':
+            new_id = pastes.insert({'content': paste_content})
+            return self._redirect(f'/paste/{new_id}')
         return await self._render_template('index.html')
 
     async def paste(self, paste_id, delete=None):
         if delete == 'delete':
-            await db.aremove(paste_id)
-            await db.asave()
+            pastes.delete(id=paste_id)
             return self._redirect('/')
-        paste_content = await db.aget(paste_id)
+
+        paste = pastes.find_one(id=paste_id)
+        if not paste:
+            paste = {'content':404}
+
         return await self._render_template(
             'paste.html',
             paste_id=paste_id,
-            paste_content=paste_content
+            paste_content=paste['content'],
         )
+
 
 app = Root()

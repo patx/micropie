@@ -80,8 +80,16 @@ class InMemorySessionBackend(SessionBackend):
         return {}
 
     async def save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None:
-        self.sessions[session_id] = data
-        self.last_access[session_id] = time.time()
+        """
+        If `data` is empty, treat this as a logout and remove the session.
+        Otherwise, upsert the session and update last_access.
+        """
+        if not data:
+            self.sessions.pop(session_id, None)
+            self.last_access.pop(session_id, None)
+        else:
+            self.sessions[session_id] = data
+            self.last_access[session_id] = time.time()
 
 
 # -----------------------------
@@ -988,39 +996,6 @@ class App:
         await send({
             "type": "http.response.body",
             "body": response_body,
-            "more_body": False
-        })
-
-    async def _send_websocket_response(
-        self,
-        send: Callable[[Dict[str, Any]], Awaitable[None]],
-        status_code: int,
-        body: bytes,
-        extra_headers: List[Tuple[str, str]]
-    ) -> None:
-        """
-        Send an HTTP response for WebSocket-related headers (e.g., cookies).
-
-        Args:
-            send: The ASGI send callable.
-            status_code: The HTTP status code.
-            body: The response body.
-            extra_headers: List of header tuples.
-        """
-        sanitized_headers: List[Tuple[str, str]] = []
-        for k, v in extra_headers:
-            if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
-                print(f"Header injection attempt detected: {k}: {v}")
-                continue
-            sanitized_headers.append((k, v))
-        await send({
-            "type": "http.response.start",
-            "status": status_code,
-            "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers],
-        })
-        await send({
-            "type": "http.response.body",
-            "body": body,
             "more_body": False
         })
 
