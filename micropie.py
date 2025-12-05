@@ -137,7 +137,8 @@ class WebSocketRequest(Request):
 
 class WebSocket:
     """Manages WebSocket communication in the MicroPie framework."""
-    def __init__(self, receive: Callable[[], Awaitable[Dict[str, Any]]], send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
+    def __init__(self, receive: Callable[[], Awaitable[Dict[str, Any]]], 
+                 send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
         """
         Initialize a WebSocket instance.
 
@@ -586,7 +587,8 @@ class App:
             if handler == getattr(self, "index", None) and path and path != "index":
                 sig = inspect.signature(handler)
                 accepts_params = any(
-                    param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+                    param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, 
+                                   inspect.Parameter.VAR_POSITIONAL)
                     for param in sig.parameters.values() if param.name != "self"
                 )
                 if not accepts_params:
