@@ -334,4 +334,12 @@ We welcome suggestions, bug reports, and pull requests!
 - File issues or feature requests [here](https://github.com/patx/micropie/issues).
 - Security issues that should not be public, email `harrisonerd [at] gmail.com`.
 
+## **Rock Your Powered by MicroPie Badge**
+[![Powered by MicroPie](https://img.shields.io/badge/MicroPie-CC0000?style=for-the-badge&logo=python&logoColor=white)](https://patx.github.io/micropie)
+
+You can add a Powered by MicroPie badge to your projects README using the following markdown:
+```
+[![Powered by MicroPie](https://img.shields.io/badge/MicroPie-CC0000?style=for-the-badge&logo=python&logoColor=white)](https://patx.github.io/micropie)
+```
+
 © 2025 Harrison Erd
