@@ -1,32 +1,33 @@
 from micropie import App
-import dataset
-
-db = dataset.connect('sqlite:///pastes.db')
-pastes = db['pastes']
+from mkvdb import Mkv
 
 
 class Root(App):
+    def __init__(self):
+        super().__init__()
+        self.pastes = Mkv("mongodb://localhost:27017")
 
     async def index(self, paste_content=None):
-        if self.request.method == 'POST':
-            new_id = pastes.insert({'content': paste_content})
-            return self._redirect(f'/paste/{new_id}')
-        return await self._render_template('index.html')
+        if self.request.method == "POST":
+            # Auto-generate an _id because key=None
+            new_id = await self.pastes.set(None, paste_content)
+            return self._redirect(f"/paste/{new_id}")
+
+        return await self._render_template("index.html")
 
     async def paste(self, paste_id, delete=None):
-        if delete == 'delete':
-            pastes.delete(id=paste_id)
-            return self._redirect('/')
+        if delete == "delete":
+            await self.pastes.remove(paste_id)
+            return self._redirect("/")
 
-        paste = pastes.find_one(id=paste_id)
-        if not paste:
-            paste = {'content':404}
+        paste = await self.pastes.get(paste_id)
 
         return await self._render_template(
-            'paste.html',
+            "paste.html",
             paste_id=paste_id,
-            paste_content=paste['content'],
+            paste_content=paste,
         )
 
 
 app = Root()
+
