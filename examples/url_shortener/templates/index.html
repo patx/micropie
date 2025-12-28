@@ -57,6 +57,7 @@ button:hover{
 <body>
 <form method="POST" action="/">
   <input type="url" name="url_str" placeholder="https://yourlongurl.com/here" required>
+  <input type="hidden" name="csrf_token" value="{{ request.session.csrf_token }}">
   <button type="submit">Shorten</button>
 </form>
 </body>

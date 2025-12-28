@@ -5,10 +5,12 @@ from micropie import App
 from mongokv import Mkv
 
 from middlewares.rate_limit import MongoRateLimitMiddleware
+from middlewares.csrf import CSRFMiddleware
 
 
 URL_ROOT = "http://localhost:8000/"
 MONGO_URI = "mongodb://localhost:27017"
+CSRF_KEY = "wzWf0CsZr3LfrgPVc9RqHFVUmyXsYT-k8hnGt41bMGU"
 
 db = Mkv(MONGO_URI)
 
@@ -41,9 +43,10 @@ class Shorty(App):
                 return self._redirect("/")
             return self._redirect(real_url)
 
-        return await self._render_template("index.html")
+        return await self._render_template("index.html", request=self.request)
 
 
 app = Shorty()
 app.middlewares.append(MongoRateLimitMiddleware(mongo_uri=MONGO_URI))
+app.middlewares.append(CSRFMiddleware(app=app, secret_key=CSRF_KEY))
 
