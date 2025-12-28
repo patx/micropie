@@ -4,17 +4,25 @@ from secrets import choice
 from micropie import App
 from mongokv import Mkv
 
+# Import middlewares and session backends
 from middlewares.rate_limit import MongoRateLimitMiddleware
 from middlewares.csrf import CSRFMiddleware
+from sessions.mongo_session import MkvSessionBackend
 
 
+# EXAMPLE KEYS/URI, in production use/generate your own and save it as an 
+# environment variables, do not hard code them like these demos HINT: You 
+# can use `secrets.token_urlsafe(64)` to generate your CSRF secret key
 URL_ROOT = "http://localhost:8000/"
 MONGO_URI = "mongodb://localhost:27017"
+DB_NAME = "shorty"
 CSRF_KEY = "wzWf0CsZr3LfrgPVc9RqHFVUmyXsYT-k8hnGt41bMGU"
 
-db = Mkv(MONGO_URI)
+# Create an mongoKV instance using our URI
+db = Mkv(MONGO_URI, db_name=DB_NAME, collection_name="urls")
 
 
+# Our main app class
 class Shorty(App):
 
     def _generate_id(self, length: int = 8) -> str:
@@ -46,7 +54,23 @@ class Shorty(App):
         return await self._render_template("index.html", request=self.request)
 
 
-app = Shorty()
-app.middlewares.append(MongoRateLimitMiddleware(mongo_uri=MONGO_URI))
-app.middlewares.append(CSRFMiddleware(app=app, secret_key=CSRF_KEY))
+app = Shorty(session_backend=MkvSessionBackend(
+    mongo_uri=MONGO_URI, 
+    db_name=DB_NAME
+    )
+)
+app.middlewares.append(
+    MongoRateLimitMiddleware(
+        mongo_uri=MONGO_URI,
+        allowed_hosts=None,          # don't enforce host allowlist, change in prod
+        trust_proxy_headers=False,   # change in prod
+        require_cf_ray=False,
+    )
+)
+app.middlewares.append(
+    CSRFMiddleware(
+        app=app,
+        secret_key=CSRF_KEY
+    )
+)
 
