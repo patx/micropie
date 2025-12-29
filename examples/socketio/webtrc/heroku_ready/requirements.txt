@@ -1,0 +1,4 @@
+micropie[all]
+python-socketio
+mongokv
+

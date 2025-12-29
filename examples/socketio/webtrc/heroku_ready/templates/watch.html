@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Watching {{ username }}</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
+    #status { opacity: .8; margin: 8px 0 16px; }
+    video { width: min(900px, 100%); border-radius: 12px; background: #111; }
+    .hint { font-size: 14px; opacity: .75; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Watching {{ username }}</h1>
+  <div id="status">Connecting…</div>
+
+  <video
+    id="remoteVideo"
+    playsinline
+    autoplay
+    controls
+    style="transform: scaleX(-1);">
+  </video>
+
+  <div class="hint">
+    If you don’t hear audio, click the video and press play (browser autoplay rules).
+  </div>
+
+  <script>
+    const username = "{{ username }}";
+    const socket = io({ transports: ["websocket"] });
+
+    let peerConnection = null;
+    let currentStreamerSid = null;
+
+    const statusEl = document.getElementById("status");
+    const remoteVideo = document.getElementById("remoteVideo");
+
+    function cleanupPeer() {
+      try { if (peerConnection) peerConnection.close(); } catch (e) {}
+      peerConnection = null;
+      currentStreamerSid = null;
+      try { remoteVideo.srcObject = null; } catch (e) {}
+    }
+
+    socket.on("connect", () => {
+      console.log("[Watcher] Connected:", socket.id);
+      statusEl.textContent = "Connected. Looking for stream…";
+
+      socket.emit("join_room", { username, role: "watcher" });
+
+      setTimeout(() => {
+        console.log("[Watcher] emitting new_watcher");
+        socket.emit("new_watcher", { username });
+      }, 250);
+    });
+
+    socket.on("disconnect", () => {
+      statusEl.textContent = "Disconnected.";
+      cleanupPeer();
+    });
+
+    socket.on("stream_offline", () => {
+      statusEl.textContent = `@${username} is offline.`;
+      cleanupPeer();
+    });
+
+    socket.on("offer", async (data) => {
+      console.log("[Watcher] Offer from:", data.streamerSid);
+      statusEl.textContent = "Receiving stream…";
+      currentStreamerSid = data.streamerSid;
+
+      if (!peerConnection) {
+        peerConnection = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate && currentStreamerSid) {
+            socket.emit("ice-candidate", {
+              candidate: event.candidate.candidate,
+              sdpMid: event.candidate.sdpMid,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+              targetSid: currentStreamerSid
+            });
+          }
+        };
+
+        peerConnection.ontrack = (event) => {
+          const stream = event.streams && event.streams[0];
+          if (!stream) return;
+
+          remoteVideo.srcObject = stream;
+
+          remoteVideo.play().then(() => {
+            statusEl.textContent = "Live ✅";
+          }).catch(() => {
+            statusEl.textContent = "Live (press play)";
+          });
+        };
+      }
+
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription({
+          type: data.offerType,
+          sdp: data.offer
+        }));
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        socket.emit("answer", {
+          answer: answer.sdp,
+          answerType: answer.type,
+          streamerSid: data.streamerSid
+        });
+      } catch (err) {
+        console.error("[Watcher] offer/answer error:", err);
+        statusEl.textContent = "Error connecting to stream.";
+        cleanupPeer();
+      }
+    });
+
+    socket.on("ice-candidate", (data) => {
+      const { candidate, sdpMid, sdpMLineIndex, senderSid } = data;
+      if (!peerConnection || !candidate) return;
+      if (currentStreamerSid && senderSid !== currentStreamerSid) return;
+
+      peerConnection.addIceCandidate(new RTCIceCandidate({ candidate, sdpMid, sdpMLineIndex }))
+        .catch(err => console.error("[Watcher] addIceCandidate error:", err));
+    });
+  </script>
+</body>
+</html>
+

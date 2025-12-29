@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Your Stream</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
+    #status { opacity: .8; margin: 8px 0 16px; }
+    video { width: min(720px, 100%); border-radius: 12px; background: #111; }
+  </style>
+</head>
+<body>
+  <h1>Streaming as {{ username }}</h1>
+  <div id="status">Connecting…</div>
+
+  <video id="localVideo" autoplay playsinline muted style="transform: scaleX(-1);"></video>
+
+  <script>
+    const username = "{{ username }}";
+
+    // Token allows same browser to refresh and reclaim the username without waiting TTL
+    const tokenKey = `stream_token:${username}`;
+    let streamToken = localStorage.getItem(tokenKey);
+    if (!streamToken) {
+      streamToken = crypto.randomUUID();
+      localStorage.setItem(tokenKey, streamToken);
+    }
+
+    const socket = io({ transports: ["websocket"] });
+
+    const statusEl = document.getElementById("status");
+    const peerConnections = {};
+
+    let localStream = null;
+    let heartbeatTimer = null;
+    let accepted = false;
+
+    socket.on("connect", () => {
+      console.log("[Streamer] Connected:", socket.id);
+      statusEl.textContent = "Connected. Claiming username…";
+      socket.emit("join_room", { username, role: "streamer", streamToken });
+    });
+
+    socket.on("disconnect", () => {
+      statusEl.textContent = "Disconnected.";
+      accepted = false;
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    });
+
+    socket.on("stream_accepted", async () => {
+      accepted = true;
+      statusEl.textContent = "Live ✅ Starting camera…";
+      await startLocalCamera();
+
+      heartbeatTimer = setInterval(() => {
+        socket.emit("streamer_heartbeat", { username });
+      }, 20000);
+
+      statusEl.textContent = "Live ✅ Waiting for viewers…";
+    });
+
+    socket.on("stream_denied", (msg) => {
+      const reason = msg?.reason || "denied";
+      console.warn("[Streamer] stream_denied", msg);
+
+      if (reason === "taken") {
+        statusEl.textContent = `Username "${username}" is already live.`;
+        alert(`Can't stream as "${username}" — already taken.`);
+      } else {
+        statusEl.textContent = `Streaming denied: ${reason}`;
+        alert(`Streaming denied: ${reason}`);
+      }
+      cleanupLocal();
+    });
+
+    async function startLocalCamera() {
+      if (localStream) return;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        document.getElementById("localVideo").srcObject = localStream;
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+        statusEl.textContent = "Camera/mic permission error.";
+      }
+    }
+
+    function cleanupLocal() {
+      try {
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+      } catch (e) {}
+      localStream = null;
+
+      Object.values(peerConnections).forEach(pc => { try { pc.close(); } catch (e) {} });
+      for (const k of Object.keys(peerConnections)) delete peerConnections[k];
+
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+
+    socket.on("new_watcher", (data) => {
+      if (!accepted) return;
+      if (!localStream) return;
+
+      const watcherSid = data.watcherSid;
+      console.log("[Streamer] new_watcher:", watcherSid);
+      createOfferForWatcher(watcherSid);
+    });
+
+    async function createOfferForWatcher(watcherSid) {
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
+      peerConnections[watcherSid] = pc;
+
+      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("ice-candidate", {
+            username,
+            role: "streamer",
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            targetSid: watcherSid
+          });
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket.emit("offer", {
+        username,
+        offer: offer.sdp,
+        offerType: offer.type,
+        watcherSid
+      });
+    }
+
+    socket.on("answer", async (data) => {
+      const { answer, answerType, watcherSid } = data;
+      const pc = peerConnections[watcherSid];
+      if (!pc) return;
+
+      await pc.setRemoteDescription(new RTCSessionDescription({
+        type: answerType,
+        sdp: answer
+      }));
+    });
+
+    socket.on("ice-candidate", (data) => {
+      const { candidate, sdpMid, sdpMLineIndex, senderSid } = data;
+      const pc = peerConnections[senderSid];
+      if (!pc || !candidate) return;
+
+      pc.addIceCandidate(new RTCIceCandidate({ candidate, sdpMid, sdpMLineIndex }))
+        .catch(err => console.error("Error adding ICE candidate:", err));
+    });
+  </script>
+</body>
+</html>
+
