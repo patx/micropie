@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <div class="page-title-row">
+      <h1 class="page-title">New post</h1>
+    </div>
+    <p class="page-subtle">
+      Write something and hit publish.
+    </p>
+
+    {% if error %}
+      <div class="error" id="form-error">{{ error }}</div>
+    {% else %}
+      <div class="error" id="form-error" style="display:none;"></div>
+    {% endif %}
+
+    <form id="new-post-form" method="post" action="/new" style="margin-top: 6px;">
+      <label for="title">Title</label>
+      <input id="title" name="title" type="text" required />
+
+      <label for="content">Content</label>
+      <textarea id="content" name="content" required></textarea>
+
+      <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary" id="publish-btn">Publish</button>
+        <a href="/" class="btn">Cancel</a>
+      </div>
+    </form>
+  </section>
+
+  <script>
+    (function () {
+      const form       = document.getElementById("new-post-form");
+      const titleInput = document.getElementById("title");
+      const contentEl  = document.getElementById("content");
+      const errorEl    = document.getElementById("form-error");
+      const publishBtn = document.getElementById("publish-btn");
+
+      if (!form) return;
+
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        if (errorEl) {
+          errorEl.style.display = "none";
+          errorEl.textContent = "";
+        }
+
+        const title = titleInput.value.trim();
+        const content = contentEl.value.trim();
+
+        if (!title || !content) {
+          if (errorEl) {
+            errorEl.textContent = "Title and content are required.";
+            errorEl.style.display = "block";
+          }
+          return;
+        }
+
+        if (publishBtn) {
+          publishBtn.disabled = true;
+          publishBtn.textContent = "Publishing...";
+        }
+
+        try {
+          const res = await fetch("/api_posts", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({ title, content }),
+          });
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            if (errorEl) {
+              errorEl.textContent = data.error || "Failed to create post.";
+              errorEl.style.display = "block";
+            }
+            if (publishBtn) {
+              publishBtn.disabled = false;
+              publishBtn.textContent = "Publish";
+            }
+            return;
+          }
+
+          if (data.id) {
+            window.location.href = `/post/${data.id}`;
+          } else {
+            window.location.href = "/";
+          }
+        } catch (err) {
+          console.error(err);
+          if (errorEl) {
+            errorEl.textContent = "Network error while creating post.";
+            errorEl.style.display = "block";
+          }
+          if (publishBtn) {
+            publishBtn.disabled = false;
+            publishBtn.textContent = "Publish";
+          }
+        }
+      });
+    })();
+  </script>
+{% endblock %}
+

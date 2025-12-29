@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <article class="card">
+    <h1 class="page-title" id="post-title" style="margin-bottom: 6px;">
+      {{ post.title }}
+    </h1>
+    <p class="meta" id="post-meta" style="margin: 0 0 16px;">
+      {{ post.created_at }}
+      {% if post.author_username %}
+        · by {{ post.author_username }}
+      {% endif %}
+    </p>
+
+    <!-- View mode -->
+    <div id="post-view" style="line-height: 1.6; font-size: 15px;">
+      {{ post_html | safe }}
+    </div>
+
+    <!-- Edit mode (hidden by default) -->
+    {% if current_user %}
+      <form id="edit-form" style="display:none; margin-top: 12px;">
+        <div style="margin-bottom: 8px;">
+          <label for="edit-title" style="display:block; font-weight:600; margin-bottom:4px;">
+            Title
+          </label>
+          <input
+            id="edit-title"
+            type="text"
+            value="{{ post.title }}"
+            style="width:100%; padding:8px; font-size:15px; box-sizing:border-box;"
+          />
+        </div>
+
+        <div style="margin-bottom: 8px;">
+          <label for="edit-content" style="display:block; font-weight:600; margin-bottom:4px;">
+            Content (Markdown)
+          </label>
+          <textarea
+            id="edit-content"
+            rows="12"
+            style="width:100%; padding:8px; font-size:14px; line-height:1.5; box-sizing:border-box;"
+          >{{ post.content }}</textarea>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+          <button type="submit" class="btn">Save changes</button>
+          <button type="button" id="cancel-edit" class="btn btn-secondary">Cancel</button>
+        </div>
+
+        <p id="edit-error" style="color:#b00020; font-size:13px; margin-top:8px; display:none;"></p>
+      </form>
+    {% endif %}
+
+    <div style="margin-top: 18px; display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="/" class="btn">← Back to posts</a>
+
+      {% if current_user %}
+        <button type="button" id="edit-btn" class="btn btn-secondary">
+          ✏️ Edit post
+        </button>
+        <button type="button" id="delete-btn" class="btn btn-danger">
+          🗑 Delete post
+        </button>
+      {% endif %}
+    </div>
+  </article>
+
+  {% if current_user %}
+  <script>
+    (function () {
+      const postId      = "{{ post.id }}";
+      const titleEl     = document.getElementById("post-title");
+      const metaEl      = document.getElementById("post-meta");
+      const postView    = document.getElementById("post-view");
+
+      const editBtn     = document.getElementById("edit-btn");
+      const deleteBtn   = document.getElementById("delete-btn");
+      const editForm    = document.getElementById("edit-form");
+      const cancelEdit  = document.getElementById("cancel-edit");
+      const titleInput  = document.getElementById("edit-title");
+      const contentArea = document.getElementById("edit-content");
+      const errorEl     = document.getElementById("edit-error");
+
+      function showEditMode() {
+        if (!editForm) return;
+        postView.style.display = "none";
+        editForm.style.display = "block";
+        errorEl.style.display = "none";
+        errorEl.textContent = "";
+      }
+
+      function hideEditMode() {
+        if (!editForm) return;
+        editForm.style.display = "none";
+        postView.style.display = "block";
+        errorEl.style.display = "none";
+        errorEl.textContent = "";
+      }
+
+      if (editBtn) {
+        editBtn.addEventListener("click", function () {
+          showEditMode();
+        });
+      }
+
+      if (cancelEdit) {
+        cancelEdit.addEventListener("click", function () {
+          hideEditMode();
+        });
+      }
+
+      if (editForm) {
+        editForm.addEventListener("submit", async function (e) {
+          e.preventDefault();
+          errorEl.style.display = "none";
+          errorEl.textContent = "";
+
+          const title = titleInput.value.trim();
+          const content = contentArea.value.trim();
+
+          if (!title || !content) {
+            errorEl.textContent = "Title and content cannot be empty.";
+            errorEl.style.display = "block";
+            return;
+          }
+
+          try {
+            const res = await fetch(`/api_post/${postId}`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({ title, content }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+              errorEl.textContent = data.error || "Failed to update post.";
+              errorEl.style.display = "block";
+              return;
+            }
+
+            // Update DOM from API response, no full page reload.
+            if (data.title) {
+              titleEl.textContent = data.title;
+            }
+
+            if (data.html) {
+              postView.innerHTML = data.html;
+            }
+
+            // Optionally tweak meta to show updated_at if you want:
+            // if (data.updated_at) { ... }
+
+            hideEditMode();
+          } catch (err) {
+            console.error(err);
+            errorEl.textContent = "Network error while saving changes.";
+            errorEl.style.display = "block";
+          }
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", async function () {
+          const sure = window.confirm("Are you sure you want to delete this post? This cannot be undone.");
+          if (!sure) return;
+
+          try {
+            const res = await fetch(`/api_post/${postId}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+              alert(data.error || "Failed to delete post.");
+              return;
+            }
+
+            window.location.href = "/";
+          } catch (err) {
+            console.error(err);
+            alert("Network error while deleting post.");
+          }
+        });
+      }
+    })();
+  </script>
+  {% endif %}
+{% endblock %}
+

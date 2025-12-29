@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <div class="page-title-row">
+      <h1 class="page-title">Login</h1>
+    </div>
+    <p class="page-subtle">
+      Right now this is just a tiny auth wall so only I can post.
+    </p>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login" style="margin-top: 6px;">
+      <input type="hidden" name="next" value="{{ next_path or '/' }}">
+
+      <label for="username">Username</label>
+      <input id="username" name="username" type="text" required />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required />
+
+      <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">Sign in</button>
+        <a href="/" class="btn">Back</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
+

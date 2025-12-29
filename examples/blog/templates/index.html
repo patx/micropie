@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="card">
+    <div class="page-title-row">
+      <h1 class="page-title">Things I’m working on or thinking about</h1>
+      {% if current_user %}
+        <a href="/new" class="btn btn-primary">Write</a>
+      {% endif %}
+    </div>
+
+    {% if posts %}
+      <div>
+        {% for post in posts %}
+          <article style="padding: 10px 0; border-top: {% if not loop.first %}1px solid rgba(0,0,0,0.05){% else %}none{% endif %};">
+            <h2 style="margin: 4px 0 2px; font-size: 17px; font-weight: 600;">
+              <a href="/post/{{ post.id }}" class="inline-link">{{ post.title }}</a>
+            </h2>
+            <p class="meta" style="margin: 3px 0 0;">
+              {{ post.created_at }}
+            </p>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p style="margin: 0;">
+        Nothing here yet. {% if current_user %}<a href="/new" class="inline-link">Write the first one?</a>{% else %}Check back soon.{% endif %}
+      </p>
+    {% endif %}
+  </section>
+{% endblock %}
+

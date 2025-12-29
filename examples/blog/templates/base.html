@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MicroPie // My Thoughts</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="https://harrisonerd.com/favicon.ico" />
+
+
+  <!-- Highlight.js (code highlighting) -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (window.hljs) {
+        hljs.highlightAll();
+      }
+    });
+  </script>
+
+  <style>
+    :root {
+      --bg: #fafafa;
+      --text: #111;
+      --card-bg: #ffffff;
+      --border-subtle: rgba(0, 0, 0, 0.06);
+      --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.06);
+      --accent: #111;
+      --accent-muted: rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Ubuntu", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+
+      /* fade in */
+      opacity: 0;
+      animation: fadeIn 1.5s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .page-shell {
+      width: 100%;
+      max-width: 900px;
+      padding: 24px 16px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* condensed header: avatar + text in a row */
+    .header {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 14px;
+      animation: subtleFloat 6s ease-in-out infinite;
+      text-align: left;
+    }
+
+    @keyframes subtleFloat {
+      0%, 100% { transform: translateY(0px); }
+      50%      { transform: translateY(-4px); }
+    }
+
+    .avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 25%;
+      object-fit: cover;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.10);
+      animation: breathe 6s ease-in-out infinite;
+      background: #e0e0e0;
+      flex-shrink: 0;
+    }
+
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 3px 8px rgba(0,0,0,0.10); }
+      50%      { box-shadow: 0 5px 14px rgba(0,0,0,0.14); }
+    }
+
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .name {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin: 0;
+      animation: fadeSlide 1.4s ease forwards;
+    }
+
+    @keyframes fadeSlide {
+      0%   { opacity: 0; transform: translateY(6px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #555;
+      max-width: 460px;
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .content-shell {
+      width: 100%;
+      max-width: 720px;
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 20px 22px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid var(--border-subtle);
+      text-align: left;
+    }
+
+    .card + .card {
+      margin-top: 14px;
+    }
+
+    .page-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .page-subtle {
+      font-size: 13px;
+      color: #777;
+      margin: 0 0 14px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--accent-muted);
+      background: #fff;
+      text-decoration: none;
+      color: #111;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+    }
+
+    .btn:hover {
+      background: rgba(0,0,0,0.04);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    }
+
+    .btn-primary {
+      border-color: #111;
+      background: #111;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #000;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: #777;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    a.inline-link {
+      color: #111;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(0,0,0,0.18);
+      padding-bottom: 1px;
+    }
+
+    a.inline-link:hover {
+      border-bottom-color: rgba(0,0,0,0.35);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      padding: 8px 10px;
+      margin-top: 4px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,0.16);
+      font: inherit;
+      resize: vertical;
+      min-height: 38px;
+      outline: none;
+      background: #fcfcfc;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    textarea {
+      min-height: 160px;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: #111;
+      box-shadow: 0 0 0 1px #1111;
+      background: #ffffff;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .error {
+      color: #b91c1c;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    /* responsive tweaks */
+    @media (max-width: 600px) {
+      .page-shell {
+        padding-top: 20px;
+      }
+
+      .header {
+        align-items: flex-start;
+      }
+
+      .name {
+        font-size: 22px;
+      }
+
+      .avatar {
+        width: 64px;
+        height: 64px;
+      }
+
+      .card {
+        padding: 18px 16px;
+      }
+    }
+  </style>
+  
+</head>
+<body>
+  <div class="page-shell">
+    <!-- condensed header: avatar + text in one row -->
+
+    <main class="content-shell">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>
+
