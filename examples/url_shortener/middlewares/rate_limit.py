@@ -43,7 +43,7 @@ class MongoRateLimitMiddleware(HttpMiddleware):
     def __init__(
         self,
         mongo_uri: str,
-        db_name: str = "vegy_security",
+        db_name: str,
         collection_name: str = "rate_limits_global",
         *,
         allowed_hosts: Set[str] | None = None,

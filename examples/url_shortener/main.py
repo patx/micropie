@@ -62,6 +62,7 @@ app = Shorty(session_backend=MkvSessionBackend(
 app.middlewares.append(
     MongoRateLimitMiddleware(
         mongo_uri=MONGO_URI,
+        db_name=DB_NAME,
         allowed_hosts=None,          # don't enforce host allowlist, change in prod
         trust_proxy_headers=False,   # change in prod
         require_cf_ray=False,

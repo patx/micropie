@@ -29,7 +29,7 @@ class MkvSessionBackend(SessionBackend):
         *,
         key_prefix: str = "sess:",
     ) -> None:
-        self.store = Mkv(mongo_uri, db_name=db_name, collection_name=collection_name)
+        self.store = Mkv(mongo_uri, db_name, collection_name)
         self.key_prefix = key_prefix
 
     def _k(self, session_id: str) -> str:
