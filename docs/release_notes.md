@@ -1,6 +1,7 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## Releases Notes
+- **[0.25](https://github.com/patx/micropie/releases/tag/v0.25)** - Fix unicode redirect handling. Percent-encode non-ASCII path segments before setting Location header. Prevents latin-1 header encoding errors and avoids double-encoding queries.
 - **[0.24](https://github.com/patx/micropie/releases/tag/v0.24)** - Improve session handling. Expired sessions now clean up properly, and empty sessions delete stored data. Session saving also moved after `after_request` middleware.
 - **[0.23](https://github.com/patx/micropie/releases/tag/v0.23)** - Bug fix release. Make sure background multipart parsing stops when the request is terminated by middleware
 - **[0.22](https://github.com/patx/micropie/releases/tag/v0.22)** - Bug fix release. Fix sub-app body parsing bug by ensuring `Request` object inherits scope's `body_params` and `body_parsed`, preventing redundant parsing in sub-app
