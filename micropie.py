@@ -19,7 +19,7 @@ import traceback
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit, urlunsplit, quote, quote_plus
 
 try:
     import orjson as json  # Use `orjson` if installed as it is faster
@@ -1044,18 +1044,31 @@ class App:
             "reason": reason
         })
 
-    def _redirect(self, location: str, extra_headers: list = None) -> Tuple[int, str, List[Tuple[str, str]]]:
+    def _encode_redirect_url(self, url: str) -> str:
+        """
+        Make a URL safe to put in an HTTP Location header.
+
+        Key rule: Location must be ASCII/latin-1 -> percent-encode non-ASCII.
+        We percent-encode the PATH but we do NOT touch the query string.
+        """
+        p = urlsplit(url)
+        safe_path = quote(p.path, safe="/%")
+        return urlunsplit((p.scheme, p.netloc, safe_path, p.query, p.fragment))
+
+    def _redirect(
+        self,
+        location: str,
+        extra_headers: list | None = None,
+    ) -> Tuple[int, str, List[Tuple[str, str]]]:
         """
         Generate an HTTP redirect response.
-        Args:
-            location: The URL to redirect to.
-            extra_headers: Optional list of tuples (header_name, header_value) to include in the response.
-        Returns:
-            A tuple containing the HTTP status code, the HTML body, and headers list.
         """
-        headers = [("Location", location)]
+        safe_location = self._encode_redirect_url(location)
+
+        headers = [("Location", safe_location)]
         if extra_headers:
             headers.extend(extra_headers)
+
         return 302, "", headers
 
     async def _render_template(self, name: str, **kwargs: Any) -> str:
