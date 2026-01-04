@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>URL Shortened</title>
+<title>{{ url }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
@@ -105,8 +105,17 @@
     font-size: .9rem;
     color: var(--muted);
     text-decoration: none;
+    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
+  .clicks{
+    display: inline-block;
+    font-size: .9rem;
+  }
+  
   .back-link:hover{
     color: var(--text);
   }
@@ -125,15 +134,16 @@
       <input
         id="shortUrl"
         type="text"
-        value="{{ url_root }}{{ short_id }}"
+        value="{{ url_root }}{{ short_code }}"
         readonly
         aria-label="Short URL"
       />
       <button type="button" id="copyBtn" onclick="copyUrl()">Copy</button>
     </form>
-
+    <br>
+    <a href="{{ url }}" class="back-link" target="_blank" rel="noreferrer">{{ url }}</a>
     <div class="below">
-      <a href="/" class="back-link">&larr; Shorten another</a> &middot; <a href="/{{ short_id}}+" class="back-link">Analytics</a>
+      <a href="/" class="back-link">&larr; Shorten another</a> &middot; <span class="clicks">{{ clicks }} clicks</span>
     </div>
   </main>
 
@@ -178,4 +188,3 @@ function fallbackCopy(text, btn){
 </script>
 </body>
 </html>
-

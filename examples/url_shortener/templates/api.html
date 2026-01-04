@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>API Documentation</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    color-scheme: dark;
+    --bg: #070a0f;
+    --card: rgba(255,255,255,.06);
+    --border: rgba(255,255,255,.10);
+    --text: rgba(255,255,255,.92);
+    --muted: rgba(255,255,255,.60);
+    --focus: rgba(255,255,255,.22);
+    --shadow: 0 18px 55px rgba(0,0,0,.55);
+    --radius: 16px;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+
+  body{
+    min-height:100vh;
+    display:grid;
+    place-items:center;
+    font-family:"JetBrains Mono", ui-monospace, monospace;
+    background:
+      radial-gradient(900px 500px at 20% 15%, rgba(255,255,255,.05), transparent 55%),
+      radial-gradient(800px 500px at 80% 85%, rgba(255,255,255,.04), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    padding:24px;
+  }
+
+  .card{
+    width:100%;
+    max-width:680px;
+    padding:22px;
+  }
+
+  h1{
+    font-size:1.05rem;
+    font-weight:600;
+    margin-bottom:12px;
+  }
+
+  .section{
+    margin-top:18px;
+  }
+
+  .label{
+    font-size:.75rem;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+
+  pre{
+    background:rgba(0,0,0,.35);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:14px;
+    font-size:.85rem;
+    overflow-x:auto;
+    line-height:1.5;
+  }
+
+  .note{
+    font-size:.75rem;
+    color:var(--muted);
+    margin-top:10px;
+  }
+
+  a{
+    color:var(--muted);
+    text-decoration:none;
+  }
+
+  a:hover{
+    color:var(--text);
+  }
+</style>
+</head>
+
+<body>
+  <main class="card">
+    <h1>Create short link</h1>
+
+        <div class="section">
+            <pre>
+POST /api/v1/shorten
+Content-Type: application/json
+
+{
+  "url": "https://google.com"
+}
+            </pre>
+        </div>
+        
+        <div class="section">
+            <div class="label">Response</div>
+            <pre>
+{
+  "status": "success",
+  "long_url": "https://harrisonerd.com",
+  "short_id": "Ab3kQ9",
+  "short_url": "https://erd.sh/Ab3kQ9"
+}
+            </pre>
+        </div>
+
+      <h1 style="margin-top:48px;">Link stats</h1>
+      <div class="section">
+        <pre>GET /api/v1/stats/Ab3kQ9</pre>
+      </div>
+      
+      <div class="section">
+        <div class="label">Response</div>
+        <pre>
+{
+  "status": "success",
+  "short_id": "Ab3kQ9",
+  "short_url": "https://erd.sh/Ab3kQ9",
+  "long_url": "https://harrisonerd.com",
+  "clicks": 12,
+  "created_at": "2026-01-04T08:41:12Z",
+  "last_clicked_at": "2026-01-04T09:02:55Z"
+}
+        </pre>
+      </div>
+
+    <div class="note" style="margin-top:48px;">
+      <a href="/">&larr; Back</a>
+    </div>
+
+  </main>
+</body>
+</html>
+

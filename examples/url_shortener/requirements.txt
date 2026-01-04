@@ -1,0 +1,4 @@
+micropie[all]
+mongokv
+itsdangerous
+
