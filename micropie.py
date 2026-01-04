@@ -19,7 +19,7 @@ import traceback
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
-from urllib.parse import parse_qs, urlsplit, urlunsplit, quote, quote_plus
+from urllib.parse import parse_qs, urlsplit, urlunsplit, quote
 
 try:
     import orjson as json  # Use `orjson` if installed as it is faster
@@ -547,7 +547,11 @@ class App:
                 await _cancel_parse_task()
                 new_scope = dict(scope)
                 new_scope["path"] = request._subapp_path
-                new_scope["root_path"] = scope.get("root_path", "") + "/" + self.middlewares[0].mount_path
+                mount = getattr(request, "_subapp_mount_path", "").strip("/")
+                if mount:
+                    new_scope["root_path"] = scope.get("root_path", "") + "/" + mount
+                else:
+                    new_scope["root_path"] = scope.get("root_path", "")
                 new_scope["body_params"] = request.body_params
                 new_scope["body_parsed"] = request.body_parsed
                 new_scope["get_json"] = getattr(request, "get_json", {})
