@@ -70,9 +70,13 @@
   }
 
   .note{
-    font-size:.75rem;
+    font-size:.9rem;
     color:var(--muted);
     margin-top:10px;
+  }
+
+  .note code{
+    font-size:.88em;
   }
 
   a{
@@ -83,55 +87,91 @@
   a:hover{
     color:var(--text);
   }
+
+  code{
+    background:#363434;
+    padding:0 .25em;
+    border-radius:6px;
+  }
 </style>
 </head>
 
 <body>
   <main class="card">
+
     <h1>Create short link</h1>
 
-        <div class="section">
-            <pre>
-POST /api/v1/shorten
+    <div class="section">
+      <div class="label">HTTP</div>
+<pre>
+POST https://erd.sh/api/v1/shorten
 Content-Type: application/json
 
 {
-  "url": "https://google.com"
+  "url": "https://google.com",
+  "expires_in": 3600,
+  "max_clicks": 25,
+  "hide_stats_on_expire": true
 }
-            </pre>
-        </div>
-        
-        <div class="section">
-            <div class="label">Response</div>
-            <pre>
+</pre>
+      <div class="note">
+        <em>
+          <code>expires_in</code>, <code>max_clicks</code> and <code>hide_stats_on_expire</code> are optional (API only). 
+          If omitted or null, links never expire and have unlimited clicks/analytics.
+        </em>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="label">Response</div>
+<pre>
 {
   "status": "success",
-  "long_url": "https://harrisonerd.com",
+  "long_url": "https://google.com",
   "short_id": "Ab3kQ9",
-  "short_url": "https://erd.sh/Ab3kQ9"
+  "short_url": "https://erd.sh/Ab3kQ9",
+  "expires_at": "2026-01-04T10:41:12Z",
+  "max_clicks": 25,
+  "hide_stats_on_expire": true
 }
-            </pre>
-        </div>
-
-      <h1 style="margin-top:48px;">Link stats</h1>
-      <div class="section">
-        <pre>GET /api/v1/stats/Ab3kQ9</pre>
+</pre>
+      <div class="note">
+        <em><code>expires_at</code>, <code>max_clicks</code>, and <code>hide_stats_on_expire</code> are <code>null</code> when not set.</em>
       </div>
-      
-      <div class="section">
-        <div class="label">Response</div>
-        <pre>
+    </div>
+
+    <h1 style="margin-top:48px;">Link stats</h1>
+
+    <div class="section">
+      <div class="label">HTTP</div>
+<pre>
+GET https://erd.sh/api/v1/stats/Ab3kQ9
+</pre>
+      <div class="note">
+        <em>If <code>hide_stats_on_expire</code> is true and the link is expired/maxed, this endpoint returns <code>410</code>.</em>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="label">Response</div>
+<pre>
 {
   "status": "success",
   "short_id": "Ab3kQ9",
   "short_url": "https://erd.sh/Ab3kQ9",
-  "long_url": "https://harrisonerd.com",
+  "long_url": "https://google.com",
   "clicks": 12,
   "created_at": "2026-01-04T08:41:12Z",
-  "last_clicked_at": "2026-01-04T09:02:55Z"
+  "last_clicked_at": "2026-01-04T09:02:55Z",
+  "expires_at": "2026-01-04T10:41:12Z",
+  "max_clicks": 25,
+  "hide_stats_on_expire": true
 }
-        </pre>
+</pre>
+      <div class="note">
+        <em><code>expires_at</code>, <code>max_clicks</code>, and <code>hide_stats_on_expire</code> are <code>null</code> when not set.</em>
       </div>
+    </div>
 
     <div class="note" style="margin-top:48px;">
       <a href="/">&larr; Back</a>
