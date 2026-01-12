@@ -32,7 +32,9 @@ class CSRFMiddleware(HttpMiddleware):
         self.app = app
         self.serializer = URLSafeTimedSerializer(secret_key, salt="csrf-token")
         self.max_age = max_age
-        self.trusted = set(trusted_origins or [])  # e.g. ["https://gardenfresh.vegy.app"]
+        self.trusted = set(
+            trusted_origins or []
+        )  # e.g. ["https://gardenfresh.vegy.app"]
         self.body_field = body_field
         self.header_name = header_name.lower()
         self.require_header_for_multipart = require_header_for_multipart
@@ -149,7 +151,6 @@ class CSRFMiddleware(HttpMiddleware):
 
 
 class Root(App):
-
     async def index(self):
         csrf_token = self.request.session.get("csrf_token", "")
         return f"""<form method="POST" action="/submit">
@@ -172,4 +173,3 @@ app.middlewares.append(
         exempt_paths=["/sms_order"],
     )
 )
-

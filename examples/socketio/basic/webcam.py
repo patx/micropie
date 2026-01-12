@@ -7,6 +7,7 @@ sio = socketio.AsyncServer(async_mode="asgi")
 # Track active users and their watchers/streamers
 active_users = set()
 
+
 # MicroPie Server with integrated Socket.IO
 class MyApp(App):
     async def index(self):
@@ -15,24 +16,39 @@ class MyApp(App):
     async def submit(self, username: str, action: str):
         if username:
             active_users.add(username)
-            route = f"/stream/{username}" if action == "Start Streaming" else f"/watch/{username}"
+            route = (
+                f"/stream/{username}"
+                if action == "Start Streaming"
+                else f"/watch/{username}"
+            )
             return self.redirect(route)
         return self.redirect("/")
 
     async def stream(self, username: str):
-        return await self.render_template("stream.html", username=username) if username in active_users else self.redirect("/")
+        return (
+            await self.render_template("stream.html", username=username)
+            if username in active_users
+            else self.redirect("/")
+        )
 
     async def watch(self, username: str):
-        return await self.render_template("watch.html", username=username) if username in active_users else self.redirect("/")
+        return (
+            await self.render_template("watch.html", username=username)
+            if username in active_users
+            else self.redirect("/")
+        )
+
 
 # Socket.IO event handlers
 @sio.event
 async def connect(sid, environ):
     print(f"Client connected: {sid}")
 
+
 @sio.event
 async def disconnect(sid):
     print(f"Client disconnected: {sid}")
+
 
 @sio.on("stream_frame")
 async def handle_stream_frame(sid, data):
@@ -50,6 +66,7 @@ async def handle_stream_frame(sid, data):
             room=username,
         )
 
+
 @sio.on("join_room")
 async def join_room(sid, data):
     """Add a client to a room (either as a streamer or watcher)."""
@@ -58,6 +75,7 @@ async def join_room(sid, data):
         await sio.enter_room(sid, username)  # Await the method
         print(f"{sid} joined room for {username}")
 
+
 @sio.on("leave_room")
 async def leave_room(sid, data):
     """Remove a client from a room."""
@@ -65,6 +83,7 @@ async def leave_room(sid, data):
     if username in active_users:
         sio.leave_room(sid, username)
         print(f"{sid} left room for {username}")
+
 
 # Attach the Socket.IO server to the ASGI app
 asgi_app = MyApp()

@@ -3,8 +3,8 @@ import os
 import aiofiles
 import mimetypes
 
-class Root(App):
 
+class Root(App):
     async def static(self, path):
         # Normalize the file path to prevent directory traversal
         file_path = os.path.normpath(os.path.join("static", path))
@@ -27,5 +27,6 @@ class Root(App):
 
             return 200, stream_file(), [("Content-Type", content_type)]
         return 404, "Not Found", []
+
 
 app = Root()

@@ -4,8 +4,10 @@ import uuid
 from itsdangerous import URLSafeTimedSerializer, BadSignature
 from micropie import App, HttpMiddleware, Request
 
+
 class CSRFMiddleware(HttpMiddleware):
     """Middleware for CSRF protection using itsdangerous-signed tokens."""
+
     def __init__(self, app: App, secret_key: str, max_age: int = 8 * 3600):
         self.app = app  # Store the App instance
         self.serializer = URLSafeTimedSerializer(secret_key, salt="csrf-token")
@@ -14,7 +16,11 @@ class CSRFMiddleware(HttpMiddleware):
     async def before_request(self, request: Request) -> Optional[Dict]:
         """Verify CSRF token for POST/PUT/PATCH requests and generate a new token if needed."""
         # Extract session ID from cookies or generate a new one
-        session_id = request.headers.get("cookie", "").split("session_id=")[-1].split(";")[0] if "session_id=" in request.headers.get("cookie", "") else str(uuid.uuid4())
+        session_id = (
+            request.headers.get("cookie", "").split("session_id=")[-1].split(";")[0]
+            if "session_id=" in request.headers.get("cookie", "")
+            else str(uuid.uuid4())
+        )
 
         if request.method in ("POST", "PUT", "PATCH"):
             print(f"Request body_params: {request.body_params}")  # Debugging
@@ -35,18 +41,25 @@ class CSRFMiddleware(HttpMiddleware):
             request.session["csrf_token"] = signed_token
             # Save the session
             print(f"Saving session with CSRF token: {signed_token}")  # Debugging
-            await self.app.session_backend.save(session_id, request.session, self.max_age)
+            await self.app.session_backend.save(
+                session_id, request.session, self.max_age
+            )
 
         return None
 
     async def after_request(
-        self, request: Request, status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]
+        self,
+        request: Request,
+        status_code: int,
+        response_body: Any,
+        extra_headers: List[Tuple[str, str]],
     ) -> Optional[Dict]:
         """Include CSRF token in response headers for client-side use."""
         if request.session.get("csrf_token"):
             extra_headers.append(("X-CSRF-Token", request.session["csrf_token"]))
         return None
-        
+
+
 # Define the Sub-App
 class ApiApp(App):
     async def index(self):
@@ -70,16 +83,18 @@ class ApiApp(App):
             <input type="text" name="name">
             <button type="submit">Submit</button>
             </form>"""
-        
+
     async def plogin(self, name):
         return f"Hello {name}"
+
 
 class UserApp(App):
     async def index(self):
         return {"msg": "Hello world"}
-    
+
     async def hello(self, name="world"):
         return f"hello {name}"
+
 
 # Define a Middleware to Mount the Sub-App
 class SubAppMiddleware(HttpMiddleware):
@@ -92,13 +107,13 @@ class SubAppMiddleware(HttpMiddleware):
         if path.startswith(self.mount_path):
             # Set the subapp and the remaining path
             request._subapp = self.subapp
-            request._subapp_path = path[len(self.mount_path):].lstrip("/") or "/"
+            request._subapp_path = path[len(self.mount_path) :].lstrip("/") or "/"
             return None  # Continue processing
         return None  # Not a subapp path, continue with main app
 
-    async def after_request(
-        self, request, status_code, response_body, extra_headers):
+    async def after_request(self, request, status_code, response_body, extra_headers):
         return None  # No changes to response
+
 
 # Define the Main App
 class MainApp(App):
@@ -107,6 +122,7 @@ class MainApp(App):
 
     async def hello(self, name: str):
         return {"message": f"Hello, {name} from Main App!"}
+
 
 # Create and Configure the Apps
 app = MainApp()

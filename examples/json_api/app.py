@@ -2,10 +2,9 @@ from micropie import App
 
 
 class Root(App):
-
     async def index(self, id, name, age):
         if self.request.method == "POST":
-            return {"id": id,"name": name,"age": age}
+            return {"id": id, "name": name, "age": age}
 
     async def echo(self):
         if self.request.method == "GET":
@@ -19,5 +18,6 @@ class Root(App):
 
     async def html(self):
         return "<b>Hello world</b>"
+
 
 app = Root()

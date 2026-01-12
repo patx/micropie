@@ -28,12 +28,14 @@ except ImportError:
 
 try:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
+
     JINJA_INSTALLED = True
 except ImportError:
     JINJA_INSTALLED = False
 
 try:
     from multipart import PushMultipartParser, MultipartSegment
+
     MULTIPART_INSTALLED = True
 except ImportError:
     MULTIPART_INSTALLED = False
@@ -43,6 +45,7 @@ except ImportError:
 # Session Backend Abstraction
 # -----------------------------
 SESSION_TIMEOUT: int = 8 * 3600  # Default 8 hours
+
 
 class SessionBackend(ABC):
     @abstractmethod
@@ -67,6 +70,7 @@ class SessionBackend(ABC):
         """
         pass
 
+
 class InMemorySessionBackend(SessionBackend):
     def __init__(self):
         self.sessions: Dict[str, Dict[str, Any]] = {}
@@ -76,8 +80,7 @@ class InMemorySessionBackend(SessionBackend):
         """Remove expired sessions based on SESSION_TIMEOUT."""
         now = time.time()
         expired = [
-            sid for sid, ts in self.last_access.items()
-            if now - ts >= SESSION_TIMEOUT
+            sid for sid, ts in self.last_access.items() if now - ts >= SESSION_TIMEOUT
         ]
         for sid in expired:
             self.sessions.pop(sid, None)
@@ -107,8 +110,10 @@ class InMemorySessionBackend(SessionBackend):
 # -----------------------------
 current_request: contextvars.ContextVar[Any] = contextvars.ContextVar("current_request")
 
+
 class Request:
     """Represents an HTTP request in the MicroPie framework."""
+
     def __init__(self, scope: Dict[str, Any]) -> None:
         """
         Initialize a new Request instance.
@@ -125,20 +130,29 @@ class Request:
         self.session: Dict[str, Any] = scope.get("session", {})
         self.files: Dict[str, Any] = scope.get("files", {})
         self.headers: Dict[str, str] = {
-            k.decode("utf-8", errors="replace").lower(): v.decode("utf-8", errors="replace")
+            k.decode("utf-8", errors="replace").lower(): v.decode(
+                "utf-8", errors="replace"
+            )
             for k, v in scope.get("headers", [])
         }
         self.body_parsed: bool = scope.get("body_parsed", False)
 
+
 class WebSocketRequest(Request):
     """Represents a WebSocket request in the MicroPie framework."""
+
     def __init__(self, scope: Dict[str, Any]) -> None:
         super().__init__(scope)
 
+
 class WebSocket:
     """Manages WebSocket communication in the MicroPie framework."""
-    def __init__(self, receive: Callable[[], Awaitable[Dict[str, Any]]], 
-                 send: Callable[[Dict[str, Any]], Awaitable[None]]) -> None:
+
+    def __init__(
+        self,
+        receive: Callable[[], Awaitable[Dict[str, Any]]],
+        send: Callable[[Dict[str, Any]], Awaitable[None]],
+    ) -> None:
         """
         Initialize a WebSocket instance.
 
@@ -151,7 +165,9 @@ class WebSocket:
         self.accepted = False
         self.session_id: Optional[str] = None
 
-    async def accept(self, subprotocol: Optional[str] = None, session_id: Optional[str] = None) -> None:
+    async def accept(
+        self, subprotocol: Optional[str] = None, session_id: Optional[str] = None
+    ) -> None:
         """
         Accept the WebSocket connection.
 
@@ -167,13 +183,22 @@ class WebSocket:
             raise ValueError(f"Expected websocket.connect, got {message['type']}")
         headers = []
         if session_id:
-            headers.append(("Set-Cookie", f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"))
+            headers.append(
+                (
+                    "Set-Cookie",
+                    f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;",
+                )
+            )
             self.session_id = session_id
-        await self.send({
-            "type": "websocket.accept",
-            "subprotocol": subprotocol,
-            "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in headers]
-        })
+        await self.send(
+            {
+                "type": "websocket.accept",
+                "subprotocol": subprotocol,
+                "headers": [
+                    (k.encode("latin-1"), v.encode("latin-1")) for k, v in headers
+                ],
+            }
+        )
         self.accepted = True
 
     async def receive_text(self) -> str:
@@ -189,7 +214,9 @@ class WebSocket:
         """
         message = await self.receive()
         if message["type"] == "websocket.receive":
-            return message.get("text", message.get("bytes", b"").decode("utf-8", "ignore"))
+            return message.get(
+                "text", message.get("bytes", b"").decode("utf-8", "ignore")
+            )
         elif message["type"] == "websocket.disconnect":
             raise ConnectionClosed()
         raise ValueError(f"Unexpected message type: {message['type']}")
@@ -224,10 +251,7 @@ class WebSocket:
         """
         if not self.accepted:
             raise RuntimeError("WebSocket connection not accepted")
-        await self.send({
-            "type": "websocket.send",
-            "text": data
-        })
+        await self.send({"type": "websocket.send", "text": data})
 
     async def send_bytes(self, data: bytes) -> None:
         """
@@ -241,10 +265,7 @@ class WebSocket:
         """
         if not self.accepted:
             raise RuntimeError("WebSocket connection not accepted")
-        await self.send({
-            "type": "websocket.send",
-            "bytes": data
-        })
+        await self.send({"type": "websocket.send", "bytes": data})
 
     async def close(self, code: int = 1000, reason: Optional[str] = None) -> None:
         """
@@ -255,15 +276,15 @@ class WebSocket:
             reason: Optional reason for closure.
         """
         if self.accepted:
-            await self.send({
-                "type": "websocket.close",
-                "code": code,
-                "reason": reason or ""
-            })
+            await self.send(
+                {"type": "websocket.close", "code": code, "reason": reason or ""}
+            )
             self.accepted = False
+
 
 class ConnectionClosed(Exception):
     """Raised when a WebSocket connection is closed."""
+
     pass
 
 
@@ -274,14 +295,15 @@ class HttpMiddleware(ABC):
     """
     Pluggable middleware class that allows hooking into the HTTP request lifecycle.
     """
+
     @abstractmethod
     async def before_request(self, request: Request) -> Optional[Dict]:
         """
         Called before the HTTP request is processed.
-        
+
         Args:
             request: The Request object.
-        
+
         Returns:
             Optional dictionary with response details (status_code, body, headers) to short-circuit the request,
             or None to continue processing.
@@ -294,34 +316,36 @@ class HttpMiddleware(ABC):
         request: Request,
         status_code: int,
         response_body: Any,
-        extra_headers: List[Tuple[str, str]]
+        extra_headers: List[Tuple[str, str]],
     ) -> Optional[Dict]:
         """
         Called after the HTTP request is processed, but before the final response is sent.
-        
+
         Args:
             request: The Request object.
             status_code: The HTTP status code.
             response_body: The response body.
             extra_headers: List of header tuples.
-        
+
         Returns:
             Optional dictionary with updated response details (status_code, body, headers), or None to use defaults.
         """
         pass
 
+
 class WebSocketMiddleware(ABC):
     """
     Pluggable middleware class that allows hooking into the WebSocket request lifecycle.
     """
+
     @abstractmethod
     async def before_websocket(self, request: WebSocketRequest) -> Optional[Dict]:
         """
         Called before the WebSocket handler is invoked.
-        
+
         Args:
             request: The WebSocketRequest object.
-        
+
         Returns:
             Optional dictionary with close details (code, reason) to reject the connection,
             or None to continue processing.
@@ -332,7 +356,7 @@ class WebSocketMiddleware(ABC):
     async def after_websocket(self, request: WebSocketRequest) -> None:
         """
         Called after the WebSocket handler completes.
-        
+
         Args:
             request: The WebSocketRequest object.
         """
@@ -349,16 +373,19 @@ class App:
     pluggable HTTP middlewares via the 'middlewares' list, WebSocket middlewares via the 'ws_middlewares' list,
     and startup/shutdown handlers via 'startup_handlers' and 'shutdown_handlers'.
     """
+
     def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
         if JINJA_INSTALLED:
             self.env = Environment(
                 loader=FileSystemLoader("templates"),
                 autoescape=select_autoescape(["html", "xml"]),
-                enable_async=True
+                enable_async=True,
             )
         else:
             self.env = None
-        self.session_backend: SessionBackend = session_backend or InMemorySessionBackend()
+        self.session_backend: SessionBackend = (
+            session_backend or InMemorySessionBackend()
+        )
         self.middlewares: List[HttpMiddleware] = []
         self.ws_middlewares: List[WebSocketMiddleware] = []
         self.startup_handlers: List[Callable[[], Awaitable[None]]] = []
@@ -378,7 +405,7 @@ class App:
         self,
         scope: Dict[str, Any],
         receive: Callable[[], Awaitable[Dict[str, Any]]],
-        send: Callable[[Dict[str, Any]], Awaitable[None]]
+        send: Callable[[Dict[str, Any]], Awaitable[None]],
     ) -> None:
         """
         ASGI callable interface for the server.
@@ -400,7 +427,7 @@ class App:
     async def _asgi_app_lifespan(
         self,
         receive: Callable[[], Awaitable[Dict[str, Any]]],
-        send: Callable[[Dict[str, Any]], Awaitable[None]]
+        send: Callable[[Dict[str, Any]], Awaitable[None]],
     ) -> None:
         """
         Handle ASGI lifespan events for startup and shutdown.
@@ -436,7 +463,7 @@ class App:
         self,
         scope: Dict[str, Any],
         receive: Callable[[], Awaitable[Dict[str, Any]]],
-        send: Callable[[Dict[str, Any]], Awaitable[None]]
+        send: Callable[[Dict[str, Any]], Awaitable[None]],
     ) -> None:
         """
         ASGI application entry point for handling HTTP requests.
@@ -446,7 +473,9 @@ class App:
         status_code: int = 200
         response_body: Any = ""
         extra_headers: List[Tuple[str, str]] = []
-        parse_task: Optional[asyncio.Task] = None  # background multipart task if started
+        parse_task: Optional[asyncio.Task] = (
+            None  # background multipart task if started
+        )
 
         async def _cancel_parse_task():
             if parse_task is not None and not parse_task.done():
@@ -456,7 +485,9 @@ class App:
                 except asyncio.CancelledError:
                     pass
 
-        async def _early_exit(code: int, body: Any, headers: Optional[List[Tuple[str, str]]] = None):
+        async def _early_exit(
+            code: int, body: Any, headers: Optional[List[Tuple[str, str]]] = None
+        ):
             await _cancel_parse_task()
             await self._send_response(send, code, body, headers or [])
             return
@@ -479,13 +510,22 @@ class App:
 
         try:
             # Parse query/cookies/session
-            request.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
+            request.query_params = parse_qs(
+                scope.get("query_string", b"").decode("utf-8", "ignore")
+            )
             cookies = self._parse_cookies(request.headers.get("cookie", ""))
-            request.session = scope.get("session", await self.session_backend.load(cookies.get("session_id", "")) or {})
+            request.session = scope.get(
+                "session",
+                await self.session_backend.load(cookies.get("session_id", "")) or {},
+            )
             content_type = request.headers.get("content-type", "")
 
             # Body parsing setup
-            if request.method in ("POST", "PUT", "PATCH") and not request.body_parsed and not request.body_params:
+            if (
+                request.method in ("POST", "PUT", "PATCH")
+                and not request.body_parsed
+                and not request.body_params
+            ):
                 if "multipart/form-data" in content_type:
                     if not MULTIPART_INSTALLED:
                         print("For multipart form data support install 'multipart'.")
@@ -515,14 +555,18 @@ class App:
                                 if not msg.get("more_body"):
                                     break
                     except asyncio.TimeoutError:
-                        await _early_exit(408, "408 Request Timeout: Failed to receive body")
+                        await _early_exit(
+                            408, "408 Request Timeout: Failed to receive body"
+                        )
                         return
                     decoded_body = body_data.decode("utf-8", "ignore")
                     if "application/json" in content_type:
                         try:
                             request.get_json = json.loads(decoded_body)
                             if isinstance(request.get_json, dict):
-                                request.body_params = {k: [str(v)] for k, v in request.get_json.items()}
+                                request.body_params = {
+                                    k: [str(v)] for k, v in request.get_json.items()
+                                }
                         except Exception:
                             await _early_exit(400, "400 Bad Request: Bad JSON")
                             return
@@ -591,9 +635,14 @@ class App:
             if handler == getattr(self, "index", None) and path and path != "index":
                 sig = inspect.signature(handler)
                 accepts_params = any(
-                    param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, 
-                                   inspect.Parameter.VAR_POSITIONAL)
-                    for param in sig.parameters.values() if param.name != "self"
+                    param.kind
+                    in (
+                        inspect.Parameter.POSITIONAL_ONLY,
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        inspect.Parameter.VAR_POSITIONAL,
+                    )
+                    for param in sig.parameters.values()
+                    if param.name != "self"
                 )
                 if not accepts_params:
                     await _early_exit(404, "404 Not Found")
@@ -625,7 +674,10 @@ class App:
                 elif "multipart/form-data" in content_type:
                     param_value = await _await_file_param(param.name)
                     if param_value is None and param.default is param.empty:
-                        await _early_exit(400, f"400 Bad Request: Missing required parameter '{param.name}'")
+                        await _early_exit(
+                            400,
+                            f"400 Bad Request: Missing required parameter '{param.name}'",
+                        )
                         return
                     if param_value is None:
                         param_value = param.default
@@ -634,14 +686,21 @@ class App:
                 elif param.default is not param.empty:
                     param_value = param.default
                 else:
-                    await _early_exit(400, f"400 Bad Request: Missing required parameter '{param.name}'")
+                    await _early_exit(
+                        400,
+                        f"400 Bad Request: Missing required parameter '{param.name}'",
+                    )
                     return
 
                 func_args.append(param_value)
 
             # Execute handler
             try:
-                result = await handler(*func_args) if inspect.iscoroutinefunction(handler) else handler(*func_args)
+                result = (
+                    await handler(*func_args)
+                    if inspect.iscoroutinefunction(handler)
+                    else handler(*func_args)
+                )
             except Exception:
                 traceback.print_exc()
                 await _early_exit(500, "500 Internal Server Error")
@@ -667,11 +726,13 @@ class App:
 
             # HTTP middlewares
             for mw in self.middlewares:
-                if result := await mw.after_request(request, status_code, response_body, extra_headers):
+                if result := await mw.after_request(
+                    request, status_code, response_body, extra_headers
+                ):
                     status_code, response_body, extra_headers = (
                         result.get("status_code", status_code),
                         result.get("body", response_body),
-                        result.get("headers", extra_headers)
+                        result.get("headers", extra_headers),
                     )
 
             # Session persistence after middlewares so they can mutate request.session
@@ -681,15 +742,18 @@ class App:
                 # New or updated session
                 if not session_id:
                     session_id = str(uuid.uuid4())
-                    extra_headers.append((
-                        "Set-Cookie",
-                        f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"
-                    ))
-                await self.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
+                    extra_headers.append(
+                        (
+                            "Set-Cookie",
+                            f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;",
+                        )
+                    )
+                await self.session_backend.save(
+                    session_id, request.session, SESSION_TIMEOUT
+                )
             elif session_id:
                 # Empty session and existing cookie -> treat as logout/delete
                 await self.session_backend.save(session_id, {}, 0)
-
 
             # Handle async generators (e.g., SSE)
             if hasattr(response_body, "__aiter__"):
@@ -700,12 +764,19 @@ class App:
                         continue
                     sanitized_headers.append((k, v))
                 if not any(h[0].lower() == "content-type" for h in sanitized_headers):
-                    sanitized_headers.append(("Content-Type", "text/html; charset=utf-8"))
-                await send({
-                    "type": "http.response.start",
-                    "status": status_code,
-                    "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers],
-                })
+                    sanitized_headers.append(
+                        ("Content-Type", "text/html; charset=utf-8")
+                    )
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": status_code,
+                        "headers": [
+                            (k.encode("latin-1"), v.encode("latin-1"))
+                            for k, v in sanitized_headers
+                        ],
+                    }
+                )
 
                 gen = response_body
 
@@ -714,16 +785,20 @@ class App:
                         async for chunk in gen:
                             if isinstance(chunk, str):
                                 chunk = chunk.encode("utf-8")
-                            await send({
+                            await send(
+                                {
+                                    "type": "http.response.body",
+                                    "body": chunk,
+                                    "more_body": True,
+                                }
+                            )
+                        await send(
+                            {
                                 "type": "http.response.body",
-                                "body": chunk,
-                                "more_body": True
-                            })
-                        await send({
-                            "type": "http.response.body",
-                            "body": b"",
-                            "more_body": False
-                        })
+                                "body": b"",
+                                "more_body": False,
+                            }
+                        )
                     except asyncio.CancelledError:
                         raise
                     finally:
@@ -734,7 +809,10 @@ class App:
                 try:
                     while True:
                         msg_task = asyncio.create_task(receive())
-                        done, _ = await asyncio.wait([streaming_task, msg_task], return_when=asyncio.FIRST_COMPLETED)
+                        done, _ = await asyncio.wait(
+                            [streaming_task, msg_task],
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
                         if streaming_task in done:
                             break
                         if msg_task in done:
@@ -755,16 +833,18 @@ class App:
                             pass
                 return
             else:
-                await self._send_response(send, status_code, response_body, extra_headers)
+                await self._send_response(
+                    send, status_code, response_body, extra_headers
+                )
 
         finally:
             current_request.reset(token)
-            
+
     async def _asgi_app_websocket(
         self,
         scope: Dict[str, Any],
         receive: Callable[[], Awaitable[Dict[str, Any]]],
-        send: Callable[[Dict[str, Any]], Awaitable[None]]
+        send: Callable[[Dict[str, Any]], Awaitable[None]],
     ) -> None:
         """
         ASGI application entry point for handling WebSocket requests.
@@ -778,14 +858,21 @@ class App:
         token = current_request.set(request)
         try:
             # Parse request details (query params, cookies, session)
-            request.query_params = parse_qs(scope.get("query_string", b"").decode("utf-8", "ignore"))
+            request.query_params = parse_qs(
+                scope.get("query_string", b"").decode("utf-8", "ignore")
+            )
             cookies = self._parse_cookies(request.headers.get("cookie", ""))
-            request.session = await self.session_backend.load(cookies.get("session_id", "")) or {}
+            request.session = (
+                await self.session_backend.load(cookies.get("session_id", "")) or {}
+            )
 
             # Run WebSocket middleware before_websocket
             for mw in self.ws_middlewares:
                 if result := await mw.before_websocket(request):
-                    code, reason = result.get("code", 1008), result.get("reason", "Middleware rejected")
+                    code, reason = (
+                        result.get("code", 1008),
+                        result.get("reason", "Middleware rejected"),
+                    )
                     await self._send_websocket_close(send, code, reason)
                     return
 
@@ -794,7 +881,9 @@ class App:
             parts: List[str] = path.split("/") if path else []
             func_name: str = parts[0] if parts else "ws_index"
             if func_name.startswith("_"):
-                await self._send_websocket_close(send, 1008, "Private handler not allowed")
+                await self._send_websocket_close(
+                    send, 1008, "Private handler not allowed"
+                )
                 return
 
             # Map WebSocket handler (e.g., /chat -> ws_chat)
@@ -804,7 +893,9 @@ class App:
             request.path_params = parts[1:] if len(parts) > 1 else []
             handler = getattr(self, handler_name, None)
             if not handler:
-                await self._send_websocket_close(send, 1008, "No matching WebSocket route")
+                await self._send_websocket_close(
+                    send, 1008, "No matching WebSocket route"
+                )
                 return
 
             # Build function arguments
@@ -830,7 +921,9 @@ class App:
                 elif param.default is not param.empty:
                     param_value = param.default
                 else:
-                    await self._send_websocket_close(send, 1008, f"Missing required parameter '{param.name}'")
+                    await self._send_websocket_close(
+                        send, 1008, f"Missing required parameter '{param.name}'"
+                    )
                     return
                 func_args.append(param_value)
 
@@ -854,7 +947,9 @@ class App:
 
             # Save / clear session after middlewares
             if request.session:
-                await self.session_backend.save(ws.session_id, request.session, SESSION_TIMEOUT)
+                await self.session_backend.save(
+                    ws.session_id, request.session, SESSION_TIMEOUT
+                )
             else:
                 # Treat empty session as logout/delete
                 await self.session_backend.save(ws.session_id, {}, 0)
@@ -887,7 +982,7 @@ class App:
         boundary: bytes,
         request: "Request",
         *,
-        file_queue_maxsize: int = 2048
+        file_queue_maxsize: int = 2048,
     ) -> None:
         """
         Parse multipart directly from ASGI receive() and populate
@@ -930,10 +1025,13 @@ class App:
 
                             if current_filename:
                                 # File field → bounded queue enforces backpressure
-                                current_queue = asyncio.Queue(maxsize=file_queue_maxsize)
+                                current_queue = asyncio.Queue(
+                                    maxsize=file_queue_maxsize
+                                )
                                 request.files[current_field_name] = {
                                     "filename": current_filename,
-                                    "content_type": current_content_type or "application/octet-stream",
+                                    "content_type": current_content_type
+                                    or "application/octet-stream",
                                     "content": current_queue,
                                 }
                             else:
@@ -953,7 +1051,9 @@ class App:
                                 current_queue = None
                             else:
                                 if form_value and current_field_name:
-                                    request.body_params[current_field_name].append(form_value)
+                                    request.body_params[current_field_name].append(
+                                        form_value
+                                    )
                                 form_value = ""
 
                 if not msg.get("more_body"):
@@ -970,7 +1070,7 @@ class App:
         send: Callable[[Dict[str, Any]], Awaitable[None]],
         status_code: int,
         body: Any,
-        extra_headers: Optional[List[Tuple[str, str]]] = None
+        extra_headers: Optional[List[Tuple[str, str]]] = None,
     ) -> None:
         """
         Send an HTTP response using the ASGI send callable.
@@ -992,47 +1092,42 @@ class App:
             sanitized_headers.append((k, v))
         if not any(h[0].lower() == "content-type" for h in sanitized_headers):
             sanitized_headers.append(("Content-Type", "text/html; charset=utf-8"))
-        await send({
-            "type": "http.response.start",
-            "status": status_code,
-            "headers": [(k.encode("latin-1"), v.encode("latin-1")) for k, v in sanitized_headers],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status_code,
+                "headers": [
+                    (k.encode("latin-1"), v.encode("latin-1"))
+                    for k, v in sanitized_headers
+                ],
+            }
+        )
         # Handle async generators (non-SSE cases; SSE is handled in _asgi_app_http)
         if hasattr(body, "__aiter__"):
             async for chunk in body:
                 if isinstance(chunk, str):
                     chunk = chunk.encode("utf-8")
-                await send({
-                    "type": "http.response.body",
-                    "body": chunk,
-                    "more_body": True
-                })
+                await send(
+                    {"type": "http.response.body", "body": chunk, "more_body": True}
+                )
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
         if hasattr(body, "__iter__") and not isinstance(body, (bytes, str)):
             for chunk in body:
                 if isinstance(chunk, str):
                     chunk = chunk.encode("utf-8")
-                await send({
-                    "type": "http.response.body",
-                    "body": chunk,
-                    "more_body": True
-                })
+                await send(
+                    {"type": "http.response.body", "body": chunk, "more_body": True}
+                )
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
-        response_body = (body if isinstance(body, bytes)
-                         else str(body).encode("utf-8"))
-        await send({
-            "type": "http.response.body",
-            "body": response_body,
-            "more_body": False
-        })
+        response_body = body if isinstance(body, bytes) else str(body).encode("utf-8")
+        await send(
+            {"type": "http.response.body", "body": response_body, "more_body": False}
+        )
 
     async def _send_websocket_close(
-        self,
-        send: Callable[[Dict[str, Any]], Awaitable[None]],
-        code: int,
-        reason: str
+        self, send: Callable[[Dict[str, Any]], Awaitable[None]], code: int, reason: str
     ) -> None:
         """
         Send a WebSocket close message.
@@ -1042,11 +1137,7 @@ class App:
             code: The closure code.
             reason: The reason for closure.
         """
-        await send({
-            "type": "websocket.close",
-            "code": code,
-            "reason": reason
-        })
+        await send({"type": "websocket.close", "code": code, "reason": reason})
 
     def _encode_redirect_url(self, url: str) -> str:
         """

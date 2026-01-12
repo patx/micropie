@@ -3,9 +3,10 @@ from micropie import App
 
 VIDEO_PATH = "video.mp4"
 
+
 class Root(App):
     def index(self):
-        return '''
+        return """
             <html>
             <body>
             <center>
@@ -16,15 +17,15 @@ class Root(App):
             </center>
             </body>
             </html>
-        '''
+        """
 
     async def stream(self):
         # Access the request headers using the self.request property
         headers = {
-            k.decode('latin-1').lower(): v.decode('latin-1')
-            for k, v in self.request.scope.get('headers', [])
+            k.decode("latin-1").lower(): v.decode("latin-1")
+            for k, v in self.request.scope.get("headers", [])
         }
-        range_header = headers.get('range')
+        range_header = headers.get("range")
         file_size = os.path.getsize(VIDEO_PATH)
 
         # Decide on start/end
@@ -71,5 +72,6 @@ class Root(App):
                     remaining -= len(data)
 
         return (status_code, file_chunk_generator(start, end), extra_headers)
+
 
 app = Root()

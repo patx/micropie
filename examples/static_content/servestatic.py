@@ -1,9 +1,11 @@
 from servestatic import ServeStaticASGI
 from micropie import App
 
+
 class Root(App):
     async def index(self):
         return "Hello, World!"
+
 
 # Create the application
 application = Root()

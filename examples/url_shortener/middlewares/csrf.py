@@ -130,9 +130,15 @@ class CSRFMiddleware(HttpMiddleware):
         try:
             data = self.serializer.loads(submitted, max_age=self.max_age)
         except SignatureExpired:
-            return {"status_code": 403, "body": "<h1>Expired CSRF token, please reload the page and try again.</h1>"}
+            return {
+                "status_code": 403,
+                "body": "<h1>Expired CSRF token, please reload the page and try again.</h1>",
+            }
         except BadSignature:
-            return {"status_code": 403, "body": "<h1>Invalid CSRF token signature, please reload the page and try again.</h1>"}
+            return {
+                "status_code": 403,
+                "body": "<h1>Invalid CSRF token signature, please reload the page and try again.</h1>",
+            }
 
         sid = self._get_session_id(request)
         token_sid = data.get("sid")
@@ -157,4 +163,3 @@ class CSRFMiddleware(HttpMiddleware):
         if to_emit:
             extra_headers.append(("X-CSRF-Token", to_emit))
         return None
-

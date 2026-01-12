@@ -101,4 +101,3 @@ backend = MotorSessionBackend(MONGO_URI, DB_NAME)
 
 # Pass the Motor session backend to our application.
 app = MyApp(session_backend=backend)
-

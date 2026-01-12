@@ -3,6 +3,7 @@ import asyncio
 
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
 
+
 class MaxUploadSizeMiddleware(HttpMiddleware):
     async def before_request(self, request):
         # Check if we're dealing with a POST, PUT, or PATCH request
@@ -12,20 +13,22 @@ class MaxUploadSizeMiddleware(HttpMiddleware):
             if content_length is None:
                 return {
                     "status_code": 400,
-                    "body": "400 Bad Request: Missing Content-Length header"
+                    "body": "400 Bad Request: Missing Content-Length header",
                 }
             try:
                 content_length = int(content_length)
                 if content_length > MAX_UPLOAD_SIZE:
-                    print(f"Upload rejected: Content-Length ({content_length}) exceeds {MAX_UPLOAD_SIZE} bytes")
+                    print(
+                        f"Upload rejected: Content-Length ({content_length}) exceeds {MAX_UPLOAD_SIZE} bytes"
+                    )
                     return {
                         "status_code": 413,
-                        "body": "413 Payload Too Large: Uploaded file exceeds size limit."
+                        "body": "413 Payload Too Large: Uploaded file exceeds size limit.",
                     }
             except ValueError:
                 return {
                     "status_code": 400,
-                    "body": "400 Bad Request: Invalid Content-Length header"
+                    "body": "400 Bad Request: Invalid Content-Length header",
                 }
         # Continue processing if checks pass
         return None
@@ -49,7 +52,7 @@ class FileUploadApp(App):
     </form>
 </body>
 </html>""",
-            [("Content-Type", "text/html; charset=utf-8")]
+            [("Content-Type", "text/html; charset=utf-8")],
         )
 
     async def upload(self, file):
@@ -67,11 +70,7 @@ class FileUploadApp(App):
             total_size += len(chunk)
             # Example: Process chunk (e.g., save to disk, validate, etc.)
             # For demonstration, just count the size
-        return {
-            "filename": filename,
-            "content_type": content_type,
-            "size": total_size
-        }
+        return {"filename": filename, "content_type": content_type, "size": total_size}
 
 
 app = FileUploadApp()

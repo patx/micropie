@@ -4,7 +4,6 @@ from micropie import App
 
 
 class MyApp(App):
-
     async def index(self):
         return """
         <!DOCTYPE html>
@@ -48,8 +47,10 @@ class MyApp(App):
         # Return status code, async generator, and headers for SSE
         return 200, event_generator(), [("Content-Type", "text/event-stream")]
 
+
 app = MyApp()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

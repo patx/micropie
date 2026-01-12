@@ -1,6 +1,7 @@
 from micropie_routing import ExplicitApp, route, ws_route
 from micropie import WebSocket, ConnectionClosed
 
+
 class MyApp(ExplicitApp):
     @route("/api/users/{user_id:int}", method=["GET"])
     async def get_user(self, user_id: int):
@@ -18,5 +19,6 @@ class MyApp(ExplicitApp):
                 await ws.send_text(response)
             except ConnectionClosed:
                 break
+
 
 app = MyApp()

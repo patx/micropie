@@ -17,6 +17,7 @@ COLLECTION_USERS = "users"
 USERNAME = "demo"
 FULLNAME = "John Smith"
 
+
 def serialize_post(doc: Dict[str, Any]) -> Dict[str, Any]:
     """Convert a Mongo document into a JSON-friendly dict."""
     created_at = doc.get("created_at")
@@ -36,6 +37,7 @@ def serialize_post(doc: Dict[str, Any]) -> Dict[str, Any]:
 
 # ---------- Startup / shutdown ----------
 
+
 async def init_db():
     try:
         print("[init_db] starting init")
@@ -53,17 +55,17 @@ async def init_db():
 
         existing = await app.users.find_one({"username": USERNAME})
         if not existing:
-            await app.users.insert_one(
-                {"username": "demo", "password": "demo"}
-            )
+            await app.users.insert_one({"username": "demo", "password": "demo"})
 
         print("[init_db] finished without error")
 
     except Exception as e:
         import traceback
+
         print("[init_db] ERROR!", repr(e))
         traceback.print_exc()
         raise
+
 
 async def close_db():
     """
@@ -238,7 +240,6 @@ class BlogApp(App):
             self.request.session.clear()
         return self._redirect("/")
 
-
     # ---------- JSON API HANDLERS ----------
 
     async def api_posts(self):
@@ -356,18 +357,13 @@ class BlogApp(App):
         return 405, {"error": "Method not allowed on /api_post/<id>."}
 
 
-
-app = BlogApp(session_backend=MkvSessionBackend(
-    mongo_uri=MONGO_URI, 
-    db_name=DB_NAME
-    )
-)
+app = BlogApp(session_backend=MkvSessionBackend(mongo_uri=MONGO_URI, db_name=DB_NAME))
 app.middlewares.append(
     MongoRateLimitMiddleware(
         mongo_uri=MONGO_URI,
         db_name=DB_NAME,
-        allowed_hosts=None,          # don't enforce host allowlist, change in prod
-        trust_proxy_headers=False,   # change in prod
+        allowed_hosts=None,  # don't enforce host allowlist, change in prod
+        trust_proxy_headers=False,  # change in prod
         require_cf_ray=False,
     )
 )

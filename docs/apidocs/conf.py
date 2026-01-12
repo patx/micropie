@@ -37,4 +37,3 @@ html_theme_options = {
 
 pygments_style = "friendly"
 html_static_path = ["_static"]
-

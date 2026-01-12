@@ -10,16 +10,17 @@ active_users = set()
 # Map session IDs to usernames for cleanup on disconnect
 sid_to_username = {}
 
+
 # 2) Create a MicroPie server class with routes
 class MyApp(App):
     async def index(self):
         # A simple response for the root path
-        return 'Use /stream/<room name here> or /watch/<room name here>'
+        return "Use /stream/<room name here> or /watch/<room name here>"
 
     async def stream(self, username: str):
         # Check if the username is already actively streaming
         if username in active_users:
-            return 403, {'error': f'Username {username} is already actively streaming'}
+            return 403, {"error": f"Username {username} is already actively streaming"}
         # Mark the username active, render the streamer template
         active_users.add(username)
         return await self._render_template("stream.html", username=username)
@@ -28,13 +29,16 @@ class MyApp(App):
         # Render the watcher template (no need to mark as active here since it's handled in join_room)
         return await self._render_template("watch.html", username=username)
 
+
 #
 # ------------------- Socket.IO Events for Signaling --------------------
 #
 
+
 @sio.event
 async def connect(sid, environ):
     print(f"[connect] Client connected: {sid}")
+
 
 @sio.event
 async def disconnect(sid):
@@ -45,6 +49,7 @@ async def disconnect(sid):
         active_users.discard(username)
         print(f"[disconnect] Removed {username} from active_users")
 
+
 @sio.on("join_room")
 async def join_room(sid, data):
     """Each client (streamer or watcher) joins a room named after <username>."""
@@ -54,6 +59,7 @@ async def join_room(sid, data):
         sid_to_username[sid] = username  # Map sid to username
         await sio.enter_room(sid, username)
         print(f"[join_room] {sid} joined room '{username}'")
+
 
 @sio.on("new_watcher")
 async def new_watcher(sid, data):
@@ -67,10 +73,13 @@ async def new_watcher(sid, data):
     print(f"[new_watcher] {watcher_sid} => watch {username}")
     if username in active_users:
         # Notify others in the room (specifically the streamer)
-        await sio.emit("new_watcher",
-                       {"watcherSid": watcher_sid},
-                       room=username,
-                       skip_sid=watcher_sid)
+        await sio.emit(
+            "new_watcher",
+            {"watcherSid": watcher_sid},
+            room=username,
+            skip_sid=watcher_sid,
+        )
+
 
 @sio.on("offer")
 async def handle_offer(sid, data):
@@ -86,13 +95,12 @@ async def handle_offer(sid, data):
     print(f"[offer] From streamer {sid} to watcher {watcher_sid}, room={username}")
 
     # Send the offer ONLY to watcherSid (not the whole room)
-    await sio.emit("offer",
-                   {
-                       "offer": offer_sdp,
-                       "offerType": offer_type,
-                       "streamerSid": sid
-                   },
-                   to=watcher_sid)
+    await sio.emit(
+        "offer",
+        {"offer": offer_sdp, "offerType": offer_type, "streamerSid": sid},
+        to=watcher_sid,
+    )
+
 
 @sio.on("answer")
 async def handle_answer(sid, data):
@@ -106,13 +114,12 @@ async def handle_answer(sid, data):
 
     print(f"[answer] From watcher {sid} to streamer {streamer_sid}")
 
-    await sio.emit("answer",
-                   {
-                       "answer": answer_sdp,
-                       "answerType": answer_type,
-                       "watcherSid": sid
-                   },
-                   to=streamer_sid)
+    await sio.emit(
+        "answer",
+        {"answer": answer_sdp, "answerType": answer_type, "watcherSid": sid},
+        to=streamer_sid,
+    )
+
 
 @sio.on("ice-candidate")
 async def handle_ice_candidate(sid, data):
@@ -128,14 +135,17 @@ async def handle_ice_candidate(sid, data):
     print(f"[ice-candidate] {sid} => {target_sid}")
 
     if target_sid:
-        await sio.emit("ice-candidate",
-                       {
-                           "candidate": candidate,
-                           "sdpMid": sdp_mid,
-                           "sdpMLineIndex": sdp_mline_index,
-                           "senderSid": sid
-                       },
-                       to=target_sid)
+        await sio.emit(
+            "ice-candidate",
+            {
+                "candidate": candidate,
+                "sdpMid": sdp_mid,
+                "sdpMLineIndex": sdp_mline_index,
+                "senderSid": sid,
+            },
+            to=target_sid,
+        )
+
 
 asgi_app = MyApp()
 app = socketio.ASGIApp(sio, asgi_app)

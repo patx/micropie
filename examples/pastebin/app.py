@@ -6,7 +6,6 @@ pastes = Mkv("mongodb://localhost:27017")
 
 
 class Root(App):
-
     async def index(self, paste_content=None):
         if self.request.method == "POST":
             new_id = await pastes.set(None, paste_content)
@@ -16,11 +15,11 @@ class Root(App):
 
     async def paste(self, paste_id):
         paste = await pastes.get(paste_id, "404: Paste Not Found")
-        return await self._render_template("paste.html",
+        return await self._render_template(
+            "paste.html",
             paste_id=paste_id,
             paste_content=paste,
         )
 
 
 app = Root()
-

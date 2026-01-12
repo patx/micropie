@@ -14,14 +14,14 @@ class MongoRateLimitMiddleware(HttpMiddleware):
     - Permanent block if too many violations in a 24h period.
     """
 
-    MAX_REQUESTS = 50              # allowed per window
-    WINDOW_SECONDS = 60            # window length in seconds
+    MAX_REQUESTS = 50  # allowed per window
+    WINDOW_SECONDS = 60  # window length in seconds
 
-    BLOCK_AFTER_VIOLATIONS = 3     # how many windows exceeded before temp block
-    BLOCK_FOR_SECONDS = 900        # how long to temporarily block (seconds)
+    BLOCK_AFTER_VIOLATIONS = 3  # how many windows exceeded before temp block
+    BLOCK_FOR_SECONDS = 900  # how long to temporarily block (seconds)
 
-    PERMA_WINDOW_HOURS = 24        # lookback window for permanent block
-    PERMA_BLOCK_AFTER = 10         # violations in window before permanent block
+    PERMA_WINDOW_HOURS = 24  # lookback window for permanent block
+    PERMA_BLOCK_AFTER = 10  # violations in window before permanent block
 
     def __init__(
         self,
@@ -175,7 +175,6 @@ class MongoRateLimitMiddleware(HttpMiddleware):
 
 
 class MyApp(App):
-
     async def index(self):
         if "visits" not in self.request.session:
             self.request.session["visits"] = 1

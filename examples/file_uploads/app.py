@@ -1,9 +1,10 @@
-import os          # Used for file path handling and directory creation
-import aiofiles    # Asynchronous file I/O operations
+import os  # Used for file path handling and directory creation
+import aiofiles  # Asynchronous file I/O operations
 from micropie import App  # Import the base App class from MicroPie
 
 # Ensure the "uploads" directory exists; create it if it doesn't
 os.makedirs("uploads", exist_ok=True)
+
 
 class Root(App):
     """
@@ -13,7 +14,7 @@ class Root(App):
 
     async def index(self):
         """
-        Serve a simple HTML form that lets the user choose a 
+        Serve a simple HTML form that lets the user choose a
         file and submit it via POST to /upload.
         """
         return """<form action="/upload" method="post" enctype="multipart/form-data">
@@ -26,18 +27,18 @@ class Root(App):
         Handle the uploaded file from the client:
         - Saves the file to disk in the "uploads" directory.
         - Uses aiofiles to write the file asynchronously, in chunks.
-        
+
         `file` is a dictionary with:
             'filename': The original filename of the uploaded file.
-            'content_type': The MIME type of the file (defaults 
+            'content_type': The MIME type of the file (defaults
                 to application/octet-stream).
-            'content': An asyncio.Queue containing chunks of file data as 
+            'content': An asyncio.Queue containing chunks of file data as
                 bytes, with a None sentinel signaling the end of the stream.
         """
 
         # Construct a safe path to save the uploaded file
         filepath = os.path.join("uploads", file["filename"])
-        
+
         # Open the destination file asynchronously for writing
         async with aiofiles.open(filepath, "wb") as f:
             # Read and write the file in chunks
@@ -48,6 +49,6 @@ class Root(App):
         # Return a confirmation response with the uploaded filename
         return 200, f"Uploaded {file['filename']}"
 
+
 # Instantiate the app
 app = Root()
-

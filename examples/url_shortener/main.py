@@ -4,30 +4,30 @@ URL Shortener using MicroPie and PyMongo. Live at https://erd.sh/
 
 Copyright 2025 Harrison Erd
 
-Redistribution and use in source and binary forms, with or without 
+Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, 
+1. Redistributions of source code must retain the above copyright notice,
 this list of conditions and the following disclaimer.
 
-2. Redistributions in binary form must reproduce the above copyright notice, 
-this list of conditions and the following disclaimer in the documentation 
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
 and/or other materials provided with the distribution.
 
-3. Neither the name of the copyright holder nor the names of its 
-contributors may be used to endorse or promote products derived from this 
+3. Neither the name of the copyright holder nor the names of its
+contributors may be used to endorse or promote products derived from this
 software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS 
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, 
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; 
-OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
@@ -114,7 +114,6 @@ def _parse_hide_stats_on_expire(value) -> bool | None:
 
 
 class Shorty(App):
-
     async def index(self, url_str: str | None = None):
         if url_str:
             if self.request.method == "POST":
@@ -137,13 +136,15 @@ class Shorty(App):
             if not exists:
                 break
 
-        await urls.insert_one({
-            "_id": short_id,
-            "url": url_str,
-            "clicks": 0,
-            "created_at": datetime.utcnow(),
-            "last_clicked_at": None,
-        })
+        await urls.insert_one(
+            {
+                "_id": short_id,
+                "url": url_str,
+                "clicks": 0,
+                "created_at": datetime.utcnow(),
+                "last_clicked_at": None,
+            }
+        )
 
         return await self._render_template(
             "success.html",
@@ -226,7 +227,6 @@ class Shorty(App):
 
 
 class ApiApp(App):
-
     async def index(self):
         return await self._render_template("api.html")
 
@@ -244,11 +244,15 @@ class ApiApp(App):
             return 400, {"error": "Invalid URL"}
 
         expires_in = _parse_expires_in(data.get("expires_in"))
-        expires_at = (datetime.utcnow() + timedelta(seconds=expires_in)) if expires_in else None
+        expires_at = (
+            (datetime.utcnow() + timedelta(seconds=expires_in)) if expires_in else None
+        )
 
         max_clicks = _parse_max_clicks(data.get("max_clicks"))
 
-        hide_stats_on_expire = _parse_hide_stats_on_expire(data.get("hide_stats_on_expire"))
+        hide_stats_on_expire = _parse_hide_stats_on_expire(
+            data.get("hide_stats_on_expire")
+        )
 
         while True:
             short_id = _generate_id()
@@ -256,17 +260,23 @@ class ApiApp(App):
             if not exists:
                 break
 
-        await urls.insert_one({
-            "_id": short_id,
-            "url": url_str,
-            "clicks": 0,
-            "created_at": datetime.utcnow(),
-            "last_clicked_at": None,
-            # API-only controls:
-            **({"expires_at": expires_at} if expires_at else {}),
-            **({"max_clicks": max_clicks} if max_clicks else {}),
-            **({"hide_stats_on_expire": hide_stats_on_expire} if hide_stats_on_expire is not None else {}),
-        })
+        await urls.insert_one(
+            {
+                "_id": short_id,
+                "url": url_str,
+                "clicks": 0,
+                "created_at": datetime.utcnow(),
+                "last_clicked_at": None,
+                # API-only controls:
+                **({"expires_at": expires_at} if expires_at else {}),
+                **({"max_clicks": max_clicks} if max_clicks else {}),
+                **(
+                    {"hide_stats_on_expire": hide_stats_on_expire}
+                    if hide_stats_on_expire is not None
+                    else {}
+                ),
+            }
+        )
 
         return {
             "status": "success",
@@ -315,10 +325,16 @@ class ApiApp(App):
             "long_url": doc.get("url"),
             "clicks": int(doc.get("clicks", 0)),
             "created_at": created_at.isoformat() + "Z" if created_at else None,
-            "last_clicked_at": last_clicked_at.isoformat() + "Z" if last_clicked_at else None,
-            "expires_at": expires_at.isoformat() + "Z" if isinstance(expires_at, datetime) else None,
+            "last_clicked_at": last_clicked_at.isoformat() + "Z"
+            if last_clicked_at
+            else None,
+            "expires_at": expires_at.isoformat() + "Z"
+            if isinstance(expires_at, datetime)
+            else None,
             "max_clicks": int(max_clicks) if isinstance(max_clicks, int) else None,
-            "hide_stats_on_expire": hide_stats_on_expire if isinstance(hide_stats_on_expire, bool) else None,
+            "hide_stats_on_expire": hide_stats_on_expire
+            if isinstance(hide_stats_on_expire, bool)
+            else None,
         }
 
 
@@ -357,4 +373,3 @@ app.middlewares.append(
         subapp=ApiApp(),
     )
 )
-

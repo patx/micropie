@@ -7,7 +7,7 @@ from mongokv import Mkv
 # ---------------- Config ----------------
 ALLOWED_ORIGINS = [
     "http://localhost:8000",
-    "http://127.0.0.1:8000", # add your domain here
+    "http://127.0.0.1:8000",  # add your domain here
 ]
 
 MONGO_URI = "mongodb://localhost:27017"
@@ -39,11 +39,14 @@ class MyApp(App):
 def _k_sid(username: str) -> str:
     return f"streamer_sid:{username}"
 
+
 def _k_seen(username: str) -> str:
     return f"streamer_seen:{username}"
 
+
 def _k_user_by_sid(sid: str) -> str:
     return f"streamer_user_by_sid:{sid}"
+
 
 def _k_token(username: str) -> str:
     return f"streamer_token:{username}"
@@ -84,7 +87,9 @@ async def streamer_still_owner(username: str, sid: str) -> bool:
     return current == sid
 
 
-async def claim_stream_username(username: str, sid: str, stream_token: str | None) -> tuple[bool, str | None]:
+async def claim_stream_username(
+    username: str, sid: str, stream_token: str | None
+) -> tuple[bool, str | None]:
     """
     Returns (ok, reason).
     - If a fresh streamer exists and token doesn't match -> deny "taken"
@@ -153,7 +158,9 @@ async def join_room(sid, data):
     if role == "streamer":
         ok, reason = await claim_stream_username(username, sid, stream_token)
         if not ok:
-            await sio.emit("stream_denied", {"username": username, "reason": reason}, to=sid)
+            await sio.emit(
+                "stream_denied", {"username": username, "reason": reason}, to=sid
+            )
             await sio.leave_room(sid, username)
             await sio.disconnect(sid)
             print(f"[join_room] DENIED streamer '{username}' to {sid} reason={reason}")
@@ -200,7 +207,9 @@ async def handle_offer(sid, data):
 
     # Only current owner can send offers for this username
     if not username or not await streamer_still_owner(username, sid):
-        await sio.emit("stream_denied", {"username": username, "reason": "not_owner"}, to=sid)
+        await sio.emit(
+            "stream_denied", {"username": username, "reason": "not_owner"}, to=sid
+        )
         return
 
     if watcher_sid:
@@ -237,7 +246,9 @@ async def handle_ice_candidate(sid, data):
     role = (data or {}).get("role")
     if role == "streamer" and username:
         if not await streamer_still_owner(username, sid):
-            await sio.emit("stream_denied", {"username": username, "reason": "not_owner"}, to=sid)
+            await sio.emit(
+                "stream_denied", {"username": username, "reason": "not_owner"}, to=sid
+            )
             return
 
     if target_sid:
@@ -255,4 +266,3 @@ async def handle_ice_candidate(sid, data):
 
 asgi_app = MyApp()
 app = socketio.ASGIApp(sio, other_asgi_app=asgi_app)
-

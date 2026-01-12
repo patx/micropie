@@ -12,6 +12,7 @@ from micropie import HttpMiddleware
 # IP helpers
 # ---------------------------------------------------------------------------
 
+
 def _valid_ip(value: str | None) -> str | None:
     """Parse and normalize an IP string, returning canonical string form or None."""
     try:
@@ -71,6 +72,7 @@ def _is_cloudflare_socket_ip(socket_ip: str | None) -> bool:
 # ---------------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------------
+
 
 class MongoRateLimitMiddleware(HttpMiddleware):
     """
@@ -188,7 +190,11 @@ class MongoRateLimitMiddleware(HttpMiddleware):
     def _key(self, client_ip: str, request) -> str:
         if not self.bucket_by_route:
             return client_ip
-        method = (getattr(request, "method", None) or (request.scope or {}).get("method") or "GET").upper()
+        method = (
+            getattr(request, "method", None)
+            or (request.scope or {}).get("method")
+            or "GET"
+        ).upper()
         path = (request.scope or {}).get("path") or "/"
         return f"{client_ip}|{method}|{path}"
 
@@ -225,11 +231,12 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                         "violations": {"$ifNull": ["$violations", 0]},
                         "blocked_until": {"$ifNull": ["$blocked_until", None]},
                         "permanent_blocked": {"$ifNull": ["$permanent_blocked", False]},
-                        "permanent_blocked_at": {"$ifNull": ["$permanent_blocked_at", None]},
+                        "permanent_blocked_at": {
+                            "$ifNull": ["$permanent_blocked_at", None]
+                        },
                         "violation_events": {"$ifNull": ["$violation_events", []]},
                     }
                 },
-
                 # 2) Prune old violation events
                 {
                     "$set": {
@@ -242,7 +249,6 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                         }
                     }
                 },
-
                 # 3) Are we currently blocked?
                 {
                     "$set": {
@@ -259,7 +265,6 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                         }
                     }
                 },
-
                 # 4) Update window/count (only if not blocked)
                 {
                     "$set": {
@@ -285,12 +290,17 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                             "$cond": [
                                 "$_blocked_now",
                                 "$count",
-                                {"$cond": ["$_window_expired", 1, {"$add": ["$count", 1]}]},
+                                {
+                                    "$cond": [
+                                        "$_window_expired",
+                                        1,
+                                        {"$add": ["$count", 1]},
+                                    ]
+                                },
                             ]
                         },
                     }
                 },
-
                 # 5) Over limit?
                 {
                     "$set": {
@@ -302,12 +312,15 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                         }
                     }
                 },
-
                 # 6) Record violation if over limit
                 {
                     "$set": {
                         "violations": {
-                            "$cond": ["$_over_limit", {"$add": ["$violations", 1]}, "$violations"]
+                            "$cond": [
+                                "$_over_limit",
+                                {"$add": ["$violations", 1]},
+                                "$violations",
+                            ]
                         },
                         "violation_events": {
                             "$cond": [
@@ -318,7 +331,6 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                         },
                     }
                 },
-
                 # 7) Temporary block escalation
                 {
                     "$set": {
@@ -327,7 +339,12 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                                 {
                                     "$and": [
                                         "$_over_limit",
-                                        {"$gte": ["$violations", self.BLOCK_AFTER_VIOLATIONS]},
+                                        {
+                                            "$gte": [
+                                                "$violations",
+                                                self.BLOCK_AFTER_VIOLATIONS,
+                                            ]
+                                        },
                                     ]
                                 },
                                 now + timedelta(seconds=self.BLOCK_FOR_SECONDS),
@@ -336,7 +353,6 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                         }
                     }
                 },
-
                 # 8) Permanent block escalation
                 {"$set": {"_events_24h": {"$size": "$violation_events"}}},
                 {
@@ -346,7 +362,12 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                                 {
                                     "$and": [
                                         "$_over_limit",
-                                        {"$gte": ["$_events_24h", self.PERMA_BLOCK_AFTER]},
+                                        {
+                                            "$gte": [
+                                                "$_events_24h",
+                                                self.PERMA_BLOCK_AFTER,
+                                            ]
+                                        },
                                     ]
                                 },
                                 True,
@@ -358,7 +379,12 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                                 {
                                     "$and": [
                                         "$_over_limit",
-                                        {"$gte": ["$_events_24h", self.PERMA_BLOCK_AFTER]},
+                                        {
+                                            "$gte": [
+                                                "$_events_24h",
+                                                self.PERMA_BLOCK_AFTER,
+                                            ]
+                                        },
                                         {"$eq": ["$permanent_blocked_at", None]},
                                     ]
                                 },
@@ -368,9 +394,15 @@ class MongoRateLimitMiddleware(HttpMiddleware):
                         },
                     }
                 },
-
                 # 9) Cleanup temp fields
-                {"$unset": ["_blocked_now", "_window_expired", "_over_limit", "_events_24h"]},
+                {
+                    "$unset": [
+                        "_blocked_now",
+                        "_window_expired",
+                        "_over_limit",
+                        "_events_24h",
+                    ]
+                },
             ],
             upsert=True,
             return_document=ReturnDocument.AFTER,
@@ -407,4 +439,3 @@ class MongoRateLimitMiddleware(HttpMiddleware):
 
     async def after_request(self, request, status_code, response_body, extra_headers):
         return None
-

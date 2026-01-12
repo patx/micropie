@@ -8,6 +8,7 @@ from micropie import App, HttpMiddleware, Request, SESSION_TIMEOUT
 
 class SignedSessionMiddleware(HttpMiddleware):
     """Middleware to sign and verify session cookies using itsdangerous."""
+
     def __init__(self, app: App, secret_key: str, max_age: int = SESSION_TIMEOUT):
         self.app = app  # Store the App instance
         self.serializer = URLSafeTimedSerializer(secret_key)
@@ -25,7 +26,11 @@ class SignedSessionMiddleware(HttpMiddleware):
         return None
 
     async def after_request(
-        self, request: Request, status_code: int, response_body: Any, extra_headers: List[Tuple[str, str]]
+        self,
+        request: Request,
+        status_code: int,
+        response_body: Any,
+        extra_headers: List[Tuple[str, str]],
     ) -> Optional[Dict]:
         """Sign and set the session_id cookie after processing the request."""
         if request.session:
@@ -38,14 +43,20 @@ class SignedSessionMiddleware(HttpMiddleware):
             signed_session_id = self.serializer.dumps(session_id)
             current_session = await self.app.session_backend.load(session_id) or {}
             if current_session != request.session:
-                await self.app.session_backend.save(session_id, request.session, SESSION_TIMEOUT)
+                await self.app.session_backend.save(
+                    session_id, request.session, SESSION_TIMEOUT
+                )
             if not cookies.get("session_id"):
-                extra_headers.append(("Set-Cookie", f"session_id={signed_session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;"))
+                extra_headers.append(
+                    (
+                        "Set-Cookie",
+                        f"session_id={signed_session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;",
+                    )
+                )
         return None
 
 
 class Root(App):
-
     async def index(self):
         if "visits" not in self.request.session:
             self.request.session["visits"] = 1

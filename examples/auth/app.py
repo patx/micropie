@@ -11,12 +11,15 @@ GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_API_URL = "https://api.github.com/user"
 
+
 class Root(App):
     async def index(self):
         return '<a href="/login">Login with GitHub</a>'
 
     async def login(self):
-        return self._redirect(f"{GITHUB_AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}")
+        return self._redirect(
+            f"{GITHUB_AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}"
+        )
 
     async def callback(self):
         code = self.request.query_params.get("code")

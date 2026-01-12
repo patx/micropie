@@ -3,6 +3,7 @@ from collections import deque
 import json
 import asyncio
 
+
 class ChatApp(App):
     def __init__(self):
         super().__init__()
@@ -47,7 +48,7 @@ class ChatApp(App):
         };
         </script>
         """
-        return 200, html, [('Content-Type', 'text/html')]
+        return 200, html, [("Content-Type", "text/html")]
 
     async def send(self):
         data = self.request.get_json
@@ -81,10 +82,16 @@ class ChatApp(App):
                         break
             finally:
                 self.clients.discard(queue)
-        return 200, stream(), [
-            ('Content-Type', 'text/event-stream'),
-            ('Cache-Control', 'no-cache'),
-            ('Connection', 'keep-alive')
-        ]
+
+        return (
+            200,
+            stream(),
+            [
+                ("Content-Type", "text/event-stream"),
+                ("Cache-Control", "no-cache"),
+                ("Connection", "keep-alive"),
+            ],
+        )
+
 
 app = ChatApp()

@@ -1,5 +1,6 @@
 from micropie import App, ConnectionClosed
 
+
 class MyApp(App):
     async def chat(self):
         """HTTP handler for GET /chat"""
@@ -17,5 +18,6 @@ class MyApp(App):
                 await ws.send_text(response)
             except ConnectionClosed:
                 break
+
 
 app = MyApp()
