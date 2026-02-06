@@ -14,3 +14,4 @@ build/
 *.egg
 .pypirc
 .todo
+.ruff_cache
