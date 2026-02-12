@@ -89,6 +89,29 @@ class TestRequest(MicroPieTestCase):
             "Query params should be parsed",
         )
 
+    async def test_request_query_and_form_helpers(self):
+        """Verify helper accessors return first values and defaults."""
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/test",
+            "headers": [],
+            "query_string": b"name=Alice&name=Bob",
+            "body_params": {"username": ["test-user"]},
+        }
+        request = Request(scope)
+        request.query_params = parse_qs(
+            scope.get("query_string", b"").decode("utf-8", "ignore")
+        )
+
+        self.assertEqual(request.query("name"), "Alice")
+        self.assertIsNone(request.query("missing"))
+        self.assertEqual(request.query("missing", "fallback"), "fallback")
+
+        self.assertEqual(request.form("username"), "test-user")
+        self.assertIsNone(request.form("missing"))
+        self.assertEqual(request.form("missing", "fallback"), "fallback")
+
 
 class TestSession(MicroPieTestCase):
     """Tests for session management and cookie parsing."""

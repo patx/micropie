@@ -9,7 +9,7 @@ class PasteApp(App):
     async def paste(self, pid: str = None):
         if self.request.method == "POST":
             # Get content from JSON or form, depending on the Content-Type
-            content = self.request.body_params.get("content")[0]
+            content = self.request.form("content")
             pid = str(uuid4())
             await db.aset(pid, content)
             return {

@@ -137,6 +137,32 @@ class Request:
         }
         self.body_parsed: bool = scope.get("body_parsed", False)
 
+    def query(self, name: str, default: Optional[str] = None) -> Optional[str]:
+        """
+        Return the first value for a query parameter.
+
+        Args:
+            name: Query parameter name.
+            default: Value returned when the parameter is missing.
+        """
+        values = self.query_params.get(name)
+        if values:
+            return values[0]
+        return default
+
+    def form(self, name: str, default: Optional[str] = None) -> Optional[str]:
+        """
+        Return the first value for a form/body parameter.
+
+        Args:
+            name: Form field name.
+            default: Value returned when the parameter is missing.
+        """
+        values = self.body_params.get(name)
+        if values:
+            return values[0]
+        return default
+
 
 class WebSocketRequest(Request):
     """Represents a WebSocket request in the MicroPie framework."""

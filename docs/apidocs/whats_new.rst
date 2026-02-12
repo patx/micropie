@@ -11,6 +11,8 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
+* **0.27** – Adds ``Request.query`` and ``Request.form`` helpers for more
+  direct access to query-string and form data.
 * **0.26** – Makes sub-application handoff independent of middleware
   ordering, improving reliability for mounted ASGI apps.
 * **0.25** – Fixes Unicode redirect handling by percent-encoding

@@ -35,8 +35,13 @@ Request class
    .. attribute:: query_params
 
       A ``dict`` mapping each query parameter to a list of values.
-      For convenience, use ``self.request.query_params['name'][0]`` to
-      obtain the first value.
+      For convenience, use :meth:`~micropie.Request.query` to obtain
+      the first value.
+
+   .. method:: query(name, default=None)
+
+      Return the first value for query parameter *name*, or *default*
+      if missing.
 
    .. attribute:: body_params
 
@@ -44,6 +49,11 @@ Request class
       JSON requests, body parameters are derived from the top‑level
       object; for ``application/x-www-form-urlencoded`` forms they are
       parsed using :func:`urllib.parse.parse_qs`.
+
+   .. method:: form(name, default=None)
+
+      Return the first value for form/body field *name*, or *default*
+      if missing.
 
    .. attribute:: get_json
 

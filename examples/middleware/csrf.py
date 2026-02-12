@@ -161,7 +161,7 @@ class Root(App):
 
     async def submit(self):
         if self.request.method == "POST":
-            name = self.request.body_params.get("name", ["World"])[0]
+            name = self.request.form("name", "World")
             return f"Hello {name}"
 
 

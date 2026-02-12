@@ -24,7 +24,7 @@ class CSRFMiddleware(HttpMiddleware):
 
         if request.method in ("POST", "PUT", "PATCH"):
             print(f"Request body_params: {request.body_params}")  # Debugging
-            submitted_token = request.body_params.get("csrf_token", [""])[0]
+            submitted_token = request.form("csrf_token", "")
             print(f"Submitted CSRF token: {submitted_token}")  # Debugging
             if not submitted_token:
                 return {"status_code": 403, "body": "Missing CSRF token"}

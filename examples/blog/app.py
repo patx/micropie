@@ -203,7 +203,7 @@ class BlogApp(App):
         GET  → show login form
         POST → authenticate and set session, then redirect
         """
-        next_path = self.request.query_params.get("next", ["/"])[0]
+        next_path = self.request.query("next", "/")
 
         if self.request.method == "GET":
             return await self._render_template(
@@ -215,8 +215,8 @@ class BlogApp(App):
                 nav_active="login",
             )
 
-        username = self.request.body_params.get("username", [""])[0].strip()
-        password = self.request.body_params.get("password", [""])[0].strip()
+        username = self.request.form("username", "").strip()
+        password = self.request.form("password", "").strip()
 
         user = await self.users.find_one({"username": username})
         if not user or user.get("password") != password:

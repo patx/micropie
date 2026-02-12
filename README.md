@@ -141,7 +141,7 @@ class MyApp(App):
         return f"Hello, {name}!"
 
     async def hello(self):
-        name = self.request.query_params.get("name", [None])[0]
+        name = self.request.query("name")
         return f"Hello {name}!"
 ```
 **Access:**
@@ -156,7 +156,7 @@ class MyApp(App):
         return f"Form submitted by: {username}"
 
     async def submit_catch_all(self):
-        username = self.request.body_params.get("username", ["Anonymous"])[0]
+        username = self.request.form("username", "Anonymous")
         return f"Submitted by: {username}"
 ```
 

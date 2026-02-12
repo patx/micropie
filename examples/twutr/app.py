@@ -367,7 +367,7 @@ class Twutr(App):
         if not self.request.session.get("logged_in"):
             return self._redirect("/login")
         if self.request.method == "POST":
-            message = self.request.body_params.get("message", [""])[0]
+            message = self.request.form("message", "")
             sanitized_message = convert_custom_syntax(message)
             if not sanitized_message.strip():
                 return await self._render_template(
@@ -389,8 +389,8 @@ class Twutr(App):
         if self.request.session.get("logged_in"):
             return self._redirect("/")
         if self.request.method == "POST":
-            username = escape(self.request.body_params.get("username", [""])[0].strip())
-            password = escape(self.request.body_params.get("password", [""])[0].strip())
+            username = escape(self.request.form("username", "").strip())
+            password = escape(self.request.form("password", "").strip())
             if not username or not password:
                 return await self._render_template(
                     "login.html",
@@ -422,8 +422,8 @@ class Twutr(App):
         if self.request.session.get("logged_in"):
             return self._redirect("/")
         if self.request.method == "POST":
-            username = escape(self.request.body_params.get("username", [""])[0].strip())
-            password = escape(self.request.body_params.get("password", [""])[0].strip())
+            username = escape(self.request.form("username", "").strip())
+            password = escape(self.request.form("password", "").strip())
             if not username or not password:
                 return await self._render_template(
                     "login.html",

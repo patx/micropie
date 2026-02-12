@@ -22,7 +22,7 @@ class Root(App):
         )
 
     async def callback(self):
-        code = self.request.query_params.get("code")
+        code = self.request.query("code")
         if not code:
             return "Error: No code provided"
 

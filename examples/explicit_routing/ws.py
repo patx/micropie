@@ -10,7 +10,7 @@ class MyApp(ExplicitApp):
     @ws_route("/ws/chat/{room:str}")
     async def ws_chat(self, ws: WebSocket, room: str):
         await ws.accept()
-        user = self.request.query_params.get("user", ["anonymous"])[0]
+        user = self.request.query("user", "anonymous")
         self.request.session["last_room"] = room
         while True:
             try:
