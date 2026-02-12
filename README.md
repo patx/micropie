@@ -30,33 +30,46 @@
 ### Latest Release Notes
 View the latest release notes [here](https://github.com/patx/micropie/blob/main/docs/release_notes.md). It is useful to check release notes each time a new version of MicroPie is published. Any breaking changes (rare, but do happen) also appear here.
 
+### **Table of Contents**
+- [Installing MicroPie](#installing-micropie)
+- [Getting Started](#getting-started)
+- [Core Features](#core-features)
+- [Learn by Examples](#learn-by-examples)
+- [Comparisons](#comparisons)
+- [Benchmark Results](#benchmark-results)
+- [Suggestions or Feedback?](#suggestions-or-feedback)
+
+### **Documentation Roadmap**
+- **Tutorials**: [quick start](https://micropie.readthedocs.io/en/latest/tutorial/quickstart.html), [routing](https://micropie.readthedocs.io/en/latest/tutorial/routing.html), and [websockets](https://micropie.readthedocs.io/en/latest/tutorial/websockets.html).
+- **How-to Guides**: Practical recipes for [sessions](https://micropie.readthedocs.io/en/latest/howto/sessions.html), [middleware](https://micropie.readthedocs.io/en/latest/howto/middleware.html), [streaming](https://micropie.readthedocs.io/en/latest/howto/streaming.html), and more.
+- **Reference**: Full API docs for [App](https://micropie.readthedocs.io/en/latest/reference/app.html), [Request](https://micropie.readthedocs.io/en/latest/reference/request.html), [WebSocket](https://micropie.readthedocs.io/en/latest/reference/websocket.html), and related classes.
+- **What’s New**: Version-by-version highlights at [What's new in MicroPie](https://micropie.readthedocs.io/en/latest/whats_new.html).
+
 ## **Installing MicroPie**
 
-### **Installation**
-Install MicroPie with **standard** optional dependencies via pip:
+### **Installation Profiles**
+Install whichever profile fits your use case:
+
+| Profile | Command | Includes |
+|---------|---------|----------|
+| Minimal | `pip install micropie` | Core framework only |
+| Standard | `pip install micropie[standard]` | Core + `jinja2` + `multipart` |
+| All | `pip install micropie[all]` | Standard + `orjson` + `uvicorn` |
+
+If you are just getting started, use **standard**:
 ```bash
 pip install micropie[standard]
 ```
-This will install MicroPie along with `jinja2` for template rendering and `multipart` for parsing multipart form data.
 
-If you would like to install **all** optional dependencies (everything from `standard` plus `orjson` and `uvicorn`) you can run:
-```bash
-pip install micropie[all]
-```
-
-### **Minimal Setup**
-You can also install MicroPie without ANY dependencies via pip:
-```bash
-pip install micropie
-```
-For an ultra-minimalistic approach, download the standalone script (development version):
+For an ultra-minimal setup, you can also use the standalone script (development version):
 
 [micropie.py](https://raw.githubusercontent.com/patx/micropie/refs/heads/main/micropie.py)
 
-Place it in your project directory, and you are good to go. Note that `jinja2` must be installed separately to use the `_render_template` method and/or `multipart` for handling file data (the `_parse_multipart` method), but this *is* optional and you can use MicroPie without them. To install the optional dependencies use:
+Place it in your project directory and you are ready to go. Install optional packages only if needed:
 ```bash
 pip install jinja2 multipart
 ```
+Use `jinja2` for `_render_template` and `multipart` for multipart file/form parsing.
 
 By default MicroPie will use the `json` library from Python's standard library. If you need faster performance you can use `orjson`. MicroPie *will* use `orjson` *if installed* by default. If it is not installed, MicroPie will fallback to `json`. This means with or without `orjson` installed MicroPie will still handle JSON requests/responses the same. To install `orjson` and take advantage of its performance, use:
 ```bash

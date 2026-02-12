@@ -29,14 +29,15 @@ Methods
 .. method:: receive_text()
 
    Await a text message from the client.  Returns a string.  Raises
-   :class:`~micropie.ConnectionClosed` if the client has disconnected or
-   ``ValueError`` if a binary message is received.
+   :class:`~micropie.ConnectionClosed` if the client has disconnected.
+   If the client sends bytes, MicroPie decodes them as UTF-8 (ignoring
+   invalid sequences) and returns the decoded string.
 
 .. method:: receive_bytes()
 
    Await a binary message from the client.  Returns bytes.  Raises
-   :class:`~micropie.ConnectionClosed` if the client has disconnected or
-   ``ValueError`` if a text message is received.
+   :class:`~micropie.ConnectionClosed` if the client has disconnected.
+   If the client sends text, MicroPie returns the UTF-8 encoded bytes.
 
 .. method:: send_text(data)
 
@@ -67,8 +68,6 @@ Attributes
 Exceptions
 ----------
 
-.. class:: ConnectionClosed
-
-   Raised by :meth:`receive_text` and :meth:`receive_bytes` when the
-   client has closed the connection.  Catch this exception in your
-   handlers to perform cleanup after a disconnect.
+MicroPie raises :class:`~micropie.ConnectionClosed` from
+:meth:`receive_text` and :meth:`receive_bytes` when the client
+disconnects.  See :doc:`exceptions` for exception details.

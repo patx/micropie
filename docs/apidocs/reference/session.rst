@@ -55,9 +55,9 @@ SESSION_TIMEOUT
 .. data:: SESSION_TIMEOUT
 
    The default session expiration time in seconds (eight hours).  You
-   can override this constant in your own code before importing
-   MicroPie or by passing a different timeout when saving sessions in
-   a custom back‑end.
+   can override this constant in your own code by assigning a new value
+   to ``micropie.SESSION_TIMEOUT`` or by using a custom back-end that
+   persists with a different timeout policy.
 
 See also the :doc:`../howto/sessions` guide for examples of using and
 implementing session back‑ends.

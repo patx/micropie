@@ -26,8 +26,8 @@ install all optional extras:
 
    $ pip install micropie[all]
 
-See :ref:`reference/session` for details about session back‑ends and
-the :ref:`howto/templates` guide for information on templates.
+See :doc:`../reference/session` for details about session back-ends and
+:doc:`../howto/templates` for information on templates.
 
 Writing your first application
 ------------------------------

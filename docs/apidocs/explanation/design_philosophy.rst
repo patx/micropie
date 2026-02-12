@@ -77,4 +77,4 @@ Where to go next
   in mind to see how they shape the developer experience.
 * Browse ``tests.py`` to understand the expected behaviour of each hook.
 * If you plan to extend MicroPie, read the
-  :doc:`reference/index` to learn the public APIs you can rely on.
+  :doc:`../reference/index` to learn the public APIs you can rely on.

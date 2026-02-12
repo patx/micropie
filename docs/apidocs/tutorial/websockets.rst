@@ -32,12 +32,11 @@ receives.  When the client disconnects, the handler finishes.
 
 .. code-block:: python
 
-   from micropie import App
+   from micropie import App, ConnectionClosed
 
    class MyApp(App):
        async def ws_echo(self, ws):
-           # Accept the connection; without this call, MicroPie will
-           # automatically reject the WebSocket.
+           # Accept the connection before receiving or sending messages.
            await ws.accept()
            while True:
                try:
@@ -72,8 +71,9 @@ example:
 
 Connecting to ``ws://localhost:8000/greet/Alice`` sends back
 ``"Hello Alice!"``.  Connecting to ``ws://localhost:8000/greet?name=Bob``
-sends ``"Hello Bob!"``.  See :ref:`websocket-reference` for the
-complete API of the :class:`~micropie.WebSocket` class.
+sends ``"Hello Bob!"``.  See :ref:`WebSocket class
+<websocket-reference>` for the complete API of the
+:class:`~micropie.WebSocket` class.
 
 Integrating Socket.IO
 ---------------------

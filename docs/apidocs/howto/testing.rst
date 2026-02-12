@@ -21,12 +21,10 @@ Unit testing handlers directly
 
 Because handlers are regular functions, you can instantiate your
 :class:`~micropie.App` subclass and call methods directly. Use the
-:func:`micropie.current_request` context variable to set up any request
+:data:`micropie.current_request` context variable to set up any request
 state that your handler expects.
 
 .. code-block:: python
-
-   from contextvars import Token
 
    from micropie import App, Request, current_request
 
@@ -38,7 +36,7 @@ state that your handler expects.
        app = MyApp()
        scope = {"type": "http", "method": "GET", "path": "/"}
        request = Request(scope)
-       token: Token = current_request.set(request)
+       token = current_request.set(request)
        try:
            response = await app.greet()
        finally:
@@ -69,7 +67,7 @@ asserts, but the structure works in ``unittest`` with
    async def test_index_returns_json():
        app = MyApp()
        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app)) as client:
-           response = await client.get("http://test/" )
+           response = await client.get("http://test/")
        assert response.status_code == 200
        assert response.json() == {"status": "ok"}
 
@@ -83,12 +81,17 @@ app instance before issuing requests.
 
 .. code-block:: python
 
+   import httpx
+
    from micropie import App, HttpMiddleware
 
    class AddHeader(HttpMiddleware):
-       async def after_request(self, request, response):
-           response.setdefault("headers", []).append((b"x-test", b"1"))
-           return response
+       async def before_request(self, request):
+           return None
+
+       async def after_request(self, request, status_code, response_body, extra_headers):
+           extra_headers.append(("X-Test", "1"))
+           return {"headers": extra_headers}
 
    class MyApp(App):
        async def index(self):
@@ -96,7 +99,7 @@ app instance before issuing requests.
 
    async def test_middleware_header():
        app = MyApp()
-       app.middleware.append(AddHeader())
+       app.middlewares.append(AddHeader())
        transport = httpx.ASGITransport(app=app)
        async with httpx.AsyncClient(transport=transport) as client:
            response = await client.get("http://test/")
@@ -108,7 +111,8 @@ Handling lifespan events
 If your application registers startup or shutdown handlers, wrap your
 ASGI client in a lifespan manager. ``httpx`` exposes
 :class:`httpx.ASGITransport` with a ``lifespan="auto"`` mode that will
-run lifespan events before the first request and after the client exits.
+run lifespan events before the first request and after the client exits
+(on versions that support this option).
 
 .. code-block:: python
 

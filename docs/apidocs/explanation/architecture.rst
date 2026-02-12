@@ -79,7 +79,7 @@ Lifespan hooks
 ASGI defines a lifespan protocol for startup and shutdown events.  MicroPie
 exposes ``startup_handlers`` and ``shutdown_handlers`` lists on the
 :class:`~micropie.App` instance.  Handlers are executed sequentially and
-may be synchronous or asynchronous.  Use them to open database connections,
+should be asynchronous callables.  Use them to open database connections,
 prime caches or register background tasks.  Lifespan functions run before
 any request or WebSocket traffic is accepted, ensuring your dependencies
 are ready.
@@ -88,7 +88,7 @@ Templating and JSON helpers
 ---------------------------
 
 If :mod:`jinja2` is installed, MicroPie enables the
-:func:`~micropie.App.render_template` helper to render templates from a
+:meth:`~micropie.App._render_template` helper to render templates from a
 ``templates`` directory, returning HTML responses with the correct
 ``Content-Type``.  For JSON, the framework prefers :mod:`orjson` when
 available and gracefully falls back to :mod:`json`.  This keeps the core

@@ -11,6 +11,13 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
+* **0.26** – Makes sub-application handoff independent of middleware
+  ordering, improving reliability for mounted ASGI apps.
+* **0.25** – Fixes Unicode redirect handling by percent-encoding
+  non-ASCII path segments before writing the ``Location`` header.
+* **0.24** – Improves session lifecycle behaviour by expiring stale
+  in-memory sessions and deleting persisted sessions when they become
+  empty.
 * **0.23** – Ensures background multipart parsing stops immediately when a
   request is terminated by middleware, preventing unnecessary resource
   usage.
@@ -20,8 +27,8 @@ Version highlights
   parameters, aligning it with other handlers.
 * **0.20** – Introduces concurrent multipart parsing with bounded queues
   so that large uploads do not block other requests.
-* **0.19** – Improves debugging via richer tracebacks and adds the
-  ``_sub_app`` attribute for mounting other ASGI applications.
+* **0.19** – Improves debugging via richer tracebacks and adds
+  middleware hooks for mounting sub-applications.
 * **0.18** – Cancels asynchronous generator handlers when the client
   disconnects to avoid leaking resources during streaming responses.
 * **0.17** – Updates the lifespan hook API to match middleware APIs,
@@ -44,12 +51,15 @@ Upgrade tips
 * **Review lifespan handlers.** Releases 0.16 and 0.17 reshape the
   startup/shutdown API. Adjust custom startup hooks to use the new
   ``app.startup_handlers`` and ``app.shutdown_handlers`` lists.
+* **Validate redirects with non-ASCII paths.** If your app builds
+  redirect targets dynamically, verify behaviour after 0.25 where
+  redirect paths are safely encoded for ASGI header transport.
 * **Audit long-lived streams.** If you emit server-sent events or
   streaming responses, ensure your handlers handle cancellation so the
   0.18 change does not mask cleanup bugs.
 * **Evaluate mounted applications.** If you mount other ASGI apps using
-  middleware, upgrade to at least 0.19 to benefit from the ``_sub_app``
-  attribute and the body parsing fixes introduced in 0.22.
+  middleware, upgrade to at least 0.22 for body parsing fixes and to
+  0.26 for middleware-ordering-safe sub-application routing.
 
 Looking for more?
 -----------------

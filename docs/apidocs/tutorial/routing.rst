@@ -22,7 +22,7 @@ Handlers may be synchronous or asynchronous functions.  They return
 either a string, bytes, a JSON‑serialisable object, a tuple of
 ``(status_code, body)`` or ``(status_code, body, headers)``, or an
 iterator/generator for streaming responses.  See
-:doc:`howto/streaming` for details on streaming.
+:doc:`../howto/streaming` for details on streaming.
 
 Parameters and arguments
 ------------------------
@@ -57,7 +57,7 @@ sources in the following order:
    argument in your handler signature to receive a file object.
 
 5. **Session data** – Values stored in :attr:`~micropie.Request.session`
-   fill remaining parameters.  See :doc:`howto/sessions` for details.
+   fill remaining parameters.  See :doc:`../howto/sessions` for details.
 
 6. **Default values** – If no other source provides a value, default
    values in your function signature are used.
@@ -96,8 +96,9 @@ The following examples illustrate common patterns:
            """
            return f"Form submitted by: {username}"
 
-See :ref:`request-object` for the attributes available on the current
-request and :ref:`app-class` for details about the ``App`` class.
+See :ref:`Request objects <request-object>` for the attributes
+available on the current request and :ref:`App class <app-class>` for
+details about the ``App`` class.
 
 HTTP methods and responses
 --------------------------
@@ -122,5 +123,5 @@ Advanced routing
 
 You can implement explicit routing, path prefixing or complex
 dispatching by writing a custom :class:`~micropie.HttpMiddleware`.  See
-the :doc:`howto/middleware` guide and the examples in the
+the :doc:`../howto/middleware` guide and the examples in the
 ``examples/explicit_routing`` directory of the source distribution.

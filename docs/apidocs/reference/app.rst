@@ -33,6 +33,11 @@ Attributes
    A list of :class:`~micropie.WebSocketMiddleware` instances used for
    WebSocket connections.
 
+.. attribute:: session_backend
+
+   The active :class:`~micropie.SessionBackend` instance used to load
+   and save session dictionaries for both HTTP and WebSocket flows.
+
 .. attribute:: startup_handlers
 
    A list of asynchronous callables that run during the ASGI
@@ -54,11 +59,11 @@ Methods
    handlers based on ``scope['type']``.  You normally do not call this
    directly; the ASGI server calls it for you.
 
-.. method:: request
+.. attribute:: request
 
-   Return the current :class:`~micropie.Request` object.  This is
-   stored in a context variable so that it is available throughout
-   asynchronous callbacks.
+   The current :class:`~micropie.Request` (or
+   :class:`~micropie.WebSocketRequest`) stored in a context variable for
+   the active request lifecycle.
 
 .. method:: _redirect(location, extra_headers=None)
 

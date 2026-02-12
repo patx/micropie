@@ -1,11 +1,13 @@
 Rendering templates
-==================
+===================
 
 MicroPie can render HTML templates using the Jinja2 template engine.
 Templates allow you to separate presentation from code by placing
 HTML in separate files.  Template rendering is optional; you can use
 MicroPie without Jinja2 installed, but the
-:meth:`~micropie.App._render_template` method will not be available.
+:meth:`~micropie.App._render_template` helper will return a
+``500 Internal Server Error: Jinja2 not installed.`` message unless
+Jinja2 is installed.
 
 Installing Jinja2
 -----------------

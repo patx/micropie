@@ -85,7 +85,7 @@ Example:
    app.ws_middlewares.append(RejectAnonymous())
 
 Explicit routing and other patterns
-----------------------------------
+-----------------------------------
 
 You can implement custom routing schemes by writing middleware that
 parses the incoming path and sets ``request._route_handler`` or
