@@ -11,6 +11,9 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
+* **0.28** – Adds ``Request.json`` helper for convenient JSON access and
+  updates routing docs to show both automatic argument binding and
+  helper-based request access patterns.
 * **0.27** – Adds ``Request.query`` and ``Request.form`` helpers for more
   direct access to query-string and form data.
 * **0.26** – Makes sub-application handoff independent of middleware

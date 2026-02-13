@@ -1,6 +1,7 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## Releases Notes
+- **[0.28](https://github.com/patx/micropie/releases/tag/v0.28)** - Add `Request.json` helper
 - **[0.27](https://github.com/patx/micropie/releases/tag/v0.27)** - Add `Request.query` and `Request.form` helpers
 - **[0.26](https://github.com/patx/micropie/releases/tag/v0.26)** - Sub-app routing no longer depends on middleware ordering
 - **[0.25](https://github.com/patx/micropie/releases/tag/v0.25)** - Fix unicode redirect handling. Percent-encode non-ASCII path segments before setting Location header. Prevents latin-1 header encoding errors and avoids double-encoding queries.
