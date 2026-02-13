@@ -35,7 +35,8 @@ Request class
    .. attribute:: query_params
 
       A ``dict`` mapping each query parameter to a list of values.
-      For convenience, use :meth:`~micropie.Request.query` to obtain
+      This is the raw parsed mapping from the query string.  For
+      convenience, use :meth:`~micropie.Request.query` to obtain
       the first value.
 
    .. method:: query(name, default=None)
@@ -48,7 +49,8 @@ Request class
       A ``dict`` mapping form field names to lists of values.  For
       JSON requests, body parameters are derived from the top‑level
       object; for ``application/x-www-form-urlencoded`` forms they are
-      parsed using :func:`urllib.parse.parse_qs`.
+      parsed using :func:`urllib.parse.parse_qs`.  This is the raw
+      mapping used by MicroPie for argument binding.
 
    .. method:: form(name, default=None)
 
@@ -60,6 +62,16 @@ Request class
       The JSON body parsed into a Python object.  Only populated when
       the request contains valid JSON with content type
       ``application/json``.
+
+   .. method:: json(name=None, default=None)
+
+      Return the parsed JSON payload or a value from a top-level JSON
+      object.
+
+      If *name* is omitted, this method returns the full parsed payload
+      (equivalent to :attr:`~micropie.Request.get_json`).  If *name* is
+      provided and the payload is an object, the value for that key is
+      returned; otherwise *default* is returned.
 
    .. attribute:: session
 

@@ -108,18 +108,16 @@ Access your app at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 ### **Route Handlers**
 
-MicroPie's route handlers map URLs to methods in your `App` subclass, handling HTTP requests with flexible parameter mapping and response formats.
+MicroPie's route handlers map URLs to methods in your `App` subclass. Handler input can come from automatic argument binding or request helper methods.
 
 #### **Key Points**
 - **Automatic Mapping**: URLs map to method names (e.g., `/greet` → `greet`, `/` → `index`).
 - **Private Methods**: Methods starting with `_` (e.g., `_private_method`) are private and inaccessible via URLs, returning 404. **Security Note**: Use `_` for sensitive methods to prevent external access.
-- **Parameters**: Automatically populated from:
-  - Path segments (e.g., `/greet/Alice` → `name="Alice"`).
-  - Query strings (e.g., `?name=Alice`).
-  - Form data (POST/PUT/PATCH).
-  - Session data (`self.request.session`).
-  - File uploads (`self.request.files`).
-  - Default values in method signatures.
+- **Automatic Argument Binding**: Handler args are populated from path/query/body data by parameter name.
+- **Request Helpers**:
+  - `self.request.query(name, default)` for query-string values.
+  - `self.request.form(name, default)` for form/body values.
+  - `self.request.json()` for full JSON payloads, or `self.request.json(name, default)` for a key lookup.
 - **HTTP Methods**: Handlers support all methods (GET, POST, etc.). Check `self.request.method` to handle specific methods.
 - **Responses**:
   - String, bytes, or JSON-serializable object.
@@ -131,36 +129,45 @@ MicroPie's route handlers map URLs to methods in your `App` subclass, handling H
 - **Errors**: Auto-handled 404/400; customize via middleware.
 - **Dynamic Params**: Use `*args` for multiple path parameters.
 
-#### **Flexible HTTP Routing for GET Requests**
-MicroPie automatically maps URLs to methods within your `App` class. Routes can be defined as either synchronous or asynchronous functions, offering good flexibility.
-
-For GET requests, pass data through query strings or URL path segments, automatically mapped to method arguments.
+#### **Automatic Argument Binding**
+MicroPie can bind handler parameters directly from incoming request data:
 ```python
 class MyApp(App):
     async def greet(self, name="Guest"):
         return f"Hello, {name}!"
 
-    async def hello(self):
-        name = self.request.query("name")
-        return f"Hello {name}!"
-```
-**Access:**
-- [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`, same as [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`.
-- [http://127.0.0.1:8000/hello/Alice](http://127.0.0.1:8000/hello/Alice) returns a `500 Internal Server Error` because it is expecting [http://127.0.0.1:8000/hello?name=Alice](http://127.0.0.1:8000/hello?name=Alice), which returns `Hello Alice!`
-
-#### **Flexible HTTP POST Request Handling**
-MicroPie also supports handling form data submitted via HTTP POST requests. Form data is automatically mapped to method arguments. It is able to handle default values and raw/JSON POST data:
-```python
-class MyApp(App):
-    async def submit_default_values(self, username="Anonymous"):
-        return f"Form submitted by: {username}"
-
-    async def submit_catch_all(self):
-        username = self.request.form("username", "Anonymous")
+    async def submit(self, username="Anonymous"):
         return f"Submitted by: {username}"
 ```
+**Access:**
+- [http://127.0.0.1:8000/greet/Alice](http://127.0.0.1:8000/greet/Alice) returns `Hello, Alice!`.
+- [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) also returns `Hello, Alice!`.
+- POST `application/x-www-form-urlencoded` to `/submit` with `username=bob` returns `Submitted by: bob`.
+- POST `application/json` to `/submit` with `{"username": "bob"}` also returns `Submitted by: bob`.
 
-By default, MicroPie's route handlers can accept any request method, it's up to you how to handle any incoming requests! You can check the request method (and a number of other things specific to the current request state) in the handler with `self.request.method`. You can see how to handle POST JSON data at [examples/json_api](https://github.com/patx/micropie/tree/main/examples/json_api).
+#### **Helper-Based Request Access**
+Use helper methods for query, form, and JSON payload access:
+```python
+class MyApp(App):
+    async def greet(self):
+        name = self.request.query("name", "Guest")
+        return f"Hello, {name}!"
+
+    async def submit(self):
+        username = self.request.form("username", "Anonymous")
+        return f"Submitted by: {username}"
+
+    async def submit_json(self):
+        data = self.request.json()
+        username = self.request.json("username", "Anonymous")
+        return {"submitted_by": username, "raw": data}
+```
+**Access:**
+- [http://127.0.0.1:8000/greet?name=Alice](http://127.0.0.1:8000/greet?name=Alice) returns `Hello, Alice!`.
+- POST `application/x-www-form-urlencoded` to `/submit` with `username=bob` returns `Submitted by: bob`.
+- POST `application/json` to `/submit_json` with `{"username": "bob"}` returns JSON including `submitted_by: "bob"`.
+
+By default, MicroPie's route handlers can accept any request method. Check `self.request.method` in a handler when route behavior differs by method. For lower-level request internals such as `query_params`, `body_params`, and `get_json`, see `docs/apidocs/reference/request.rst`.
 
 ### **Lifecycle Event Handling**
 MicroPie supports ASGI lifespan events, allowing you to register asynchronous handlers for application startup and shutdown. This is useful for tasks like initializing database connections or cleaning up resources.

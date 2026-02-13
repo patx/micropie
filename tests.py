@@ -112,6 +112,34 @@ class TestRequest(MicroPieTestCase):
         self.assertIsNone(request.form("missing"))
         self.assertEqual(request.form("missing", "fallback"), "fallback")
 
+    async def test_request_json_helper(self):
+        """Verify JSON helper returns payloads, keys, and defaults."""
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/json",
+                "headers": [],
+                "get_json": {"username": "alice", "age": 42},
+            }
+        )
+        self.assertEqual(request.json(), {"username": "alice", "age": 42})
+        self.assertEqual(request.json("username"), "alice")
+        self.assertIsNone(request.json("missing"))
+        self.assertEqual(request.json("missing", "fallback"), "fallback")
+
+        list_payload_request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/json",
+                "headers": [],
+                "get_json": ["a", "b"],
+            }
+        )
+        self.assertEqual(list_payload_request.json(), ["a", "b"])
+        self.assertEqual(list_payload_request.json("username", "fallback"), "fallback")
+
 
 class TestSession(MicroPieTestCase):
     """Tests for session management and cookie parsing."""

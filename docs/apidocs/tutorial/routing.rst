@@ -65,6 +65,36 @@ sources in the following order:
 If MicroPie cannot determine a value for a required parameter, it
 returns a ``400 Bad Request``.
 
+Helpers and raw request data
+----------------------------
+
+In handlers, you can access request input through helper methods or
+through raw parsed attributes:
+
+* Helpers:
+
+  * ``self.request.query(name, default=None)`` returns the first query
+    value.
+  * ``self.request.form(name, default=None)`` returns the first
+    form/body value.
+  * ``self.request.json(name=None, default=None)`` returns either the
+    full parsed JSON payload or a key from a top-level JSON object.
+
+* Raw attributes:
+
+  * ``self.request.path_params``: list of positional path segments.
+  * ``self.request.query_params``: ``dict[str, list[str]]`` parsed from
+    the query string.
+  * ``self.request.body_params``: ``dict[str, list[str]]`` parsed from
+    form-urlencoded payloads, or mirrored from top-level JSON objects.
+  * ``self.request.get_json``: full parsed JSON payload.
+  * ``self.request.session``: session dictionary.
+  * ``self.request.files``: uploaded multipart files.
+
+The helper APIs are convenient when you need a single value.  The raw
+attributes are useful when you need full multi-value access or exact
+payload inspection.
+
 Examples
 --------
 

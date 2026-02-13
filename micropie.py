@@ -163,6 +163,20 @@ class Request:
             return values[0]
         return default
 
+    def json(self, name: Optional[str] = None, default: Any = None) -> Any:
+        """
+        Return the parsed JSON body or a value from a top-level JSON object.
+
+        Args:
+            name: Optional key from the top-level JSON object.
+            default: Value returned when key is missing or payload is not an object.
+        """
+        if name is None:
+            return self.get_json
+        if isinstance(self.get_json, dict):
+            return self.get_json.get(name, default)
+        return default
+
 
 class WebSocketRequest(Request):
     """Represents a WebSocket request in the MicroPie framework."""
