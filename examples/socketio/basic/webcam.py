@@ -11,7 +11,7 @@ active_users = set()
 # MicroPie Server with integrated Socket.IO
 class MyApp(App):
     async def index(self):
-        return await self.render_template("index_stream.html")
+        return await self._render_template("index.html")
 
     async def submit(self, username: str, action: str):
         if username:
@@ -21,21 +21,21 @@ class MyApp(App):
                 if action == "Start Streaming"
                 else f"/watch/{username}"
             )
-            return self.redirect(route)
-        return self.redirect("/")
+            return self._redirect(route)
+        return self._redirect("/")
 
     async def stream(self, username: str):
         return (
-            await self.render_template("stream.html", username=username)
+            await self._render_template("stream.html", username=username)
             if username in active_users
-            else self.redirect("/")
+            else self._redirect("/")
         )
 
     async def watch(self, username: str):
         return (
-            await self.render_template("watch.html", username=username)
+            await self._render_template("watch.html", username=username)
             if username in active_users
-            else self.redirect("/")
+            else self._redirect("/")
         )
 
 
