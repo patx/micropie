@@ -22,6 +22,7 @@
 - **Homepage**: [patx.github.io/micropie](https://patx.github.io/micropie)
 - **Official Documentation**: [micropie.readthedocs.io](https://micropie.readthedocs.io/)
 - **PyPI Page**: [pypi.org/project/MicroPie](https://pypi.org/project/MicroPie/)
+- **GitMan Project**: [gitman.io/patx/micropie](https://gitman.io/patx/micropie)
 - **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
 - **File Issue/Request**: [github.com/patx/micropie/issues](https://github.com/patx/micropie/issues)
 - **Example Applications**: [github.com/patx/micropie/tree/main/examples](https://github.com/patx/micropie/tree/main/examples)

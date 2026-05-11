@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "micropie"
-version = "0.28"
+version = "0.29"
 description = "An ultra micro ASGI web framework"
 keywords = ["micropie", "asgi", "microframework", "http"]
 readme = "docs/README.md"
@@ -27,5 +27,5 @@ standard = ["jinja2", "multipart"]
 all = ["jinja2", "multipart", "orjson", "uvicorn"]
 
 [project.urls]
-Homepage = "https://patx.github.io/micropie"
+Homepage = "https://harrisonerd.com/micropie"
 Repository = "https://github.com/patx/micropie"

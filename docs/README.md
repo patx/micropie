@@ -36,6 +36,7 @@ $ pip install micropie[all]     # standard + orjson + uvicorn
 - **Homepage**: [patx.github.io/micropie](https://patx.github.io/micropie)
 - **Official Documentation**: [micropie.readthedocs.io](https://micropie.readthedocs.io/)
 - **PyPI Page**: [pypi.org/project/MicroPie](https://pypi.org/project/MicroPie/)
-- **GitHub Project**: [github.com/patx/micropie](https://github.com/patx/micropie)
+- **GitHub Project (mirror)**: [github.com/patx/micropie](https://github.com/patx/micropie)
+- **GitMan Project**: [gitman.io/patx/micropie](https://gitman.io/patx/micropie)
 - **Examples**: [github.com/patx/micropie/tree/main/examples](https://github.com/patx/micropie/tree/main/examples)
 
