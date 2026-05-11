@@ -342,14 +342,15 @@ The best way to get an idea of how MicroPie works is to see it in action! Check 
 
 ## Benchmark Results
 
-The table below summarizes the performance of various ASGI frameworks based on a 15-second `wrk` test with 4 threads and 64 connections, measuring a simple "hello world" JSON response. [Learn More](https://gist.github.com/patx/39e846ed66bead3e42270ff193db35f8).
+The table below summarizes the performance of various ASGI frameworks based on a 15-second `wrk` test with 4 threads and 1000 connections, measuring a simple "hello world" JSON response. Each framework was served with Granian using `granian --interface asgi --workers 8 app:app` on a Dell XPS 13 9350. [Learn More](https://gist.github.com/patx/39e846ed66bead3e42270ff193db35f8).
 
 | Framework  | Requests/sec | Avg Latency (ms) | Max Latency (ms) | Transfer/sec (MB) | Total Requests | Data Read (MB) |
 |------------|--------------|------------------|------------------|-------------------|----------------|----------------|
-| Starlette  | 21615.41     | 3.00             | 90.34            | 2.93              | 324374         | 43.93          |
-| MicroPie   | 18519.02     | 3.53             | 105.00           | 2.84              | 277960         | 42.68          |
-| FastAPI    | 8899.40      | 7.22             | 56.09            | 1.21              | 133542         | 18.08          |
-| Quart      | 8601.40      | 7.52             | 117.99           | 1.17              | 129089         | 17.60          |
+| MicroPie   | 234244.46    | 4.04             | 53.62            | 30.62             | 3536707        | 462.36         |
+| BlackSheep | 231688.13    | 4.04             | 82.57            | 30.21             | 3495372        | 455.76         |
+| Starlette  | 223883.45    | 4.24             | 76.26            | 29.22             | 3381117        | 441.35         |
+| FastAPI    | 150351.61    | 6.57             | 131.65           | 19.52             | 2270601        | 294.85         |
+| Quart      | 104469.09    | 11.75            | 197.47           | 13.41             | 1575417        | 202.18         |
 
 ## **Suggestions or Feedback?**
 We welcome suggestions, bug reports, and pull requests!
