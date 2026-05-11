@@ -1,4 +1,5 @@
 import asyncio
+import json as std_json
 import unittest
 import uuid
 from unittest.mock import AsyncMock, patch
@@ -12,6 +13,21 @@ from micropie import (
     ConnectionClosed,
     HttpMiddleware,
 )
+
+
+class CountingSessionBackend(InMemorySessionBackend):
+    def __init__(self):
+        super().__init__()
+        self.load_calls = []
+        self.save_calls = []
+
+    async def load(self, session_id):
+        self.load_calls.append(session_id)
+        return await super().load(session_id)
+
+    async def save(self, session_id, data, timeout):
+        self.save_calls.append((session_id, dict(data), timeout))
+        await super().save(session_id, data, timeout)
 
 
 class MicroPieTestCase(unittest.IsolatedAsyncioTestCase):
@@ -209,6 +225,167 @@ class TestSession(MicroPieTestCase):
             "Set-Cookie header with session_id not found",
         )
         self.assertEqual(set_cookie_call["status"], 200, "Status should be 200")
+
+
+class TestFastPaths(MicroPieTestCase):
+    """Tests for optimized dispatch/session paths."""
+
+    async def test_request_without_cookie_skips_session_load(self):
+        """No session cookie should avoid a backend load call."""
+        backend = CountingSessionBackend()
+        self.app = App(session_backend=backend)
+
+        async def index(self):
+            return "OK"
+
+        setattr(self.app, "index", index.__get__(self.app, App))
+
+        scope = self.create_mock_scope(path="/index")
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        self.assertEqual(backend.load_calls, [])
+        self.assertEqual(backend.save_calls, [])
+
+    async def test_request_with_session_cookie_loads_and_persists(self):
+        """A session cookie should still load and save the matching session."""
+        backend = CountingSessionBackend()
+        await backend.save("abc", {"user": "alice"}, SESSION_TIMEOUT)
+        backend.load_calls.clear()
+        backend.save_calls.clear()
+        self.app = App(session_backend=backend)
+
+        async def index(self):
+            self.request.session["seen"] = "1"
+            return self.request.session["user"]
+
+        setattr(self.app, "index", index.__get__(self.app, App))
+
+        scope = self.create_mock_scope(
+            path="/index", headers=[(b"cookie", b"session_id=abc")]
+        )
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        self.assertEqual(backend.load_calls, ["abc"])
+        self.assertEqual(backend.save_calls[-1][0], "abc")
+        self.assertEqual(backend.sessions["abc"], {"user": "alice", "seen": "1"})
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"alice", "more_body": False}
+        )
+
+    async def test_cached_handler_metadata_tracks_replaced_handler(self):
+        """Replacing a handler should not reuse stale cached metadata."""
+
+        async def greet(self):
+            return "first"
+
+        setattr(self.app, "greet", greet.__get__(self.app, App))
+
+        scope = self.create_mock_scope(path="/greet")
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+        await self.app(scope, receive, send)
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"first", "more_body": False}
+        )
+
+        async def greet(self, name):
+            return f"second {name}"
+
+        setattr(self.app, "greet", greet.__get__(self.app, App))
+
+        scope = self.create_mock_scope(path="/greet/Alice")
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+        await self.app(scope, receive, send)
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"second Alice",
+                "more_body": False,
+            }
+        )
+
+    async def test_http_argument_binding_fast_path_matches_existing_sources(self):
+        """Path, query, body, session, and defaults should still bind in order."""
+
+        async def combine(self, path_value, query_value, body_value, user, suffix="ok"):
+            return {
+                "path": path_value,
+                "query": query_value,
+                "body": body_value,
+                "user": user,
+                "suffix": suffix,
+            }
+
+        setattr(self.app, "combine", combine.__get__(self.app, App))
+
+        scope = self.create_mock_scope(
+            path="/combine/path-part",
+            method="POST",
+            headers=[(b"content-type", b"application/x-www-form-urlencoded")],
+            query_string=b"query_value=query-part",
+        )
+        scope["session"] = {"user": "alice"}
+        receive = AsyncMock(
+            return_value={
+                "type": "http.request",
+                "body": b"body_value=body-part",
+                "more_body": False,
+            }
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        body_call = next(
+            call[0][0]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "http.response.body"
+        )
+        self.assertEqual(
+            std_json.loads(body_call["body"]),
+            {
+                "path": "path-part",
+                "query": "query-part",
+                "body": "body-part",
+                "user": "alice",
+                "suffix": "ok",
+            },
+        )
+
+    async def test_websocket_argument_binding_uses_cached_metadata(self):
+        """WebSocket path and query argument binding should be unchanged."""
+
+        async def ws_chat(self, ws, room, user="guest"):
+            await ws.accept()
+            await ws.send_text(f"{room}:{user}")
+            await ws.close()
+
+        setattr(self.app, "ws_chat", ws_chat.__get__(self.app, App))
+
+        scope = self.create_mock_scope(
+            path="/chat/lobby", query_string=b"user=alice", scope_type="websocket"
+        )
+        receive = AsyncMock(return_value={"type": "websocket.connect"})
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call({"type": "websocket.send", "text": "lobby:alice"})
 
 
 class TestRouting(MicroPieTestCase):
