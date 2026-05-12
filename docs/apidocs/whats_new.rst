@@ -11,6 +11,8 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
+* **0.29** Performance upgrades, no more per request signature inspections
+  for routing. 24%-54% increase in req/sec.
 * **0.28** – Adds ``Request.json`` helper for convenient JSON access and
   updates routing docs to show both automatic argument binding and
   helper-based request access patterns.
