@@ -117,6 +117,7 @@ class MongoRateLimitMiddleware(HttpMiddleware):
         allowed_hosts: Set[str] | None = None,
         trust_proxy_headers: bool = True,
         require_cf_ray: bool = True,
+        limit_methods: Iterable[str] | None = None,
         # Optional: include METHOD+PATH in key (lets you set different limits by route)
         bucket_by_route: bool = False,
         # If we can't reliably identify the client, return 403 (recommended)
@@ -129,6 +130,9 @@ class MongoRateLimitMiddleware(HttpMiddleware):
         self.allowed_hosts = set(h.lower() for h in (allowed_hosts or set()))
         self.trust_proxy_headers = trust_proxy_headers
         self.require_cf_ray = require_cf_ray
+        self.limit_methods = (
+            {method.upper() for method in limit_methods} if limit_methods else None
+        )
 
         self.bucket_by_route = bucket_by_route
         self.fail_closed = fail_closed
@@ -203,6 +207,14 @@ class MongoRateLimitMiddleware(HttpMiddleware):
     # ---------------------------------------------------------
 
     async def before_request(self, request):
+        method = (
+            getattr(request, "method", None)
+            or (request.scope or {}).get("method")
+            or "GET"
+        ).upper()
+        if self.limit_methods is not None and method not in self.limit_methods:
+            return None
+
         client_ip = self._client_ip(request)
 
         # Avoid collapsing unknowns into a shared key (DoS vector)
