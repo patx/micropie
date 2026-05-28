@@ -9,7 +9,7 @@ class MyApp(ExplicitApp):
     @route("/api/users/{user:str}/records", method=["POST"])
     async def _create_record(self, user: str):
         try:
-            data = self.request.get_json
+            data = self.request.json()
             return {"user": user, "record": data.get("record_id"), "created": True}
         except Exception:
             return {"error": f"Invalid JSON"}

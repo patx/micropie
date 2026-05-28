@@ -168,7 +168,14 @@ class MyApp(App):
 - POST `application/x-www-form-urlencoded` to `/submit` with `username=bob` returns `Submitted by: bob`.
 - POST `application/json` to `/submit_json` with `{"username": "bob"}` returns JSON including `submitted_by: "bob"`.
 
-By default, MicroPie's route handlers can accept any request method. Check `self.request.method` in a handler when route behavior differs by method. For lower-level request internals such as `query_params`, `body_params`, and `get_json`, see `docs/apidocs/reference/request.rst`.
+Choose the simplest input style that fits the route:
+- Use handler arguments when you only need named path/query/body values.
+- Use helpers when you want to explicitly read one query value, one body value, or a JSON payload.
+- Use raw attributes like `query_params`, `body_params`, `files`, `headers`, and `session` when you need repeated values, uploaded file streams, middleware-level inspection, or exact parsed structures.
+
+Do not `await` `self.request.query(...)`, `self.request.form(...)`, or `self.request.json(...)`. They are synchronous accessors over request data MicroPie has already parsed. Uploaded file content is the exception: file bodies are streamed through async queues in `self.request.files`.
+
+By default, MicroPie's route handlers can accept any request method. Check `self.request.method` in a handler when route behavior differs by method. For lower-level request internals such as `query_params` and `body_params`, see `docs/apidocs/reference/request.rst`.
 
 ### **Lifecycle Event Handling**
 MicroPie supports ASGI lifespan events, allowing you to register asynchronous handlers for application startup and shutdown. This is useful for tasks like initializing database connections or cleaning up resources.

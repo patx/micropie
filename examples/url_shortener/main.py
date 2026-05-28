@@ -234,7 +234,7 @@ class ApiApp(App):
         if self.request.method != "POST":
             return 405, {"error": "Method Not Allowed"}
 
-        data = self.request.get_json
+        data = self.request.json()
         url_str = data.get("url")
 
         if not isinstance(url_str, str):

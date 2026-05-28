@@ -88,7 +88,7 @@ class CSRFMiddleware(HttpMiddleware):
         if lst and isinstance(lst, list) and lst:
             return lst[0]
 
-        j = getattr(request, "get_json", None)
+        j = request.json()
         if isinstance(j, dict):
             tok = j.get(self.body_field)
             if isinstance(tok, str):

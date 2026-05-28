@@ -51,7 +51,7 @@ class ChatApp(App):
         return 200, html, [("Content-Type", "text/html")]
 
     async def send(self):
-        data = self.request.get_json
+        data = self.request.json()
         username = data.get("username", "Anonymous")
         message = data.get("message", "")
         if message.strip():

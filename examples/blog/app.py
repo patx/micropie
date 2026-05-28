@@ -260,7 +260,7 @@ class BlogApp(App):
                 return guard
 
             try:
-                data = self.request.get_json
+                data = self.request.json()
             except Exception:
                 return 400, {"error": "Invalid JSON payload."}
 
@@ -317,7 +317,7 @@ class BlogApp(App):
                 return guard
 
             try:
-                data = self.request.get_json
+                data = self.request.json()
             except Exception:
                 return 400, {"error": "Invalid JSON payload."}
 

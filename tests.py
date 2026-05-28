@@ -136,9 +136,10 @@ class TestRequest(MicroPieTestCase):
                 "method": "POST",
                 "path": "/json",
                 "headers": [],
-                "get_json": {"username": "alice", "age": 42},
+                "json_body": {"username": "alice", "age": 42},
             }
         )
+        self.assertFalse(hasattr(request, "get_json"))
         self.assertEqual(request.json(), {"username": "alice", "age": 42})
         self.assertEqual(request.json("username"), "alice")
         self.assertIsNone(request.json("missing"))
@@ -150,7 +151,7 @@ class TestRequest(MicroPieTestCase):
                 "method": "POST",
                 "path": "/json",
                 "headers": [],
-                "get_json": ["a", "b"],
+                "json_body": ["a", "b"],
             }
         )
         self.assertEqual(list_payload_request.json(), ["a", "b"])
@@ -580,7 +581,7 @@ class TestResponseHandling(MicroPieTestCase):
         """Test JSON request and response handling."""
 
         async def json_handler(self):
-            return self.request.get_json
+            return self.request.json()
 
         setattr(self.app, "json_handler", json_handler.__get__(self.app, App))
 

@@ -2,7 +2,7 @@
 
 project = "MicroPie"
 author = "Harrison Erd"
-release = "0.28"
+release = "0.30"
 
 extensions = [
     "sphinx.ext.autodoc",

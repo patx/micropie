@@ -11,6 +11,9 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
+* **0.30** – Removes the public ``Request.get_json`` attribute. Use
+  ``Request.json()`` for the full parsed JSON payload or
+  ``Request.json(name, default)`` for top-level object lookups.
 * **0.29** Performance upgrades, no more per request signature inspections
   for routing. 24%-54% increase in req/sec.
 * **0.28** – Adds ``Request.json`` helper for convenient JSON access and

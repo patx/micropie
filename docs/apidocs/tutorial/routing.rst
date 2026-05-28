@@ -65,35 +65,100 @@ sources in the following order:
 If MicroPie cannot determine a value for a required parameter, it
 returns a ``400 Bad Request``.
 
-Helpers and raw request data
+Choosing an input access style
+------------------------------
+
+MicroPie gives you three levels of request input access.  Prefer the
+simplest level that fits the handler.
+
+1. **Handler arguments** are the most concise option.  Use them when an
+   endpoint needs a small number of named values and the normal binding
+   order is acceptable.
+
+   .. code-block:: python
+
+      class MyApp(App):
+          async def search(self, q="", page="1"):
+              return {"q": q, "page": int(page)}
+
+   This works for ``/search?q=micropie&page=2`` without touching
+   ``self.request`` directly.
+
+2. **Helper methods** are best when the handler needs explicit control
+   over where a value comes from, a default value, or the full JSON
+   payload.
+
+   .. code-block:: python
+
+      class MyApp(App):
+          async def search(self):
+              q = self.request.query("q", "")
+              page = int(self.request.query("page", "1"))
+              return {"q": q, "page": page}
+
+          async def submit(self):
+              username = self.request.form("username", "Anonymous")
+              return {"submitted_by": username}
+
+          async def api_submit(self):
+              payload = self.request.json()
+              username = self.request.json("username", "Anonymous")
+              return {"submitted_by": username, "raw": payload}
+
+   The helper methods are:
+
+   * ``self.request.query(name, default=None)``: first query-string
+     value for ``name``.
+   * ``self.request.form(name, default=None)``: first parsed body value
+     for ``name`` from form data, or from a top-level JSON object mirrored
+     into body parameters.
+   * ``self.request.json(name=None, default=None)``: full parsed JSON
+     payload when called with no name, or one top-level JSON object value
+     when ``name`` is provided.
+
+3. **Raw attributes** are useful when you need the lower-level parsed
+   structures, such as repeated query parameters, all submitted form
+   values, uploaded files, or middleware decisions.
+
+   * ``self.request.path_params``: list of positional path segments.
+   * ``self.request.query_params``: ``dict[str, list[str]]`` parsed from
+     the query string.
+   * ``self.request.body_params``: ``dict[str, list[str]]`` parsed from
+     form-urlencoded payloads, multipart text fields, or mirrored from
+     top-level JSON objects.
+   * ``self.request.session``: session dictionary.
+   * ``self.request.files``: uploaded multipart files.
+   * ``self.request.headers``: lower-case request header mapping.
+
+   For example, use ``query_params`` when repeated values matter:
+
+   .. code-block:: python
+
+      class MyApp(App):
+          async def filter(self):
+              tags = self.request.query_params.get("tag", [])
+              return {"tags": tags}
+
+Do not await request helpers
 ----------------------------
 
-In handlers, you can access request input through helper methods or
-through raw parsed attributes:
+The request helper methods are synchronous accessors over data MicroPie
+has already parsed for the current request.  Do not use ``await`` with
+``query()``, ``form()`` or ``json()``:
 
-* Helpers:
+.. code-block:: python
 
-  * ``self.request.query(name, default=None)`` returns the first query
-    value.
-  * ``self.request.form(name, default=None)`` returns the first
-    form/body value.
-  * ``self.request.json(name=None, default=None)`` returns either the
-    full parsed JSON payload or a key from a top-level JSON object.
+   class MyApp(App):
+       async def submit(self):
+           data = self.request.json()
+           username = self.request.form("username", "")
+           q = self.request.query("q", "")
+           return {"data": data, "username": username, "q": q}
 
-* Raw attributes:
-
-  * ``self.request.path_params``: list of positional path segments.
-  * ``self.request.query_params``: ``dict[str, list[str]]`` parsed from
-    the query string.
-  * ``self.request.body_params``: ``dict[str, list[str]]`` parsed from
-    form-urlencoded payloads, or mirrored from top-level JSON objects.
-  * ``self.request.get_json``: full parsed JSON payload.
-  * ``self.request.session``: session dictionary.
-  * ``self.request.files``: uploaded multipart files.
-
-The helper APIs are convenient when you need a single value.  The raw
-attributes are useful when you need full multi-value access or exact
-payload inspection.
+For JSON and URL-encoded form requests, the body has been read before
+your handler runs.  Multipart file uploads are the main exception:
+uploaded file content is exposed as an ``asyncio.Queue`` in
+``self.request.files`` and should be read asynchronously.
 
 Examples
 --------

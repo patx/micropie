@@ -164,7 +164,7 @@ class Request:
         self.path_params: List[str] = []
         self.query_params: Dict[str, List[str]] = {}
         self.body_params: Dict[str, List[str]] = scope.get("body_params", {})
-        self.get_json: Any = scope.get("get_json", {})
+        self._json: Any = scope.get("json_body", {})
         self.session: Dict[str, Any] = scope.get("session", {})
         self.files: Dict[str, Any] = scope.get("files", {})
         self.headers: Dict[str, str] = {
@@ -210,9 +210,9 @@ class Request:
             default: Value returned when key is missing or payload is not an object.
         """
         if name is None:
-            return self.get_json
-        if isinstance(self.get_json, dict):
-            return self.get_json.get(name, default)
+            return self._json
+        if isinstance(self._json, dict):
+            return self._json.get(name, default)
         return default
 
 
@@ -683,10 +683,10 @@ class App:
                         body_data = b"".join(body_chunks)
                     if "application/json" in content_type:
                         try:
-                            request.get_json = json.loads(body_data)
-                            if isinstance(request.get_json, dict):
+                            request._json = json.loads(body_data)
+                            if isinstance(request._json, dict):
                                 request.body_params = {
-                                    k: [str(v)] for k, v in request.get_json.items()
+                                    k: [str(v)] for k, v in request._json.items()
                                 }
                         except Exception:
                             await _early_exit(400, "400 Bad Request: Bad JSON")
@@ -721,7 +721,7 @@ class App:
                     new_scope["root_path"] = scope.get("root_path", "")
                 new_scope["body_params"] = request.body_params
                 new_scope["body_parsed"] = request.body_parsed
-                new_scope["get_json"] = getattr(request, "get_json", {})
+                new_scope["json_body"] = request._json
                 new_scope["files"] = request.files
                 new_scope["session"] = request.session
 

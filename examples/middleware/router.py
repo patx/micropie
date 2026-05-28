@@ -88,7 +88,7 @@ class MyApp(App):
 
     async def _create_record(self, user: str):
         try:
-            data = self.request.get_json
+            data = self.request.json()
             return {"user": user, "record": data.get("record_id"), "created": True}
         except Exception as e:
             return {"error": f"Invalid JSON: {str(e)}"}

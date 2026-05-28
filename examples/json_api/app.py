@@ -10,7 +10,7 @@ class Root(App):
         if self.request.method == "GET":
             return {"input": False, "extra": False}
 
-        data = self.request.get_json
+        data = self.request.json()
         return {"input": data, "extra": True}
 
     async def example(self):
