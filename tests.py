@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import json as std_json
 import unittest
 import uuid
@@ -440,6 +441,122 @@ class TestRouting(MicroPieTestCase):
             {"type": "http.response.body", "body": b"404 Not Found", "more_body": False}
         )
 
+    async def test_public_internal_attributes_are_not_routable(self):
+        """Public App attributes should not be treated as route handlers."""
+        for path in ("/session_backend", "/env", "/middlewares"):
+            with self.subTest(path=path):
+                scope = self.create_mock_scope(path=path)
+                receive = AsyncMock(
+                    return_value={
+                        "type": "http.request",
+                        "body": b"",
+                        "more_body": False,
+                    }
+                )
+                send = AsyncMock()
+
+                await self.app(scope, receive, send)
+
+                send.assert_any_call(
+                    {
+                        "type": "http.response.start",
+                        "status": 404,
+                        "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+                    }
+                )
+                send.assert_any_call(
+                    {
+                        "type": "http.response.body",
+                        "body": b"404 Not Found",
+                        "more_body": False,
+                    }
+                )
+
+    async def test_route_lookup_does_not_execute_properties(self):
+        """Non-callable descriptors should be rejected before normal getattr."""
+
+        class PropertyApp(App):
+            @property
+            def dangerous(self):
+                raise AssertionError("route lookup executed a property")
+
+        self.app = PropertyApp()
+        scope = self.create_mock_scope(path="/dangerous")
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "http.response.start",
+                "status": 404,
+                "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+            }
+        )
+
+    async def test_descriptor_backed_handlers_are_routable_after_binding(self):
+        """Method descriptors that bind to callables should remain routable."""
+
+        class DescriptorApp(App):
+            def partial_base(self, prefix, suffix=""):
+                return f"{prefix}:{suffix}"
+
+            partial = functools.partialmethod(partial_base, "partial")
+
+            @functools.singledispatchmethod
+            def dispatch(self, value):
+                return f"default:{value}"
+
+        self.app = DescriptorApp()
+
+        for path, body in (
+            ("/partial/value", b"partial:value"),
+            ("/dispatch/value", b"default:value"),
+        ):
+            with self.subTest(path=path):
+                scope = self.create_mock_scope(path=path)
+                receive = AsyncMock(
+                    return_value={
+                        "type": "http.request",
+                        "body": b"",
+                        "more_body": False,
+                    }
+                )
+                send = AsyncMock()
+
+                await self.app(scope, receive, send)
+
+                send.assert_any_call(
+                    {"type": "http.response.body", "body": body, "more_body": False}
+                )
+
+    async def test_missing_route_still_falls_back_to_index_with_path_params(self):
+        """Unknown routes should still use index when it accepts path params."""
+
+        async def index(self, *parts):
+            return "/".join(parts)
+
+        setattr(self.app, "index", index.__get__(self.app, App))
+
+        scope = self.create_mock_scope(path="/missing/route")
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"missing/route",
+                "more_body": False,
+            }
+        )
+
     async def test_missing_parameter(self):
         """Test handler with missing required parameter."""
 
@@ -509,6 +626,23 @@ class TestWebSocket(MicroPieTestCase):
     async def test_websocket_missing_handler(self):
         """Test WebSocket 1008 response for non-existent route."""
         scope = self.create_mock_scope(path="/nonexistent", scope_type="websocket")
+        receive = AsyncMock(return_value={"type": "websocket.connect"})
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "websocket.close",
+                "code": 1008,
+                "reason": "No matching WebSocket route",
+            }
+        )
+
+    async def test_websocket_non_callable_attribute_is_not_routable(self):
+        """WebSocket routing should ignore non-callable ws_* attributes."""
+        self.app.ws_status = {"connected": False}
+        scope = self.create_mock_scope(path="/status", scope_type="websocket")
         receive = AsyncMock(return_value={"type": "websocket.connect"})
         send = AsyncMock()
 

@@ -11,6 +11,10 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
+* **0.31** – Hardens route lookup so non-callable public attributes and
+  property-like descriptors are not treated as handlers. Descriptor-backed
+  route methods such as ``functools.partialmethod`` continue to work after
+  binding.
 * **0.30** – Removes the public ``Request.get_json`` attribute. Use
   ``Request.json()`` for the full parsed JSON payload or
   ``Request.json(name, default)`` for top-level object lookups.

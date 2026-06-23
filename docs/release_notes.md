@@ -1,6 +1,7 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## Releases Notes
+- **[0.31](https://github.com/patx/micropie/releases/tag/v0.31)** - Security fix: route lookup now ignores non-callable public attributes and property-like descriptors, preventing internal App attributes from being treated as handlers while preserving descriptor-backed route methods.
 - **[0.30](https://github.com/patx/micropie/releases/tag/v0.30)** - Remove the public `Request.get_json` attribute. Use `Request.json()` or `Request.json(name, default)`.
 - **[0.29](https://github.com/patx/micropie/releases/tag/v0.29)** - Performance upgrades, no more per request signature inspections for routing. 24%-54% increase in req/sec.
 - **[0.28](https://github.com/patx/micropie/releases/tag/v0.28)** - Add `Request.json` helper

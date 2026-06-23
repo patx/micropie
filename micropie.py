@@ -54,6 +54,7 @@ _DEFAULT_HEADER_BYTES = (b"Content-Type", b"text/html; charset=utf-8")
 _JSON_HEADER_BYTES = (b"Content-Type", b"application/json")
 _DEFAULT_HEADERS_BYTES = [_DEFAULT_HEADER_BYTES]
 _JSON_HEADERS_BYTES = [_JSON_HEADER_BYTES]
+_ROUTE_ATTR_MISSING = object()
 
 
 class _HandlerParam(NamedTuple):
@@ -504,6 +505,35 @@ class App:
         self._handler_cache[cache_key] = handler_info
         return handler_info
 
+    def _resolve_route_handler(
+        self, handler_name: str
+    ) -> Tuple[Optional[Callable[..., Any]], bool]:
+        """
+        Return a callable route handler and whether the route attribute exists.
+        """
+        raw_handler = inspect.getattr_static(
+            self, handler_name, _ROUTE_ATTR_MISSING
+        )
+        if raw_handler is _ROUTE_ATTR_MISSING:
+            return None, False
+        if isinstance(raw_handler, property):
+            return None, True
+        if not callable(raw_handler):
+            if inspect.isdatadescriptor(raw_handler) or not hasattr(
+                raw_handler, "__get__"
+            ):
+                return None, True
+
+        try:
+            handler = getattr(self, handler_name, _ROUTE_ATTR_MISSING)
+        except Exception:
+            return None, True
+        if handler is _ROUTE_ATTR_MISSING:
+            return None, False
+        if not callable(handler):
+            return None, True
+        return handler, True
+
     async def _load_session_from_scope(
         self, scope: Dict[str, Any], cookies: Dict[str, str]
     ) -> Dict[str, Any]:
@@ -746,8 +776,14 @@ class App:
 
             if not request.path_params:
                 request.path_params = parts[1:] if len(parts) > 1 else []
-            handler = getattr(self, func_name, None) or getattr(self, "index", None)
-            if not handler:
+            handler, route_exists = self._resolve_route_handler(func_name)
+            index_handler, _ = self._resolve_route_handler("index")
+            if handler is None:
+                if route_exists:
+                    await _early_exit(404, "404 Not Found")
+                    return
+                handler = index_handler
+            if handler is None:
                 await _early_exit(404, "404 Not Found")
                 return
             handler_info = self._get_handler_info(handler)
@@ -756,7 +792,7 @@ class App:
             func_args: List[Any] = []
 
             # Check if index handler accepts parameters (for non-root paths)
-            if handler == getattr(self, "index", None) and path and path != "index":
+            if handler == index_handler and path and path != "index":
                 if not handler_info.accepts_params:
                     await _early_exit(404, "404 Not Found")
                     return
@@ -993,8 +1029,8 @@ class App:
             if hasattr(request, "_ws_route_handler"):
                 handler_name = request._ws_route_handler
             request.path_params = parts[1:] if len(parts) > 1 else []
-            handler = getattr(self, handler_name, None)
-            if not handler:
+            handler, _ = self._resolve_route_handler(handler_name)
+            if handler is None:
                 await self._send_websocket_close(
                     send, 1008, "No matching WebSocket route"
                 )
