@@ -16,3 +16,13 @@ ConnectionClosed
    disconnection and exit your handler gracefully.  The exception does
    not carry any attributes; the WebSocket connection has already been
    closed when it is raised.
+
+MultipartFileError
+------------------
+
+.. class:: MultipartFileError
+
+   Raised by an uploaded file's ``content.get()`` operation when the
+   multipart parser stops before that file reaches a clean end-of-file.
+   This includes malformed bodies, receive timeouts and configured size
+   limits.  The original parser exception is available as ``cause``.

@@ -63,6 +63,10 @@ sources in the following order:
 If MicroPie cannot determine a value for a required parameter, it
 returns a ``400 Bad Request``.
 
+Keyword-only parameters are passed by keyword, and ``**kwargs`` collects
+remaining named query, form, JSON and file values after explicit parameters
+have been bound.  ``*args`` continues to collect remaining path segments.
+
 Session values never participate in automatic argument binding.  This
 keeps untrusted request inputs and trusted session state in separate
 namespaces.  Read session values explicitly inside the handler:
@@ -150,11 +154,11 @@ simplest level that fits the handler.
               tags = self.request.query_params.get("tag", [])
               return {"tags": tags}
 
-Query strings and URL-encoded forms are parsed strictly.  Empty values
-such as ``name=`` are preserved, while fields without ``=``, invalid
-percent escapes and invalid UTF-8 receive ``400 Bad Request``.  A
-WebSocket request with a malformed query string is closed with code
-``1008``.
+Query strings and URL-encoded form bodies share MicroPie's permissive parsing
+behavior for compatibility.  Blank values such as ``name=`` and bare keys are
+omitted, so they fall through to handler defaults.  Malformed percent escapes
+are tolerated, invalid percent-decoded UTF-8 is replaced, and invalid raw
+UTF-8 bytes are ignored.  HTTP and WebSocket query strings use the same rules.
 
 Do not await request helpers
 ----------------------------
@@ -174,8 +178,13 @@ has already parsed for the current request.  Do not use ``await`` with
 
 For JSON and URL-encoded form requests, the body has been read before
 your handler runs.  Multipart file uploads are the main exception:
-uploaded file content is exposed as an ``asyncio.Queue`` in
-``self.request.files`` and should be read asynchronously.
+uploaded file content is exposed as an ``asyncio.Queue`` subclass in
+``self.request.files`` and should be read asynchronously.  File producers
+do not block discovery of later multipart parts; the application's total
+body limit bounds queued content.  A queue yields ``None`` only for a clean
+end-of-file.  If parsing aborts, ``get()`` raises
+:class:`~micropie.MultipartFileError` so a partial file cannot be mistaken
+for a complete upload.
 
 Examples
 --------

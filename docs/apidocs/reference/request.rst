@@ -44,7 +44,8 @@ Request class
       A ``dict`` mapping each query parameter to a list of values.
       This is the raw parsed mapping from the query string.  For
       convenience, use :meth:`~micropie.Request.query` to obtain
-      the first value.
+      the first value.  Parsing is permissive for compatibility: blank
+      and bare fields are omitted, while malformed encoding is tolerated.
 
       Use this raw attribute when repeated query parameters matter:
 
@@ -69,9 +70,9 @@ Request class
 
       A ``dict`` mapping URL-encoded and multipart form field names to
       lists of string values.  JSON objects are not mirrored into this
-      mapping; use :meth:`json` for JSON access.  URL-encoded forms are
-      parsed strictly, preserving empty values and rejecting malformed
-      fields or encoding with ``400 Bad Request``.
+      mapping; use :meth:`json` for JSON access.  URL-encoded form bodies
+      use the same permissive parsing as query strings: blank and bare
+      fields are omitted, while malformed encoding is tolerated.
 
       Use this raw attribute when you need all submitted values for a
       field, or when middleware needs to inspect parsed request fields:
@@ -113,6 +114,15 @@ Request class
       Top-level JSON object keys can bind directly to handler arguments
       and retain native JSON types; nested values are not stringified.
 
+   .. method:: regenerate_session()
+
+      Mark the current HTTP session for ID rotation when the response is
+      persisted.  Existing session data is preserved, the old back-end
+      entry is deleted, and a fresh session cookie is issued using the
+      application's configured ID factory.  Call this
+      after a privilege change in an already populated session.  Do not
+      await this method.
+
    .. attribute:: session
 
       A ``dict`` for storing per‑client data across requests.  See
@@ -125,12 +135,15 @@ Request class
       A ``dict`` of uploaded files for multipart/form-data requests.
       Each entry is a mapping containing keys ``filename``,
       ``content_type`` and ``content``, where ``content`` is an
-      ``asyncio.Queue`` yielding file chunks as bytes.  See
+      ``asyncio.Queue`` subclass yielding file chunks as bytes.  See
       :doc:`../tutorial/routing` for information on awaiting file fields.
 
       Unlike ``query()``, ``form()`` and ``json()``, file content is
       streaming data.  Read file chunks asynchronously from the
-      ``content`` queue.
+      ``content`` queue.  A complete file ends with ``None``.  If parsing,
+      timeout or body-limit enforcement aborts an open file, ``get()``
+      raises :class:`~micropie.MultipartFileError` instead; do not treat
+      parser failure as a clean end-of-file.
 
    .. attribute:: headers
 

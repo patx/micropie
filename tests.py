@@ -1,19 +1,28 @@
 import asyncio
 import functools
 import json as std_json
+import threading
 import unittest
 import uuid
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs
 from micropie import (
     App,
+    DEFAULT_MAX_BODY_SIZE,
+    DEFAULT_MAX_FORM_FIELD_SIZE,
     InMemorySessionBackend,
+    MULTIPART_INSTALLED,
     Request,
     WebSocketRequest,
     SESSION_TIMEOUT,
     ConnectionClosed,
     HttpMiddleware,
+    MultipartFileError,
 )
+
+
+VALID_SESSION_ID = "00000000-0000-4000-8000-000000000001"
+ATTACKER_SESSION_ID = "00000000-0000-4000-8000-000000000002"
 
 
 class CountingSessionBackend(InMemorySessionBackend):
@@ -299,14 +308,194 @@ class TestSession(MicroPieTestCase):
         self.assertIn(b"HttpOnly", cookie)
         self.assertNotIn(b"Secure", cookie)
 
-    async def test_app_rejects_invalid_timeout_configuration(self):
-        """Enabled body and session timeouts must be positive."""
+    async def test_empty_session_transition_rotates_client_supplied_id(self):
+        """A login must never persist under an unknown ID chosen by the client."""
+        backend = CountingSessionBackend()
+        self.app = App(session_backend=backend)
+
+        async def login(self):
+            self.request.session["user_id"] = 42
+            return "logged in"
+
+        setattr(self.app, "login", login.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/login",
+            headers=[
+                (
+                    b"cookie",
+                    f"session_id={ATTACKER_SESSION_ID}".encode("ascii"),
+                )
+            ],
+        )
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        self.assertEqual(backend.load_calls, [ATTACKER_SESSION_ID])
+        self.assertIn((ATTACKER_SESSION_ID, {}, 0), backend.save_calls)
+        start = next(
+            call[0][0]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "http.response.start"
+        )
+        cookie = next(
+            value for name, value in start["headers"] if name == b"Set-Cookie"
+        ).decode("ascii")
+        new_session_id = cookie.split(";", 1)[0].split("=", 1)[1]
+        self.assertNotEqual(new_session_id, ATTACKER_SESSION_ID)
+        self.assertEqual(uuid.UUID(new_session_id).version, 4)
+        self.assertNotIn(ATTACKER_SESSION_ID, backend.sessions)
+        self.assertEqual(backend.sessions[new_session_id], {"user_id": 42})
+
+    async def test_invalid_session_cookie_never_reaches_backend(self):
+        """Malformed or oversized backend keys should be discarded before load()."""
+        backend = CountingSessionBackend()
+        self.app = App(session_backend=backend)
+
+        async def login(self):
+            self.request.session["user_id"] = 42
+            return "logged in"
+
+        setattr(self.app, "login", login.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/login",
+            headers=[(b"cookie", b"session_id=../../tmp/attacker-session")],
+        )
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        self.assertEqual(backend.load_calls, [])
+        self.assertTrue(backend.save_calls)
+        saved_session_id = backend.save_calls[-1][0]
+        self.assertEqual(uuid.UUID(saved_session_id).version, 4)
+        self.assertNotEqual(saved_session_id, "../../tmp/attacker-session")
+
+    async def test_explicit_session_regeneration_rotates_existing_session(self):
+        """Apps can rotate a populated session during a privilege change."""
+        backend = CountingSessionBackend()
+        await backend.save(VALID_SESSION_ID, {"cart": "item"}, SESSION_TIMEOUT)
+        backend.load_calls.clear()
+        backend.save_calls.clear()
+        self.app = App(session_backend=backend)
+
+        async def reauthenticate(self):
+            self.request.session["user_id"] = 42
+            self.request.regenerate_session()
+            return "reauthenticated"
+
+        setattr(
+            self.app,
+            "reauthenticate",
+            reauthenticate.__get__(self.app, App),
+        )
+        scope = self.create_mock_scope(
+            path="/reauthenticate",
+            headers=[
+                (b"cookie", f"session_id={VALID_SESSION_ID}".encode("ascii"))
+            ],
+        )
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        self.assertIn((VALID_SESSION_ID, {}, 0), backend.save_calls)
+        self.assertNotIn(VALID_SESSION_ID, backend.sessions)
+        new_session_id = backend.save_calls[-1][0]
+        self.assertNotEqual(new_session_id, VALID_SESSION_ID)
+        self.assertEqual(
+            backend.sessions[new_session_id], {"cart": "item", "user_id": 42}
+        )
+        start = next(
+            call[0][0]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "http.response.start"
+        )
+        cookie = next(
+            value for name, value in start["headers"] if name == b"Set-Cookie"
+        )
+        self.assertIn(f"session_id={new_session_id}".encode("ascii"), cookie)
+
+    async def test_custom_session_id_policy_supports_non_uuid_backends(self):
+        """Custom backends can opt into their own validated ID format."""
+        backend = CountingSessionBackend()
+        await backend.save("signed.existing", {"user": "alice"}, SESSION_TIMEOUT)
+        backend.load_calls.clear()
+        backend.save_calls.clear()
+        self.app = App(
+            session_backend=backend,
+            session_id_factory=lambda: "signed.fresh",
+            session_id_validator=lambda value: (
+                value if value.startswith("signed.") else None
+            ),
+        )
+
+        async def profile(self):
+            return self.request.session["user"]
+
+        setattr(self.app, "profile", profile.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/profile",
+            headers=[(b"cookie", b"session_id=signed.existing")],
+        )
+        send = AsyncMock()
+
+        await self.app(
+            scope,
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": b"",
+                    "more_body": False,
+                }
+            ),
+            send,
+        )
+
+        self.assertEqual(backend.load_calls, ["signed.existing"])
+        self.assertEqual(backend.save_calls[-1][0], "signed.existing")
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"alice", "more_body": False}
+        )
+
+    async def test_app_rejects_invalid_limit_configuration(self):
+        """Enabled body limits and session timeouts must be positive."""
         with self.assertRaisesRegex(ValueError, "body_timeout"):
             App(body_timeout=0)
+        with self.assertRaisesRegex(ValueError, "max_body_size"):
+            App(max_body_size=0)
+        with self.assertRaisesRegex(ValueError, "max_form_field_size"):
+            App(max_form_field_size=0)
         with self.assertRaisesRegex(ValueError, "session_timeout"):
             App(session_timeout=0)
+        with self.assertRaisesRegex(ValueError, "session_id_factory"):
+            App(session_id_factory=None)
+        with self.assertRaisesRegex(ValueError, "session_id_validator"):
+            App(session_id_validator="not-callable")
 
-        self.assertIsNone(App(body_timeout=None).body_timeout)
+        unbounded = App(
+            body_timeout=None,
+            max_body_size=None,
+            max_form_field_size=None,
+        )
+        self.assertIsNone(unbounded.body_timeout)
+        self.assertIsNone(unbounded.max_body_size)
+        self.assertIsNone(unbounded.max_form_field_size)
+
+        defaults = App()
+        self.assertEqual(defaults.max_body_size, DEFAULT_MAX_BODY_SIZE)
+        self.assertEqual(
+            defaults.max_form_field_size, DEFAULT_MAX_FORM_FIELD_SIZE
+        )
 
 
 class TestFastPaths(MicroPieTestCase):
@@ -336,7 +525,7 @@ class TestFastPaths(MicroPieTestCase):
     async def test_request_with_session_cookie_loads_and_persists(self):
         """A session cookie should still load and save the matching session."""
         backend = CountingSessionBackend()
-        await backend.save("abc", {"user": "alice"}, SESSION_TIMEOUT)
+        await backend.save(VALID_SESSION_ID, {"user": "alice"}, SESSION_TIMEOUT)
         backend.load_calls.clear()
         backend.save_calls.clear()
         self.app = App(session_backend=backend)
@@ -348,7 +537,10 @@ class TestFastPaths(MicroPieTestCase):
         setattr(self.app, "index", index.__get__(self.app, App))
 
         scope = self.create_mock_scope(
-            path="/index", headers=[(b"cookie", b"session_id=abc")]
+            path="/index",
+            headers=[
+                (b"cookie", f"session_id={VALID_SESSION_ID}".encode("ascii"))
+            ],
         )
         receive = AsyncMock(
             return_value={"type": "http.request", "body": b"", "more_body": False}
@@ -357,9 +549,11 @@ class TestFastPaths(MicroPieTestCase):
 
         await self.app(scope, receive, send)
 
-        self.assertEqual(backend.load_calls, ["abc"])
-        self.assertEqual(backend.save_calls[-1][0], "abc")
-        self.assertEqual(backend.sessions["abc"], {"user": "alice", "seen": "1"})
+        self.assertEqual(backend.load_calls, [VALID_SESSION_ID])
+        self.assertEqual(backend.save_calls[-1][0], VALID_SESSION_ID)
+        self.assertEqual(
+            backend.sessions[VALID_SESSION_ID], {"user": "alice", "seen": "1"}
+        )
         send.assert_any_call(
             {"type": "http.response.body", "body": b"alice", "more_body": False}
         )
@@ -521,112 +715,107 @@ class TestFastPaths(MicroPieTestCase):
 
         send.assert_any_call({"type": "websocket.send", "text": "lobby:alice"})
 
+    async def test_http_keyword_only_and_var_keyword_binding(self):
+        """Keyword-only parameters and **kwargs should bind by name."""
+
+        async def options(self, *, name="guest", **kwargs):
+            return {"name": name, "extras": kwargs}
+
+        setattr(self.app, "options", options.__get__(self.app, App))
+        payload = {"tags": [], "enabled": True}
+        scope = self.create_mock_scope(
+            path="/options",
+            method="POST",
+            headers=[(b"content-type", b"application/json")],
+            query_string=b"name=alice&debug=1",
+        )
+        send = AsyncMock()
+
+        await self.app(
+            scope,
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": std_json.dumps(payload).encode("utf-8"),
+                    "more_body": False,
+                }
+            ),
+            send,
+        )
+
+        body = next(
+            call[0][0]["body"]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "http.response.body"
+        )
+        self.assertEqual(
+            std_json.loads(body),
+            {
+                "name": "alice",
+                "extras": {"debug": "1", "tags": [], "enabled": True},
+            },
+        )
+
+    async def test_websocket_keyword_only_and_var_keyword_binding(self):
+        """WebSocket keyword-only parameters and **kwargs use query values."""
+
+        async def ws_options(self, connection, *, room="lobby", **kwargs):
+            await connection.accept()
+            await connection.send_text(f"{room}:{kwargs['debug']}")
+            await connection.close()
+
+        setattr(self.app, "ws_options", ws_options.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/options",
+            query_string=b"room=staff&debug=1",
+            scope_type="websocket",
+        )
+        send = AsyncMock()
+
+        await self.app(
+            scope,
+            AsyncMock(return_value={"type": "websocket.connect"}),
+            send,
+        )
+
+        send.assert_any_call({"type": "websocket.send", "text": "staff:1"})
+
 
 class TestRequestInputParsing(MicroPieTestCase):
-    """Tests for strict URL-encoded query and form parsing."""
+    """Tests for consistent tolerant URL-encoded parsing."""
 
-    async def test_blank_query_and_form_values_are_preserved(self):
-        """Valid empty values should bind instead of being silently dropped."""
-
-        async def query_value(self, value):
-            return f"query:<{value}>"
-
-        async def form_value(self, value):
-            return f"form:<{value}>"
-
-        setattr(self.app, "query_value", query_value.__get__(self.app, App))
-        setattr(self.app, "form_value", form_value.__get__(self.app, App))
-
-        query_send = AsyncMock()
-        await self.app(
-            self.create_mock_scope(path="/query_value", query_string=b"value="),
-            AsyncMock(
-                return_value={
-                    "type": "http.request",
-                    "body": b"",
-                    "more_body": False,
-                }
-            ),
-            query_send,
-        )
-        query_send.assert_any_call(
-            {
-                "type": "http.response.body",
-                "body": b"query:<>",
-                "more_body": False,
-            }
+    async def test_query_and_form_bodies_share_legacy_tolerant_parsing(self):
+        """The same URL-encoded bytes should produce the same parsed mapping."""
+        cases = (
+            (b"value=", {}),
+            (b"value", {}),
+            (b"value=%ZZ", {"value": ["%ZZ"]}),
+            (b"value=%FF", {"value": ["\ufffd"]}),
+            (b"value=before\xffafter", {"value": ["beforeafter"]}),
         )
 
-        form_send = AsyncMock()
-        await self.app(
-            self.create_mock_scope(
-                path="/form_value",
-                method="POST",
-                headers=[
-                    (b"content-type", b"application/x-www-form-urlencoded")
-                ],
-            ),
-            AsyncMock(
-                return_value={
-                    "type": "http.request",
-                    "body": b"value=",
-                    "more_body": False,
-                }
-            ),
-            form_send,
-        )
-        form_send.assert_any_call(
-            {
-                "type": "http.response.body",
-                "body": b"form:<>",
-                "more_body": False,
-            }
+        parsed_bodies = []
+
+        async def inspect_form(self):
+            parsed_bodies.append(self.request.body_params)
+            return "OK"
+
+        setattr(
+            self.app,
+            "inspect_form",
+            inspect_form.__get__(self.app, App),
         )
 
-    async def test_malformed_query_strings_return_400(self):
-        """Malformed fields and percent encoding should be rejected."""
-        for query_string in (b"missing-equals", b"name=%ZZ", b"name=%FF"):
-            with self.subTest(query_string=query_string):
+        for encoded, expected in cases:
+            with self.subTest(encoded=encoded):
+                self.assertEqual(
+                    self.app._parse_query_string({"query_string": encoded}),
+                    expected,
+                )
                 send = AsyncMock()
                 await self.app(
                     self.create_mock_scope(
-                        path="/index", query_string=query_string
-                    ),
-                    AsyncMock(
-                        return_value={
-                            "type": "http.request",
-                            "body": b"",
-                            "more_body": False,
-                        }
-                    ),
-                    send,
-                )
-
-                send.assert_any_call(
-                    {
-                        "type": "http.response.start",
-                        "status": 400,
-                        "headers": [
-                            (b"Content-Type", b"text/html; charset=utf-8")
-                        ],
-                    }
-                )
-                send.assert_any_call(
-                    {
-                        "type": "http.response.body",
-                        "body": b"400 Bad Request: Malformed query string",
-                        "more_body": False,
-                    }
-                )
-
-    async def test_malformed_form_bodies_return_400(self):
-        """Malformed URL-encoded form fields should be rejected."""
-        for body in (b"missing-equals", b"name=%ZZ", b"name=%FF"):
-            with self.subTest(body=body):
-                send = AsyncMock()
-                await self.app(
-                    self.create_mock_scope(
-                        path="/index",
+                        path="/inspect_form",
                         method="POST",
                         headers=[
                             (
@@ -638,26 +827,17 @@ class TestRequestInputParsing(MicroPieTestCase):
                     AsyncMock(
                         return_value={
                             "type": "http.request",
-                            "body": body,
+                            "body": encoded,
                             "more_body": False,
                         }
                     ),
                     send,
                 )
-
-                send.assert_any_call(
-                    {
-                        "type": "http.response.start",
-                        "status": 400,
-                        "headers": [
-                            (b"Content-Type", b"text/html; charset=utf-8")
-                        ],
-                    }
-                )
+                self.assertEqual(parsed_bodies[-1], expected)
                 send.assert_any_call(
                     {
                         "type": "http.response.body",
-                        "body": b"400 Bad Request: Malformed form body",
+                        "body": b"OK",
                         "more_body": False,
                     }
                 )
@@ -757,6 +937,258 @@ class TestRequestBodyTimeouts(MicroPieTestCase):
         )
 
 
+class TestRequestBodyLimits(MicroPieTestCase):
+    """Tests for declared and streamed request-body limits."""
+
+    async def test_content_length_rejects_oversized_body_before_receive(self):
+        """An oversized declared body should be rejected without buffering it."""
+        self.app = App(max_body_size=4)
+        scope = self.create_mock_scope(
+            path="/index",
+            method="POST",
+            headers=[
+                (b"content-type", b"application/json"),
+                (b"content-length", b"5"),
+            ],
+        )
+        receive = AsyncMock()
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        receive.assert_not_awaited()
+        send.assert_any_call(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+            }
+        )
+
+    async def test_invalid_content_length_returns_400(self):
+        """Invalid Content-Length values should not bypass early validation."""
+        self.app = App(max_body_size=4)
+        scope = self.create_mock_scope(
+            path="/index",
+            method="POST",
+            headers=[(b"content-length", b"not-a-number")],
+        )
+        send = AsyncMock()
+
+        await self.app(scope, AsyncMock(), send)
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"400 Bad Request: Invalid Content-Length",
+                "more_body": False,
+            }
+        )
+
+    async def test_streamed_body_is_counted_without_content_length(self):
+        """Chunked bodies should receive 413 as soon as actual bytes exceed the cap."""
+        self.app = App(max_body_size=8)
+        chunks = [
+            {"type": "http.request", "body": b"value=", "more_body": True},
+            {"type": "http.request", "body": b"toolong", "more_body": False},
+        ]
+
+        async def receive():
+            return chunks.pop(0)
+
+        scope = self.create_mock_scope(
+            path="/index",
+            method="POST",
+            headers=[(b"content-type", b"application/x-www-form-urlencoded")],
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"413 Payload Too Large",
+                "more_body": False,
+            }
+        )
+
+    async def test_body_at_exact_limit_is_allowed(self):
+        """The configured size is inclusive; only larger bodies are rejected."""
+        body = b"value=ok"
+        self.app = App(max_body_size=len(body))
+
+        async def submit(self, value):
+            return value
+
+        setattr(self.app, "submit", submit.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/submit",
+            method="POST",
+            headers=[(b"content-type", b"application/x-www-form-urlencoded")],
+        )
+        send = AsyncMock()
+
+        await self.app(
+            scope,
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": body,
+                    "more_body": False,
+                }
+            ),
+            send,
+        )
+
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"ok", "more_body": False}
+        )
+
+    @unittest.skipUnless(MULTIPART_INSTALLED, "multipart package is not installed")
+    async def test_multipart_text_field_has_independent_limit(self):
+        """A large text field should fail even when total upload size is allowed."""
+        body = (
+            b"--test-boundary\r\n"
+            b'Content-Disposition: form-data; name="note"\r\n\r\n'
+            b"12345\r\n"
+            b"--test-boundary--\r\n"
+        )
+        self.app = App(
+            max_body_size=len(body) + 1,
+            max_form_field_size=4,
+        )
+
+        async def upload(self, note):
+            return note
+
+        setattr(self.app, "upload", upload.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/upload",
+            method="POST",
+            headers=[
+                (b"content-type", b"multipart/form-data; boundary=test-boundary")
+            ],
+        )
+        send = AsyncMock()
+
+        await asyncio.wait_for(
+            self.app(
+                scope,
+                AsyncMock(
+                    return_value={
+                        "type": "http.request",
+                        "body": body,
+                        "more_body": False,
+                    }
+                ),
+                send,
+            ),
+            timeout=1,
+        )
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"413 Payload Too Large: Multipart form field",
+                "more_body": False,
+            }
+        )
+
+    @unittest.skipUnless(MULTIPART_INSTALLED, "multipart package is not installed")
+    async def test_multipart_limit_terminates_open_file_queue(self):
+        """A mid-upload 413 should wake a handler already draining the file queue."""
+        prefix = (
+            b"--test-boundary\r\n"
+            b'Content-Disposition: form-data; name="file"; filename="a.txt"\r\n'
+            b"Content-Type: text/plain\r\n\r\n"
+        )
+        first_chunk = prefix + b"hello"
+        final_chunk = b" world\r\n--test-boundary--\r\n"
+        self.app = App(max_body_size=len(first_chunk) + 1)
+        handler_saw_failure = asyncio.Event()
+
+        async def upload(self, file):
+            try:
+                while await file["content"].get() is not None:
+                    pass
+            except MultipartFileError:
+                handler_saw_failure.set()
+                raise
+            raise AssertionError("A truncated file was reported as complete")
+
+        setattr(self.app, "upload", upload.__get__(self.app, App))
+        chunks = [
+            {
+                "type": "http.request",
+                "body": first_chunk,
+                "more_body": True,
+            },
+            {
+                "type": "http.request",
+                "body": final_chunk,
+                "more_body": False,
+            },
+        ]
+
+        async def receive():
+            await asyncio.sleep(0)
+            return chunks.pop(0)
+
+        scope = self.create_mock_scope(
+            path="/upload",
+            method="POST",
+            headers=[
+                (b"content-type", b"multipart/form-data; boundary=test-boundary")
+            ],
+        )
+        send = AsyncMock()
+
+        await asyncio.wait_for(self.app(scope, receive, send), timeout=1)
+
+        self.assertTrue(handler_saw_failure.is_set())
+        send.assert_any_call(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+            }
+        )
+
+    @unittest.skipUnless(MULTIPART_INSTALLED, "multipart package is not installed")
+    async def test_stalled_multipart_receive_returns_408(self):
+        """Multipart receive calls use the same per-chunk idle timeout."""
+        self.app = App(body_timeout=0.01)
+
+        async def upload(self, file):
+            return "unreachable"
+
+        setattr(self.app, "upload", upload.__get__(self.app, App))
+
+        async def receive():
+            await asyncio.sleep(0.05)
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        scope = self.create_mock_scope(
+            path="/upload",
+            method="POST",
+            headers=[
+                (b"content-type", b"multipart/form-data; boundary=test-boundary")
+            ],
+        )
+        send = AsyncMock()
+
+        await asyncio.wait_for(self.app(scope, receive, send), timeout=1)
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"408 Request Timeout: Failed to receive body",
+                "more_body": False,
+            }
+        )
+
+
 class TestMultipartCoordination(MicroPieTestCase):
     """Tests for notification-driven multipart file binding."""
 
@@ -781,6 +1213,9 @@ class TestMultipartCoordination(MicroPieTestCase):
             *,
             file_notifications=None,
             file_queue_maxsize=2048,
+            max_body_size=None,
+            max_form_field_size=None,
+            body_timeout=None,
         ):
             content = asyncio.Queue(maxsize=file_queue_maxsize)
             request.files["upload"] = {
@@ -828,6 +1263,9 @@ class TestMultipartCoordination(MicroPieTestCase):
             *,
             file_notifications=None,
             file_queue_maxsize=2048,
+            max_body_size=None,
+            max_form_field_size=None,
+            body_timeout=None,
         ):
             return None
 
@@ -862,6 +1300,9 @@ class TestMultipartCoordination(MicroPieTestCase):
             *,
             file_notifications=None,
             file_queue_maxsize=2048,
+            max_body_size=None,
+            max_form_field_size=None,
+            body_timeout=None,
         ):
             raise RuntimeError("broken multipart body")
 
@@ -906,6 +1347,9 @@ class TestMultipartCoordination(MicroPieTestCase):
             *,
             file_notifications=None,
             file_queue_maxsize=2048,
+            max_body_size=None,
+            max_form_field_size=None,
+            body_timeout=None,
         ):
             parser_started.set()
             try:
@@ -939,6 +1383,223 @@ class TestMultipartCoordination(MicroPieTestCase):
                 "type": "http.response.start",
                 "status": 413,
                 "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+            }
+        )
+
+    async def test_large_first_file_does_not_block_second_file_binding(self):
+        """Multi-file binding must not depend on the first queue being drained."""
+
+        async def fake_parse(
+            receive,
+            boundary,
+            request,
+            *,
+            file_notifications=None,
+            file_queue_maxsize=2048,
+            max_body_size=None,
+            max_form_field_size=None,
+            body_timeout=None,
+        ):
+            self.assertEqual(file_queue_maxsize, 0)
+            first = asyncio.Queue(maxsize=file_queue_maxsize)
+            request.files["file1"] = {
+                "filename": "one.bin",
+                "content_type": "application/octet-stream",
+                "content": first,
+            }
+            file_notifications.put_nowait("file1")
+            for _ in range(4096):
+                await first.put(b"x")
+            await first.put(None)
+
+            second = asyncio.Queue(maxsize=file_queue_maxsize)
+            request.files["file2"] = {
+                "filename": "two.bin",
+                "content_type": "application/octet-stream",
+                "content": second,
+            }
+            file_notifications.put_nowait("file2")
+            await second.put(b"y")
+            await second.put(None)
+
+        self.app._parse_multipart_into_request = fake_parse
+
+        async def upload(self, file1, file2):
+            first_size = 0
+            while (chunk := await file1["content"].get()) is not None:
+                first_size += len(chunk)
+            second_chunk = await file2["content"].get()
+            return f"{first_size}:{second_chunk.decode()}"
+
+        setattr(self.app, "upload", upload.__get__(self.app, App))
+        send = AsyncMock()
+
+        with patch("micropie.MULTIPART_INSTALLED", True):
+            await asyncio.wait_for(
+                self.app(self.multipart_scope(), AsyncMock(), send), timeout=1
+            )
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"4096:y",
+                "more_body": False,
+            }
+        )
+
+    async def test_handler_may_return_without_draining_file_queue(self):
+        """Parser completion cannot deadlock behind an abandoned file queue."""
+        handler_returned = asyncio.Event()
+
+        async def fake_parse(
+            receive,
+            boundary,
+            request,
+            *,
+            file_notifications=None,
+            file_queue_maxsize=2048,
+            max_body_size=None,
+            max_form_field_size=None,
+            body_timeout=None,
+        ):
+            content = asyncio.Queue(maxsize=file_queue_maxsize)
+            request.files["file"] = {
+                "filename": "large.bin",
+                "content_type": "application/octet-stream",
+                "content": content,
+            }
+            file_notifications.put_nowait("file")
+            await handler_returned.wait()
+            for _ in range(4096):
+                await content.put(b"x")
+            await content.put(None)
+
+        self.app._parse_multipart_into_request = fake_parse
+
+        async def upload(self, file):
+            handler_returned.set()
+            return "ignored"
+
+        setattr(self.app, "upload", upload.__get__(self.app, App))
+        send = AsyncMock()
+
+        with patch("micropie.MULTIPART_INSTALLED", True):
+            await asyncio.wait_for(
+                self.app(self.multipart_scope(), AsyncMock(), send), timeout=1
+            )
+
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"ignored", "more_body": False}
+        )
+
+    async def test_known_parser_failure_prevents_handler_execution(self):
+        """An already-failed parser must block query-only handler side effects."""
+        parser_failed = asyncio.Event()
+        handler_called = False
+
+        async def fake_parse(
+            receive,
+            boundary,
+            request,
+            *,
+            file_notifications=None,
+            file_queue_maxsize=2048,
+            max_body_size=None,
+            max_form_field_size=None,
+            body_timeout=None,
+        ):
+            parser_failed.set()
+            raise RuntimeError("broken multipart body")
+
+        class WaitForFailure(HttpMiddleware):
+            async def before_request(self, request):
+                await parser_failed.wait()
+
+            async def after_request(
+                self, request, status_code, response_body, extra_headers
+            ):
+                return None
+
+        self.app._parse_multipart_into_request = fake_parse
+        self.app.middlewares.append(WaitForFailure())
+
+        async def upload(self, value):
+            nonlocal handler_called
+            handler_called = True
+            return value
+
+        setattr(self.app, "upload", upload.__get__(self.app, App))
+        scope = self.multipart_scope()
+        scope["query_string"] = b"value=unsafe"
+        send = AsyncMock()
+
+        with patch("micropie.MULTIPART_INSTALLED", True), self.assertLogs(
+            "micropie", level="ERROR"
+        ):
+            await asyncio.wait_for(self.app(scope, AsyncMock(), send), timeout=1)
+
+        self.assertFalse(handler_called)
+        send.assert_any_call(
+            {
+                "type": "http.response.start",
+                "status": 400,
+                "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+            }
+        )
+
+    @unittest.skipUnless(MULTIPART_INSTALLED, "multipart package is not installed")
+    async def test_multipart_subapp_handoff_uses_completed_parse(self):
+        """A child app must never receive a multipart stream mid-boundary."""
+        child = App()
+
+        async def upload(self, file):
+            chunks = []
+            while (chunk := await file["content"].get()) is not None:
+                chunks.append(chunk)
+            return b"".join(chunks)
+
+        setattr(child, "upload", upload.__get__(child, App))
+
+        class MountChild(HttpMiddleware):
+            async def before_request(self, request):
+                request._subapp = child
+                request._subapp_path = "/upload"
+
+            async def after_request(
+                self, request, status_code, response_body, extra_headers
+            ):
+                return None
+
+        self.app.middlewares.append(MountChild())
+        body = (
+            b"--test-boundary\r\n"
+            b'Content-Disposition: form-data; name="file"; filename="a.txt"\r\n'
+            b"Content-Type: text/plain\r\n\r\n"
+            b"complete file\r\n"
+            b"--test-boundary--\r\n"
+        )
+        send = AsyncMock()
+
+        await asyncio.wait_for(
+            self.app(
+                self.multipart_scope(),
+                AsyncMock(
+                    return_value={
+                        "type": "http.request",
+                        "body": body,
+                        "more_body": False,
+                    }
+                ),
+                send,
+            ),
+            timeout=1,
+        )
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"complete file",
+                "more_body": False,
             }
         )
 
@@ -1168,8 +1829,13 @@ class TestWebSocket(MicroPieTestCase):
 
         await self.app(scope, receive, send)
 
-        send.assert_any_call(
-            {"type": "websocket.accept", "subprotocol": None, "headers": []}
+        accept = next(
+            call[0][0]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "websocket.accept"
+        )
+        self.assertTrue(
+            any(name == b"Set-Cookie" for name, _ in accept["headers"])
         )
         send.assert_any_call({"type": "websocket.send", "text": "Echo: Hello"})
         send.assert_any_call(
@@ -1231,11 +1897,18 @@ class TestWebSocket(MicroPieTestCase):
             }
         )
 
-    async def test_malformed_websocket_query_is_rejected(self):
-        """WebSocket requests should reject malformed query encoding."""
+    async def test_malformed_websocket_query_is_tolerated(self):
+        """WebSocket query parsing should use the same permissive behavior."""
+
+        async def ws_echo(self, ws, name):
+            await ws.accept()
+            await ws.send_text(name)
+            await ws.close()
+
+        setattr(self.app, "ws_echo", ws_echo.__get__(self.app, App))
         scope = self.create_mock_scope(
             path="/echo",
-            query_string=b"missing-equals",
+            query_string=b"name=%ZZ",
             scope_type="websocket",
         )
         receive = AsyncMock(return_value={"type": "websocket.connect"})
@@ -1243,20 +1916,14 @@ class TestWebSocket(MicroPieTestCase):
 
         await self.app(scope, receive, send)
 
-        send.assert_any_call(
-            {
-                "type": "websocket.close",
-                "code": 1008,
-                "reason": "Malformed query string",
-            }
-        )
+        send.assert_any_call({"type": "websocket.send", "text": "%ZZ"})
 
     async def test_websocket_cookie_respects_secure_configuration(self):
         """WebSocket handshake cookies should use the App cookie policy."""
         self.app = App(session_cookie_secure=False)
 
         async def ws_cookie(self, ws):
-            await ws.accept(session_id="abc")
+            await ws.accept(session_id=VALID_SESSION_ID)
             await ws.close()
 
         setattr(self.app, "ws_cookie", ws_cookie.__get__(self.app, App))
@@ -1277,6 +1944,38 @@ class TestWebSocket(MicroPieTestCase):
         self.assertIn(b"HttpOnly", cookie)
         self.assertNotIn(b"Secure", cookie)
 
+    async def test_websocket_accept_uses_custom_session_id_validator(self):
+        """Explicit non-UUID IDs are allowed by an application's policy."""
+        self.app = App(
+            session_id_factory=lambda: "signed.fresh",
+            session_id_validator=lambda value: (
+                value if value.startswith("signed.") else None
+            ),
+        )
+
+        async def ws_cookie(self, ws):
+            await ws.accept(session_id="signed.explicit")
+            await ws.close()
+
+        setattr(self.app, "ws_cookie", ws_cookie.__get__(self.app, App))
+        send = AsyncMock()
+
+        await self.app(
+            self.create_mock_scope(path="/cookie", scope_type="websocket"),
+            AsyncMock(return_value={"type": "websocket.connect"}),
+            send,
+        )
+
+        accept = next(
+            call[0][0]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "websocket.accept"
+        )
+        cookie = next(
+            value for name, value in accept["headers"] if name == b"Set-Cookie"
+        )
+        self.assertIn(b"session_id=signed.explicit", cookie)
+
     async def test_websocket_session_uses_app_timeout(self):
         """WebSocket session saves should receive the configured timeout."""
         backend = CountingSessionBackend()
@@ -1295,6 +1994,57 @@ class TestWebSocket(MicroPieTestCase):
         await self.app(scope, receive, send)
 
         self.assertEqual(backend.save_calls[-1][2], 321)
+        accept = next(
+            call[0][0]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "websocket.accept"
+        )
+        cookie = next(
+            value for name, value in accept["headers"] if name == b"Set-Cookie"
+        ).decode("ascii")
+        cookie_session_id = cookie.split(";", 1)[0].split("=", 1)[1]
+        self.assertEqual(cookie_session_id, backend.save_calls[-1][0])
+        self.assertEqual(backend.sessions[cookie_session_id], {"user": "alice"})
+
+    async def test_websocket_rotates_unknown_client_session_id(self):
+        """A planted UUID should be replaced during the WebSocket handshake."""
+        backend = CountingSessionBackend()
+        self.app = App(session_backend=backend)
+
+        async def ws_login(self, ws):
+            await ws.accept()
+            self.request.session["user_id"] = 42
+            await ws.close()
+
+        setattr(self.app, "ws_login", ws_login.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/login",
+            scope_type="websocket",
+            headers=[
+                (
+                    b"cookie",
+                    f"session_id={ATTACKER_SESSION_ID}".encode("ascii"),
+                )
+            ],
+        )
+        receive = AsyncMock(return_value={"type": "websocket.connect"})
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        accept = next(
+            call[0][0]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "websocket.accept"
+        )
+        cookie = next(
+            value for name, value in accept["headers"] if name == b"Set-Cookie"
+        ).decode("ascii")
+        new_session_id = cookie.split(";", 1)[0].split("=", 1)[1]
+        self.assertNotEqual(new_session_id, ATTACKER_SESSION_ID)
+        self.assertEqual(uuid.UUID(new_session_id).version, 4)
+        self.assertNotIn(ATTACKER_SESSION_ID, backend.sessions)
+        self.assertEqual(backend.sessions[new_session_id], {"user_id": 42})
 
     async def test_websocket_handler_exception_is_logged(self):
         """WebSocket handler failures should include traceback logging."""
@@ -1315,7 +2065,7 @@ class TestWebSocket(MicroPieTestCase):
             {
                 "type": "websocket.close",
                 "code": 1011,
-                "reason": "Handler error: websocket boom",
+                "reason": "Internal server error",
             }
         )
 
@@ -1370,6 +2120,92 @@ class TestMiddleware(MicroPieTestCase):
             }
         )
 
+    async def test_partial_before_request_response_uses_defaults(self):
+        """A partial short-circuit mapping should not raise KeyError."""
+
+        class NoContent(HttpMiddleware):
+            async def before_request(self, request):
+                return {"status_code": 204}
+
+            async def after_request(
+                self, request, status_code, response_body, extra_headers
+            ):
+                return None
+
+        self.app.middlewares.append(NoContent())
+        send = AsyncMock()
+
+        await self.app(
+            self.create_mock_scope(),
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": b"",
+                    "more_body": False,
+                }
+            ),
+            send,
+        )
+
+        send.assert_any_call(
+            {
+                "type": "http.response.start",
+                "status": 204,
+                "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+            }
+        )
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"", "more_body": False}
+        )
+
+    async def test_json_subapp_handoff_preserves_json_namespace(self):
+        """Child apps receive JSON through Request.json(), not body_params."""
+        child = App()
+
+        async def submit(self):
+            return {
+                "value": self.request.json("value"),
+                "body_params": self.request.body_params,
+            }
+
+        setattr(child, "submit", submit.__get__(child, App))
+
+        class MountChild(HttpMiddleware):
+            async def before_request(self, request):
+                request._subapp = child
+                request._subapp_path = "/submit"
+
+            async def after_request(
+                self, request, status_code, response_body, extra_headers
+            ):
+                return None
+
+        self.app.middlewares.append(MountChild())
+        send = AsyncMock()
+
+        await self.app(
+            self.create_mock_scope(
+                path="/mounted/submit",
+                method="POST",
+                headers=[(b"content-type", b"application/json")],
+            ),
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": b'{"value": 7}',
+                    "more_body": False,
+                }
+            ),
+            send,
+        )
+
+        body = next(
+            call[0][0]["body"]
+            for call in send.call_args_list
+            if call[0][0]["type"] == "http.response.body"
+        )
+        self.assertEqual(std_json.loads(body), {"value": 7, "body_params": {}})
+
 
 class TestResponseHandling(MicroPieTestCase):
     """Tests for response handling and edge cases."""
@@ -1418,6 +2254,49 @@ class TestResponseHandling(MicroPieTestCase):
                     "more_body": False,
                 }
             )
+
+    async def test_json_response_type_is_stable_for_middleware(self):
+        """Middleware sees text regardless of the selected JSON implementation."""
+        seen_types = []
+
+        class ObserveBody(HttpMiddleware):
+            async def before_request(self, request):
+                return None
+
+            async def after_request(
+                self, request, status_code, response_body, extra_headers
+            ):
+                seen_types.append(type(response_body))
+
+        self.app.middlewares.append(ObserveBody())
+
+        async def index(self):
+            return {"ok": True}
+
+        setattr(self.app, "index", index.__get__(self.app, App))
+        send = AsyncMock()
+
+        with patch("micropie.json.dumps", return_value=b'{"ok":true}'):
+            await self.app(
+                self.create_mock_scope(),
+                AsyncMock(
+                    return_value={
+                        "type": "http.request",
+                        "body": b"",
+                        "more_body": False,
+                    }
+                ),
+                send,
+            )
+
+        self.assertEqual(seen_types, [str])
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b'{"ok":true}',
+                "more_body": False,
+            }
+        )
 
     async def test_json_arguments_keep_native_types_and_form_namespace(self):
         """JSON binding should not stringify or mirror values into form data."""
@@ -1568,6 +2447,91 @@ class TestResponseHandling(MicroPieTestCase):
             {"type": "http.response.body", "body": b"Test", "more_body": False}
         )
 
+    async def test_non_latin1_header_is_rejected_before_response_start(self):
+        """An unencodable header should be skipped instead of crashing ASGI."""
+
+        async def index(self):
+            return 200, "OK", [("X-Snowman", "☃")]
+
+        setattr(self.app, "index", index.__get__(self.app, App))
+        send = AsyncMock()
+
+        with self.assertLogs("micropie", level="WARNING"):
+            await self.app(
+                self.create_mock_scope(),
+                AsyncMock(
+                    return_value={
+                        "type": "http.request",
+                        "body": b"",
+                        "more_body": False,
+                    }
+                ),
+                send,
+            )
+
+        send.assert_any_call(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"Content-Type", b"text/html; charset=utf-8")],
+            }
+        )
+
+    async def test_sync_generator_advances_off_event_loop(self):
+        """Blocking synchronous generator steps run in a worker thread."""
+        event_loop_thread = threading.get_ident()
+        generator_threads = []
+
+        def chunks():
+            generator_threads.append(threading.get_ident())
+            yield "chunk"
+
+        async def index(self):
+            return chunks()
+
+        setattr(self.app, "index", index.__get__(self.app, App))
+        send = AsyncMock()
+
+        await self.app(
+            self.create_mock_scope(),
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": b"",
+                    "more_body": False,
+                }
+            ),
+            send,
+        )
+
+        self.assertTrue(generator_threads)
+        self.assertNotEqual(generator_threads[0], event_loop_thread)
+
+    async def test_stream_completion_cancels_pending_receive(self):
+        """Completing a streamed response must not orphan receive()."""
+        receive_cancelled = asyncio.Event()
+
+        async def stream():
+            yield b"done"
+
+        async def index(self):
+            return stream()
+
+        async def receive():
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                receive_cancelled.set()
+                raise
+
+        setattr(self.app, "index", index.__get__(self.app, App))
+
+        await asyncio.wait_for(
+            self.app(self.create_mock_scope(), receive, AsyncMock()), timeout=1
+        )
+
+        self.assertTrue(receive_cancelled.is_set())
+
     async def test_redirect(self):
         """Test redirect response generation."""
         location = "/new-page"
@@ -1578,6 +2542,10 @@ class TestResponseHandling(MicroPieTestCase):
         self.assertIn(("Location", location), headers, "Location header should be set")
         self.assertIn(
             ("X-Custom", "Value"), headers, "Extra headers should be included"
+        )
+        _, _, unicode_headers = self.app._redirect("/search?q=snow man ☃")
+        self.assertIn(
+            ("Location", "/search?q=snow%20man%20%E2%98%83"), unicode_headers
         )
 
 

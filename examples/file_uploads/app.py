@@ -50,5 +50,5 @@ class Root(App):
         return 200, f"Uploaded {file['filename']}"
 
 
-# Instantiate the app
-app = Root()
+# Instantiate the app with a 100 MiB encoded-body limit.
+app = Root(max_body_size=100 * 1024 * 1024)

@@ -14,9 +14,9 @@ and implement two asynchronous methods:
 
 * :meth:`~micropie.HttpMiddleware.before_request` – called before the
   handler is executed.  If this method returns a dictionary with
-  ``status_code`` and ``body`` keys, MicroPie immediately sends that
-  response and skips calling the handler.  You can also provide
-  additional headers via a ``headers`` key.
+  response fields, MicroPie immediately sends that response and skips
+  calling the handler.  ``status_code``, ``body`` and ``headers`` are all
+  optional; omitted fields use the current defaults.
 
 * :meth:`~micropie.HttpMiddleware.after_request` – called after the
   handler has returned a response but before it is sent to the client.
@@ -45,6 +45,17 @@ Register your middleware by appending an instance to
 
    app = MyApp()
    app.middlewares.append(LoggingMiddleware())
+
+Request-body limits
+-------------------
+
+``before_request`` runs after MicroPie has started parsing the request
+body, and :class:`~micropie.HttpMiddleware` does not receive the ASGI
+``receive`` callable.  It is therefore too late for this hook to enforce a
+memory-safe upload limit.  Configure ``App(max_body_size=...)`` for total
+encoded-body enforcement and ``App(max_form_field_size=...)`` for each
+in-memory multipart text field.  Outer ASGI middleware or a reverse proxy
+can add another limit before the request reaches MicroPie.
 
 WebSocket middleware
 --------------------

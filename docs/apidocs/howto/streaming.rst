@@ -9,6 +9,11 @@ the generator is sent as part of the response body.  When the
 generator finishes, MicroPie automatically sends an empty chunk to
 signal completion.
 
+MicroPie advances synchronous iterators in a worker thread so a blocking
+``next()`` call does not freeze the event loop.  Prefer asynchronous
+generators for long-lived streams because they support cooperative
+cancellation and client-disconnect handling directly.
+
 Example: number stream
 ----------------------
 
@@ -48,8 +53,8 @@ generator the body.
 Handling client disconnects
 ---------------------------
 
-If the client disconnects while a generator is running, MicroPie
-cancels the generator and closes the underlying response.  This
+If the client disconnects while an asynchronous generator is running,
+MicroPie cancels the generator and closes the underlying response.  This
 behaviour is important for long‑lived streams such as server‑sent
 events (SSE).  When writing a generator, use ``try``/``finally`` or
 ``async with`` to perform cleanup when the stream is cancelled.

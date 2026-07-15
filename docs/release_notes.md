@@ -1,6 +1,7 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## Releases Notes
+- **Unreleased** - Harden request parsing, multipart streaming, sessions, parameter binding, logging, and response streaming. This release retains consistent permissive URL-encoded query and form parsing, and introduces native JSON binding without `body_params` mirroring, UUIDv4 session validation by default, configurable custom session-ID policies, request-body limits, and `MultipartFileError` for aborted uploads; review the upgrade notes before deploying.
 - **[0.31](https://github.com/patx/micropie/releases/tag/v0.31)** - Security fix: route lookup now ignores non-callable public attributes and property-like descriptors, preventing internal App attributes from being treated as handlers while preserving descriptor-backed route methods.
 - **[0.30](https://github.com/patx/micropie/releases/tag/v0.30)** - Remove the public `Request.get_json` attribute. Use `Request.json()` or `Request.json(name, default)`.
 - **[0.29](https://github.com/patx/micropie/releases/tag/v0.29)** - Performance upgrades, no more per request signature inspections for routing. 24%-54% increase in req/sec.

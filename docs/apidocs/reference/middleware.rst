@@ -19,8 +19,9 @@ HttpMiddleware
       Called before the HTTP handler runs.  *request* is the
       :class:`~micropie.Request` object.  Return a dictionary
       ``{"status_code": status, "body": body, "headers": headers}``
-      to short‑circuit the request and send a response immediately.  To
-      continue processing, return ``None``.
+      to short‑circuit the request and send a response immediately.
+      Fields are optional and default to the current status/body and an
+      empty header list.  To continue processing, return ``None``.
 
    .. method:: after_request(request, status_code, response_body, extra_headers)
 

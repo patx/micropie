@@ -46,6 +46,8 @@ logger = logging.getLogger(__name__)
 
 _PARAM_EMPTY = inspect.Parameter.empty
 _VAR_POSITIONAL = inspect.Parameter.VAR_POSITIONAL
+_VAR_KEYWORD = inspect.Parameter.VAR_KEYWORD
+_KEYWORD_ONLY = inspect.Parameter.KEYWORD_ONLY
 _POSITIONAL_PARAM_KINDS = (
     inspect.Parameter.POSITIONAL_ONLY,
     inspect.Parameter.POSITIONAL_OR_KEYWORD,
@@ -58,7 +60,75 @@ _JSON_HEADER_BYTES = (b"Content-Type", b"application/json")
 _DEFAULT_HEADERS_BYTES = [_DEFAULT_HEADER_BYTES]
 _JSON_HEADERS_BYTES = [_JSON_HEADER_BYTES]
 _ROUTE_ATTR_MISSING = object()
-_INVALID_PERCENT_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
+DEFAULT_MAX_BODY_SIZE: int = 16 * 1024 * 1024
+DEFAULT_MAX_FORM_FIELD_SIZE: int = 1024 * 1024
+
+
+class _PayloadTooLarge(Exception):
+    pass
+
+
+class _FormFieldTooLarge(Exception):
+    pass
+
+
+class MultipartFileError(Exception):
+    """Raised while reading a file whose multipart upload did not complete."""
+
+    def __init__(self, cause: BaseException) -> None:
+        self.cause = cause
+        super().__init__("Multipart file upload did not complete")
+
+
+class _MultipartStreamFailure:
+    def __init__(self, cause: BaseException) -> None:
+        self.cause = cause
+
+
+class _MultipartFileQueue(asyncio.Queue):
+    """Queue that distinguishes a complete file from an aborted stream."""
+
+    def __init__(self, maxsize: int = 0) -> None:
+        super().__init__(maxsize=maxsize)
+        self.finished = False
+
+    async def get(self) -> Any:
+        item = await super().get()
+        if isinstance(item, _MultipartStreamFailure):
+            raise MultipartFileError(item.cause) from item.cause
+        return item
+
+    async def finish(self) -> None:
+        if self.finished:
+            return
+        await self.put(None)
+        self.finished = True
+
+    def abort(self, cause: BaseException) -> None:
+        if self.finished:
+            return
+        self.finished = True
+        while True:
+            try:
+                self.put_nowait(_MultipartStreamFailure(cause))
+                return
+            except asyncio.QueueFull:
+                try:
+                    asyncio.Queue.get_nowait(self)
+                except asyncio.QueueEmpty:
+                    pass
+
+
+def _generate_session_id() -> str:
+    return str(uuid.uuid4())
+
+
+def _next_sync_item(iterator: Any) -> Tuple[bool, Any]:
+    """Advance a synchronous iterator without leaking StopIteration to a Future."""
+    try:
+        return True, next(iterator)
+    except StopIteration:
+        return False, None
 
 
 def _format_session_cookie(session_id: str, *, secure: bool) -> str:
@@ -73,24 +143,22 @@ def _format_session_cookie(session_id: str, *, secure: bool) -> str:
     return "; ".join(attributes) + ";"
 
 
+def _validate_session_id(value: Optional[str]) -> Optional[str]:
+    """Return a canonical UUIDv4 session ID, or None for invalid input."""
+    if not value:
+        return None
+    try:
+        parsed = uuid.UUID(value)
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if parsed.version != 4 or str(parsed) != value.lower():
+        return None
+    return str(parsed)
+
+
 def _parse_urlencoded(data: bytes) -> Dict[str, List[str]]:
-    """Parse URL-encoded data without dropping blanks or malformed fields."""
-    try:
-        encoded = data.decode("ascii")
-    except UnicodeDecodeError as exc:
-        raise ValueError("URL-encoded input must be ASCII") from exc
-    if _INVALID_PERCENT_ESCAPE.search(encoded):
-        raise ValueError("Invalid percent escape in URL-encoded input")
-    try:
-        return parse_qs(
-            encoded,
-            keep_blank_values=True,
-            strict_parsing=True,
-            encoding="utf-8",
-            errors="strict",
-        )
-    except (UnicodeDecodeError, ValueError) as exc:
-        raise ValueError("Malformed URL-encoded input") from exc
+    """Parse URL-encoded data using MicroPie's permissive legacy behavior."""
+    return parse_qs(data.decode("utf-8", "ignore"))
 
 
 class _HandlerParam(NamedTuple):
@@ -219,6 +287,7 @@ class Request:
             for k, v in scope.get("headers", [])
         }
         self.body_parsed: bool = scope.get("body_parsed", False)
+        self._regenerate_session: bool = False
 
     def query(self, name: str, default: Optional[str] = None) -> Optional[str]:
         """
@@ -260,6 +329,14 @@ class Request:
             return self._json.get(name, default)
         return default
 
+    def regenerate_session(self) -> None:
+        """Issue a fresh session ID when this HTTP request is persisted."""
+        if self.scope.get("type") != "http":
+            raise RuntimeError(
+                "Session regeneration is only available for HTTP requests"
+            )
+        self._regenerate_session = True
+
 
 class WebSocketRequest(Request):
     """Represents a WebSocket request in the MicroPie framework."""
@@ -277,6 +354,9 @@ class WebSocket:
         send: Callable[[Dict[str, Any]], Awaitable[None]],
         *,
         session_cookie_secure: bool = True,
+        session_id_validator: Optional[
+            Callable[[str], Optional[str]]
+        ] = _validate_session_id,
     ) -> None:
         """
         Initialize a WebSocket instance.
@@ -285,12 +365,15 @@ class WebSocket:
             receive: The ASGI receive callable.
             send: The ASGI send callable.
             session_cookie_secure: Whether session cookies include the Secure flag.
+            session_id_validator: Normalizes accepted session IDs or returns None.
         """
         self.receive = receive
         self.send = send
         self.accepted = False
         self.session_id: Optional[str] = None
         self.session_cookie_secure = session_cookie_secure
+        self.session_id_validator = session_id_validator
+        self._session_cookie_pending = False
 
     async def accept(
         self, subprotocol: Optional[str] = None, session_id: Optional[str] = None
@@ -309,16 +392,26 @@ class WebSocket:
         if message["type"] != "websocket.connect":
             raise ValueError(f"Expected websocket.connect, got {message['type']}")
         headers = []
-        if session_id:
+        if session_id is not None:
+            validated_session_id = (
+                self.session_id_validator(session_id)
+                if self.session_id_validator is not None
+                else session_id
+            )
+            if not isinstance(validated_session_id, str) or not validated_session_id:
+                raise ValueError("session_id was rejected by the session ID validator")
+            self.session_id = validated_session_id
+            self._session_cookie_pending = True
+        if self._session_cookie_pending and self.session_id:
             headers.append(
                 (
                     "Set-Cookie",
                     _format_session_cookie(
-                        session_id, secure=self.session_cookie_secure
+                        self.session_id, secure=self.session_cookie_secure
                     ),
                 )
             )
-            self.session_id = session_id
+            self._session_cookie_pending = False
         await self.send(
             {
                 "type": "websocket.accept",
@@ -508,13 +601,27 @@ class App:
         session_backend: Optional[SessionBackend] = None,
         *,
         body_timeout: Optional[float] = 5.0,
+        max_body_size: Optional[int] = DEFAULT_MAX_BODY_SIZE,
+        max_form_field_size: Optional[int] = DEFAULT_MAX_FORM_FIELD_SIZE,
         session_timeout: int = SESSION_TIMEOUT,
         session_cookie_secure: bool = True,
+        session_id_factory: Callable[[], str] = _generate_session_id,
+        session_id_validator: Optional[
+            Callable[[str], Optional[str]]
+        ] = _validate_session_id,
     ) -> None:
         if body_timeout is not None and body_timeout <= 0:
             raise ValueError("body_timeout must be positive or None")
+        if max_body_size is not None and max_body_size <= 0:
+            raise ValueError("max_body_size must be positive or None")
+        if max_form_field_size is not None and max_form_field_size <= 0:
+            raise ValueError("max_form_field_size must be positive or None")
         if session_timeout <= 0:
             raise ValueError("session_timeout must be positive")
+        if not callable(session_id_factory):
+            raise ValueError("session_id_factory must be callable")
+        if session_id_validator is not None and not callable(session_id_validator):
+            raise ValueError("session_id_validator must be callable or None")
         if JINJA_INSTALLED:
             self.env = Environment(
                 loader=FileSystemLoader("templates"),
@@ -527,14 +634,40 @@ class App:
             session_backend or InMemorySessionBackend()
         )
         self.body_timeout = body_timeout
+        self.max_body_size = max_body_size
+        self.max_form_field_size = max_form_field_size
         self.session_timeout = session_timeout
         self.session_cookie_secure = session_cookie_secure
+        self.session_id_factory = session_id_factory
+        self.session_id_validator = session_id_validator
         self.middlewares: List[HttpMiddleware] = []
         self.ws_middlewares: List[WebSocketMiddleware] = []
         self.startup_handlers: List[Callable[[], Awaitable[None]]] = []
         self.shutdown_handlers: List[Callable[[], Awaitable[None]]] = []
         self._handler_cache: Dict[Any, _HandlerInfo] = {}
         self._started: bool = False
+
+    def _normalize_session_id(self, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        if self.session_id_validator is None:
+            return value
+        try:
+            normalized = self.session_id_validator(value)
+        except Exception:
+            logger.exception("Session ID validator failed")
+            return None
+        return normalized if isinstance(normalized, str) and normalized else None
+
+    def _new_session_id(self) -> str:
+        session_id = self.session_id_factory()
+        normalized = self._normalize_session_id(session_id)
+        if normalized is None:
+            raise RuntimeError(
+                "session_id_factory returned a value rejected by "
+                "session_id_validator"
+            )
+        return normalized
 
     @property
     def request(self) -> Request:
@@ -693,6 +826,7 @@ class App:
             None  # background multipart task if started
         )
         multipart_file_notifications: Optional[asyncio.Queue] = None
+        multipart_parse_error: Optional[BaseException] = None
 
         async def _cancel_parse_task():
             if parse_task is None:
@@ -714,16 +848,51 @@ class App:
             await self._send_response(send, code, body, headers or [])
             return
 
-        async def _await_file_param(name: str) -> Optional[Any]:
+        async def _exit_for_multipart_error(error: BaseException) -> None:
+            if isinstance(error, MultipartFileError):
+                error = error.cause
+            if isinstance(error, _PayloadTooLarge):
+                await _early_exit(413, "413 Payload Too Large")
+            elif isinstance(error, _FormFieldTooLarge):
+                await _early_exit(
+                    413, "413 Payload Too Large: Multipart form field"
+                )
+            elif isinstance(error, TimeoutError):
+                await _early_exit(
+                    408, "408 Request Timeout: Failed to receive body"
+                )
+            else:
+                await _early_exit(400, "400 Bad Request: Malformed multipart body")
+
+        async def _finish_multipart_parse() -> bool:
+            if parse_task is None:
+                return True
+            try:
+                await parse_task
+                request.body_parsed = True
+                return True
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                await _exit_for_multipart_error(exc)
+                return False
+
+        def _multipart_param(name: str) -> Optional[Any]:
+            values = request.body_params.get(name)
+            if values:
+                return values[0]
+            return request.files.get(name)
+
+        async def _await_multipart_param(name: str) -> Optional[Any]:
             """
-            Wait until a multipart file field named `name` is available in request.files,
-            or until the background parse_task (if any) completes.
+            Wait until a multipart text or file field is available, or until
+            the background parser completes.
             """
-            if name in request.files:
-                return request.files[name]
+            if (value := _multipart_param(name)) is not None:
+                return value
             if parse_task is None or multipart_file_notifications is None:
                 return None
-            while name not in request.files:
+            while True:
                 if parse_task.done():
                     try:
                         await parse_task
@@ -732,19 +901,34 @@ class App:
                         pass
                     break
                 await multipart_file_notifications.get()
-            return request.files.get(name)
+                if (value := _multipart_param(name)) is not None:
+                    return value
+            return _multipart_param(name)
 
         try:
             # Parse query/cookies/session
-            try:
-                request.query_params = self._parse_query_string(scope)
-            except ValueError:
-                await _early_exit(400, "400 Bad Request: Malformed query string")
-                return
+            request.query_params = self._parse_query_string(scope)
             cookie_header = request.headers.get("cookie", "")
             cookies = self._parse_cookies(cookie_header) if cookie_header else {}
+            session_id = self._normalize_session_id(cookies.get("session_id"))
+            if session_id is None:
+                cookies.pop("session_id", None)
+            else:
+                cookies["session_id"] = session_id
             request.session = await self._load_session_from_scope(scope, cookies)
+            session_was_empty = not request.session
             content_type = request.headers.get("content-type", "")
+            content_length = request.headers.get("content-length")
+            if content_length is not None:
+                if not content_length.isascii() or not content_length.isdigit():
+                    await _early_exit(400, "400 Bad Request: Invalid Content-Length")
+                    return
+                if (
+                    self.max_body_size is not None
+                    and int(content_length) > self.max_body_size
+                ):
+                    await _early_exit(413, "413 Payload Too Large")
+                    return
 
             # Body parsing setup
             if (
@@ -765,21 +949,66 @@ class App:
                         return
                     multipart_file_notifications = asyncio.Queue()
 
+                    def _terminate_multipart_file_queues(
+                        error: BaseException,
+                    ) -> None:
+                        for file_info in request.files.values():
+                            if not isinstance(file_info, dict):
+                                continue
+                            queue = file_info.get("content")
+                            if isinstance(queue, _MultipartFileQueue):
+                                queue.abort(error)
+                                continue
+                            if not isinstance(queue, asyncio.Queue):
+                                continue
+                            while True:
+                                try:
+                                    queue.put_nowait(_MultipartStreamFailure(error))
+                                    break
+                                except asyncio.QueueFull:
+                                    try:
+                                        queue.get_nowait()
+                                    except asyncio.QueueEmpty:
+                                        pass
+
                     async def _run_multipart_parser() -> None:
+                        nonlocal multipart_parse_error
+                        parser_completed = False
+                        parser_error: Optional[BaseException] = None
                         try:
                             await self._parse_multipart_into_request(
                                 receive,
                                 boundary_match.group(1).encode("utf-8"),
                                 request,
                                 file_notifications=multipart_file_notifications,
-                                file_queue_maxsize=2048,
+                                file_queue_maxsize=0,
+                                max_body_size=self.max_body_size,
+                                max_form_field_size=self.max_form_field_size,
+                                body_timeout=self.body_timeout,
                             )
-                        except asyncio.CancelledError:
+                            parser_completed = True
+                        except asyncio.CancelledError as exc:
+                            parser_error = exc
                             raise
-                        except Exception:
+                        except (
+                            _PayloadTooLarge,
+                            _FormFieldTooLarge,
+                            TimeoutError,
+                        ) as exc:
+                            parser_error = exc
+                            multipart_parse_error = exc
+                            raise
+                        except Exception as exc:
+                            parser_error = exc
+                            multipart_parse_error = exc
                             logger.exception("Failed to parse multipart request body")
                             raise
                         finally:
+                            if not parser_completed:
+                                _terminate_multipart_file_queues(
+                                    parser_error
+                                    or RuntimeError("Multipart parser stopped")
+                                )
                             multipart_file_notifications.put_nowait(None)
 
                     # Parse in the background so handlers can drain file queues
@@ -787,6 +1016,7 @@ class App:
                     parse_task = asyncio.create_task(_run_multipart_parser())
                 else:
                     body_chunks: List[bytes] = []
+                    body_size = 0
                     try:
                         while True:
                             if self.body_timeout is None:
@@ -795,6 +1025,13 @@ class App:
                                 async with asyncio.timeout(self.body_timeout):
                                     msg = await receive()
                             if chunk := msg.get("body", b""):
+                                body_size += len(chunk)
+                                if (
+                                    self.max_body_size is not None
+                                    and body_size > self.max_body_size
+                                ):
+                                    await _early_exit(413, "413 Payload Too Large")
+                                    return
                                 body_chunks.append(chunk)
                             if not msg.get("more_body"):
                                 break
@@ -814,21 +1051,15 @@ class App:
                             await _early_exit(400, "400 Bad Request: Bad JSON")
                             return
                     else:
-                        try:
-                            request.body_params = _parse_urlencoded(body_data)
-                        except ValueError:
-                            await _early_exit(
-                                400, "400 Bad Request: Malformed form body"
-                            )
-                            return
+                        request.body_params = _parse_urlencoded(body_data)
                     request.body_parsed = True
 
             # HTTP middlewares (before)
             for mw in self.middlewares:
                 if result := await mw.before_request(request):
                     status_code, response_body, extra_headers = (
-                        result["status_code"],
-                        result["body"],
+                        result.get("status_code", status_code),
+                        result.get("body", response_body),
                         result.get("headers", []),
                     )
                     await _early_exit(status_code, response_body, extra_headers)
@@ -836,8 +1067,10 @@ class App:
 
             # Subapp handoff
             if hasattr(request, "_subapp"):
-                # If we started a multipart parse, cancel it before handing off
-                await _cancel_parse_task()
+                # Complete multipart parsing before handoff. Passing a partially
+                # consumed receive() stream would start the child mid-boundary.
+                if not await _finish_multipart_parse():
+                    return
                 new_scope = dict(scope)
                 new_scope["path"] = request._subapp_path
                 mount = getattr(request, "_subapp_mount_path", "").strip("/")
@@ -884,8 +1117,8 @@ class App:
                 return
             handler_info = self._get_handler_info(handler)
 
-            # Initialize func_args early to avoid UnboundLocalError
             func_args: List[Any] = []
+            func_kwargs: Dict[str, Any] = {}
 
             # Check if index handler accepts parameters (for non-root paths)
             if handler == index_handler and path and path != "index":
@@ -904,38 +1137,56 @@ class App:
             body_params = request.body_params
             json_params = request._json if isinstance(request._json, dict) else {}
             files = request.files
+            consumed_names = set()
+            accepts_var_kwargs = False
 
             for param in handler_info.params:
                 if param.kind == _VAR_POSITIONAL:
                     func_args.extend(path_params[path_param_index:])
                     path_param_index = path_param_count
                     continue
+                if param.kind == _VAR_KEYWORD:
+                    accepts_var_kwargs = True
+                    continue
 
                 param_value = None
+                found = False
 
                 if path_param_index < path_param_count:
                     param_value = path_params[path_param_index]
                     path_param_index += 1
+                    found = True
                 elif param.name in query_params:
                     param_value = query_params[param.name][0]
+                    found = True
                 elif param.name in body_params:
                     param_value = body_params[param.name][0]
+                    found = True
                 elif param.name in json_params:
                     param_value = json_params[param.name]
+                    found = True
                 elif param.name in files:
                     param_value = files[param.name]
+                    found = True
                 elif is_multipart:
-                    param_value = await _await_file_param(param.name)
-                    if param_value is None and param.default is _PARAM_EMPTY:
+                    param_value = await _await_multipart_param(param.name)
+                    if multipart_parse_error is not None:
+                        await _exit_for_multipart_error(multipart_parse_error)
+                        return
+                    found = param_value is not None
+                    if not found and param.default is _PARAM_EMPTY:
                         await _early_exit(
                             400,
-                            f"400 Bad Request: Missing required parameter '{param.name}'",
+                            "400 Bad Request: Missing required parameter "
+                            f"'{param.name}'",
                         )
                         return
-                    if param_value is None:
+                    if not found:
                         param_value = param.default
+                        found = True
                 elif param.default is not _PARAM_EMPTY:
                     param_value = param.default
+                    found = True
                 else:
                     await _early_exit(
                         400,
@@ -943,15 +1194,48 @@ class App:
                     )
                     return
 
-                func_args.append(param_value)
+                if found:
+                    consumed_names.add(param.name)
+                if param.kind == _KEYWORD_ONLY:
+                    func_kwargs[param.name] = param_value
+                else:
+                    func_args.append(param_value)
+
+            if accepts_var_kwargs:
+                # Multipart dictionaries are populated concurrently. Finish the
+                # parse before snapshotting arbitrary extra names.
+                if is_multipart and not await _finish_multipart_parse():
+                    return
+                named_sources = (
+                    (query_params, lambda values: values[0], True),
+                    (body_params, lambda values: values[0], True),
+                    (json_params, lambda value: value, False),
+                    (files, lambda value: value, False),
+                )
+                for source, first_value, requires_value in named_sources:
+                    for name, value in tuple(source.items()):
+                        if name in consumed_names or name in func_kwargs:
+                            continue
+                        if requires_value and not value:
+                            continue
+                        func_kwargs[name] = first_value(value)
+
+            # A parser that has already failed must prevent handler side effects,
+            # even when every argument came from query data or an early file part.
+            if multipart_parse_error is not None:
+                await _exit_for_multipart_error(multipart_parse_error)
+                return
 
             # Execute handler
             try:
                 result = (
-                    await handler(*func_args)
+                    await handler(*func_args, **func_kwargs)
                     if handler_info.is_coroutine
-                    else handler(*func_args)
+                    else handler(*func_args, **func_kwargs)
                 )
+            except MultipartFileError as exc:
+                await _exit_for_multipart_error(exc)
+                return
             except Exception:
                 logger.exception(
                     "Unhandled exception in HTTP handler for %s", scope.get("path", "")
@@ -960,13 +1244,8 @@ class App:
                 return
 
             # Ensure background parser (if any) is finished before finalizing response
-            if parse_task is not None:
-                try:
-                    await parse_task
-                    request.body_parsed = True
-                except Exception:
-                    # The parser runner logs the original exception.
-                    pass
+            if not await _finish_multipart_parse():
+                return
 
             # Normalize response
             if isinstance(result, tuple):
@@ -976,6 +1255,8 @@ class App:
                 response_body = result
             if isinstance(response_body, (dict, list)):
                 response_body = json.dumps(response_body)
+                if isinstance(response_body, bytes):
+                    response_body = response_body.decode("utf-8")
                 extra_headers.append(("Content-Type", "application/json"))
 
             # HTTP middlewares
@@ -990,12 +1271,13 @@ class App:
                     )
 
             # Session persistence after middlewares so they can mutate request.session
-            session_id = cookies.get("session_id")
-
             if request.session:
-                # New or updated session
+                rotate_session = request._regenerate_session or session_was_empty
+                if rotate_session and session_id:
+                    await self.session_backend.save(session_id, {}, 0)
+                    session_id = None
                 if not session_id:
-                    session_id = str(uuid.uuid4())
+                    session_id = self._new_session_id()
                     extra_headers.append(
                         (
                             "Set-Cookie",
@@ -1049,6 +1331,7 @@ class App:
                             await gen.aclose()
 
                 streaming_task = asyncio.create_task(streamer())
+                msg_task: Optional[asyncio.Task] = None
                 try:
                     while True:
                         msg_task = asyncio.create_task(receive())
@@ -1057,9 +1340,18 @@ class App:
                             return_when=asyncio.FIRST_COMPLETED,
                         )
                         if streaming_task in done:
+                            if not msg_task.done():
+                                msg_task.cancel()
+                            try:
+                                await msg_task
+                            except asyncio.CancelledError:
+                                pass
+                            msg_task = None
+                            await streaming_task
                             break
                         if msg_task in done:
                             msg = msg_task.result()
+                            msg_task = None
                             if msg["type"] == "http.disconnect":
                                 streaming_task.cancel()
                                 try:
@@ -1068,12 +1360,22 @@ class App:
                                     pass
                                 break
                 finally:
-                    if not streaming_task.done():
-                        streaming_task.cancel()
+                    if msg_task is not None:
+                        if not msg_task.done():
+                            msg_task.cancel()
                         try:
-                            await streaming_task
+                            await msg_task
                         except asyncio.CancelledError:
                             pass
+                        except Exception:
+                            # Retrieve receive() failures during cancellation.
+                            pass
+                    if not streaming_task.done():
+                        streaming_task.cancel()
+                    try:
+                        await streaming_task
+                    except asyncio.CancelledError:
+                        pass
                 return
             else:
                 await self._send_response(
@@ -1081,6 +1383,7 @@ class App:
                 )
 
         finally:
+            await _cancel_parse_task()
             current_request.reset(token)
 
     async def _asgi_app_websocket(
@@ -1101,16 +1404,16 @@ class App:
         token = current_request.set(request)
         try:
             # Parse request details (query params, cookies, session)
-            try:
-                request.query_params = self._parse_query_string(scope)
-            except ValueError:
-                await self._send_websocket_close(
-                    send, 1008, "Malformed query string"
-                )
-                return
+            request.query_params = self._parse_query_string(scope)
             cookie_header = request.headers.get("cookie", "")
             cookies = self._parse_cookies(cookie_header) if cookie_header else {}
+            session_id = self._normalize_session_id(cookies.get("session_id"))
+            if session_id is None:
+                cookies.pop("session_id", None)
+            else:
+                cookies["session_id"] = session_id
             request.session = await self._load_session_from_scope(scope, cookies)
+            session_was_empty = not request.session
 
             # Run WebSocket middleware before_websocket
             for mw in self.ws_middlewares:
@@ -1147,22 +1450,46 @@ class App:
 
             # Build function arguments
             func_args: List[Any] = []
+            func_kwargs: Dict[str, Any] = {}
             path_params = request.path_params
             path_param_index = 0
             path_param_count = len(path_params)
             query_params = request.query_params
+            had_session_id = bool(session_id)
+            rotate_session = had_session_id and session_was_empty
+            if rotate_session:
+                await self.session_backend.save(session_id, {}, 0)
+                session_id = None
+            websocket_session_id = session_id or self._new_session_id()
             ws = WebSocket(
                 receive,
                 send,
                 session_cookie_secure=self.session_cookie_secure,
+                session_id_validator=self._normalize_session_id,
             )
-            func_args.append(ws)  # First non-self parameter is WebSocket object
-            for param in handler_info.params:
-                if param.name == "ws":  # Skip the WebSocket parameter
-                    continue
+            ws.session_id = websocket_session_id
+            ws._session_cookie_pending = rotate_session or not had_session_id
+            if not handler_info.params:
+                await self._send_websocket_close(
+                    send, 1011, "WebSocket handler must accept a connection argument"
+                )
+                return
+            websocket_param = handler_info.params[0]
+            if websocket_param.kind == _KEYWORD_ONLY:
+                func_kwargs[websocket_param.name] = ws
+            elif websocket_param.kind == _VAR_KEYWORD:
+                func_kwargs["ws"] = ws
+            else:
+                func_args.append(ws)
+            consumed_names = {websocket_param.name}
+            accepts_var_kwargs = websocket_param.kind == _VAR_KEYWORD
+            for param in handler_info.params[1:]:
                 if param.kind == _VAR_POSITIONAL:
                     func_args.extend(path_params[path_param_index:])
                     path_param_index = path_param_count
+                    continue
+                if param.kind == _VAR_KEYWORD:
+                    accepts_var_kwargs = True
                     continue
                 param_value = None
                 if path_param_index < path_param_count:
@@ -1177,24 +1504,34 @@ class App:
                         send, 1008, f"Missing required parameter '{param.name}'"
                     )
                     return
-                func_args.append(param_value)
+                consumed_names.add(param.name)
+                if param.kind == _KEYWORD_ONLY:
+                    func_kwargs[param.name] = param_value
+                else:
+                    func_args.append(param_value)
 
-            # Set session ID if needed
-            session_id = cookies.get("session_id")
-            had_session_id = bool(session_id)
-            ws.session_id = session_id or str(uuid.uuid4())
+            if accepts_var_kwargs:
+                for name, values in query_params.items():
+                    if (
+                        name not in consumed_names
+                        and name not in func_kwargs
+                        and values
+                    ):
+                        func_kwargs[name] = values[0]
 
             # Execute handler
             try:
-                await handler(*func_args)
+                await handler(*func_args, **func_kwargs)
             except ConnectionClosed:
                 pass  # Normal closure, no need to send another close message
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     "Unhandled exception in WebSocket handler for %s",
                     scope.get("path", ""),
                 )
-                await self._send_websocket_close(send, 1011, f"Handler error: {str(e)}")
+                await self._send_websocket_close(
+                    send, 1011, "Internal server error"
+                )
                 return
 
             # Run WebSocket middleware after_websocket
@@ -1239,12 +1576,15 @@ class App:
         request: "Request",
         *,
         file_notifications: Optional[asyncio.Queue] = None,
-        file_queue_maxsize: int = 2048,
+        file_queue_maxsize: int = 0,
+        max_body_size: Optional[int] = DEFAULT_MAX_BODY_SIZE,
+        max_form_field_size: Optional[int] = DEFAULT_MAX_FORM_FIELD_SIZE,
+        body_timeout: Optional[float] = 5.0,
     ) -> None:
         """
         Parse multipart directly from ASGI receive() and populate
         request.body_params / request.files as parts arrive.
-        Uses bounded queues for file parts to apply backpressure.
+        The request-wide body limit bounds producer-nonblocking file queues.
         """
         if request.body_params is None:
             request.body_params = {}
@@ -1255,13 +1595,25 @@ class App:
             current_field_name: Optional[str] = None
             current_filename: Optional[str] = None
             current_content_type: Optional[str] = None
-            current_queue: Optional[asyncio.Queue] = None
+            current_queue: Optional[_MultipartFileQueue] = None
             form_value: str = ""
+            form_value_size = 0
+            total_body_size = 0
 
             while True:
-                msg = await receive()
+                if body_timeout is None:
+                    msg = await receive()
+                else:
+                    async with asyncio.timeout(body_timeout):
+                        msg = await receive()
                 body_chunk = msg.get("body", b"")
                 if body_chunk:
+                    total_body_size += len(body_chunk)
+                    if (
+                        max_body_size is not None
+                        and total_body_size > max_body_size
+                    ):
+                        raise _PayloadTooLarge()
                     for result in parser.parse(body_chunk):
                         if isinstance(result, MultipartSegment):
                             # New part
@@ -1269,10 +1621,11 @@ class App:
                             current_filename = result.filename
                             current_content_type = None
                             form_value = ""
+                            form_value_size = 0
 
                             # Close previous file stream if open
                             if current_queue:
-                                await current_queue.put(None)
+                                await current_queue.finish()
                                 current_queue = None
 
                             # Pick up content-type for this part if present
@@ -1281,8 +1634,9 @@ class App:
                                     current_content_type = value
 
                             if current_filename:
-                                # File field → bounded queue enforces backpressure
-                                current_queue = asyncio.Queue(
+                                # The request-wide body cap bounds queued bytes while
+                                # a nonblocking producer lets later parts be discovered.
+                                current_queue = _MultipartFileQueue(
                                     maxsize=file_queue_maxsize
                                 )
                                 request.files[current_field_name] = {
@@ -1299,21 +1653,31 @@ class App:
                         elif result:
                             # Part body
                             if current_queue:
-                                # May block here if handler isn't draining the queue
                                 await current_queue.put(result)
                             else:
+                                form_value_size += len(result)
+                                if (
+                                    max_form_field_size is not None
+                                    and form_value_size > max_form_field_size
+                                ):
+                                    raise _FormFieldTooLarge()
                                 form_value += result.decode("utf-8", "ignore")
                         else:
                             # End of current part
                             if current_queue:
-                                await current_queue.put(None)
+                                await current_queue.finish()
                                 current_queue = None
                             else:
-                                if form_value and current_field_name:
+                                if current_field_name:
                                     request.body_params[current_field_name].append(
                                         form_value
                                     )
+                                    if file_notifications is not None:
+                                        file_notifications.put_nowait(
+                                            current_field_name
+                                        )
                                 form_value = ""
+                                form_value_size = 0
 
                 if not msg.get("more_body"):
                     break
@@ -1322,7 +1686,7 @@ class App:
             if current_field_name and form_value and not current_filename:
                 request.body_params[current_field_name].append(form_value)
             if current_queue:
-                await current_queue.put(None)
+                await current_queue.finish()
 
     def _prepare_response_headers(
         self, extra_headers: Optional[List[Tuple[str, str]]] = None
@@ -1343,9 +1707,16 @@ class App:
                     "Rejected response header containing a newline: %r: %r", k, v
                 )
                 continue
+            try:
+                encoded_header = (k.encode("latin-1"), v.encode("latin-1"))
+            except UnicodeEncodeError:
+                logger.warning(
+                    "Rejected response header outside latin-1: %r: %r", k, v
+                )
+                continue
             if k.lower() == "content-type":
                 has_content_type = True
-            sanitized_headers.append((k.encode("latin-1"), v.encode("latin-1")))
+            sanitized_headers.append(encoded_header)
         if not has_content_type:
             sanitized_headers.append(_DEFAULT_HEADER_BYTES)
         return sanitized_headers
@@ -1385,12 +1756,26 @@ class App:
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
         if hasattr(body, "__iter__") and not isinstance(body, (bytes, str)):
-            for chunk in body:
-                if isinstance(chunk, str):
-                    chunk = chunk.encode("utf-8")
-                await send(
-                    {"type": "http.response.body", "body": chunk, "more_body": True}
-                )
+            iterator = iter(body)
+            try:
+                while True:
+                    has_chunk, chunk = await asyncio.to_thread(
+                        _next_sync_item, iterator
+                    )
+                    if not has_chunk:
+                        break
+                    if isinstance(chunk, str):
+                        chunk = chunk.encode("utf-8")
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": chunk,
+                            "more_body": True,
+                        }
+                    )
+            finally:
+                if hasattr(iterator, "close"):
+                    await asyncio.to_thread(iterator.close)
             await send({"type": "http.response.body", "body": b"", "more_body": False})
             return
         response_body = body if isinstance(body, bytes) else str(body).encode("utf-8")
@@ -1416,11 +1801,15 @@ class App:
         Make a URL safe to put in an HTTP Location header.
 
         Key rule: Location must be ASCII/latin-1 -> percent-encode non-ASCII.
-        We percent-encode the PATH but we do NOT touch the query string.
+        Percent-encode non-ASCII URL components without double-encoding ``%``.
         """
         p = urlsplit(url)
         safe_path = quote(p.path, safe="/%")
-        return urlunsplit((p.scheme, p.netloc, safe_path, p.query, p.fragment))
+        safe_query = quote(p.query, safe="=&?/:;+,%")
+        safe_fragment = quote(p.fragment, safe="=&?/:;+,%")
+        return urlunsplit(
+            (p.scheme, p.netloc, safe_path, safe_query, safe_fragment)
+        )
 
     def _redirect(
         self,

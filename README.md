@@ -115,7 +115,9 @@ MicroPie's route handlers map URLs to methods in your `App` subclass. Handler in
 - **Automatic Mapping**: URLs map to method names (e.g., `/greet` → `greet`, `/` → `index`).
 - **Private Methods**: Methods starting with `_` (e.g., `_private_method`) are private and inaccessible via URLs, returning 404. **Security Note**: Use `_` for sensitive methods to prevent external access.
 - **Automatic Argument Binding**: Handler args are populated from path/query/body data by parameter name.
+- **Python Signatures**: Keyword-only parameters bind correctly, `*args` collects remaining path segments, and `**kwargs` collects remaining named request values.
 - **Session Isolation**: Session values never bind to handler arguments; read trusted state explicitly from `self.request.session`.
+- **Bounded Bodies**: Requests default to a 16 MiB total limit and multipart text fields to 1 MiB; configure `max_body_size` and `max_form_field_size` on `App`.
 - **Request Helpers**:
   - `self.request.query(name, default)` for query-string values.
   - `self.request.form(name, default)` for URL-encoded or multipart form values.
@@ -149,8 +151,8 @@ class MyApp(App):
 
 Top-level JSON values retain their native types during binding. JSON objects
 are not mirrored into `body_params`, so `request.form()` only reads form data.
-Malformed query strings and URL-encoded forms return `400 Bad Request`; valid
-empty values such as `name=` are preserved.
+Query strings and URL-encoded form bodies share MicroPie's permissive parsing
+behavior: blank or bare fields are ignored and malformed encoding is tolerated.
 
 #### **Helper-Based Request Access**
 Use helper methods for query, form, and JSON payload access:
@@ -180,6 +182,8 @@ Choose the simplest input style that fits the route:
 - Use raw attributes like `query_params`, `body_params`, `files`, `headers`, and `session` when you need repeated values, uploaded file streams, middleware-level inspection, or exact parsed structures.
 
 Do not `await` `self.request.query(...)`, `self.request.form(...)`, or `self.request.json(...)`. They are synchronous accessors over request data MicroPie has already parsed. Uploaded file content is the exception: file bodies are streamed through async queues in `self.request.files`.
+
+An uploaded file queue yields `None` only after a complete file. If multipart parsing, timeout enforcement, or a size limit aborts an open file, `get()` raises `MultipartFileError`; treat that as a failed upload rather than persisting partial content.
 
 By default, MicroPie's route handlers can accept any request method. Check `self.request.method` in a handler when route behavior differs by method. For lower-level request internals such as `query_params` and `body_params`, see `docs/apidocs/reference/request.rst`.
 
@@ -293,7 +297,7 @@ class MyApp(App):
         return f"You have visited {self.request.session['visits']} times."
 ```
 
-You also can use the `SessionBackend` class to create your own session backend. You can see an example of this in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
+You also can use the `SessionBackend` class to create your own session backend. Session IDs default to validated UUIDv4 values; backends using another ID format can configure `session_id_factory` and `session_id_validator`. You can see an example of a custom backend in [examples/sessions](https://github.com/patx/micropie/tree/main/examples/sessions).
 
 ### **Middleware**
 MicroPie allows you to create pluggable middleware to hook into the request lifecycle. Take a look at a trivial example using `HttpMiddleware` to send console messages before and after the request is processed. Check out [examples/middleware](https://github.com/patx/micropie/tree/main/examples/middleware) to see more.
@@ -316,7 +320,7 @@ app = Root()
 app.middlewares.append(MiddlewareExample())
 ```
 
-Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, checking for max upload size in multipart requests, **explicit routing**, CSRF protection, and more.
+Middleware provides an easy and **reusable** way to extend the MicroPie framework. We can do things such as rate limiting, metadata validation, **explicit routing**, CSRF protection, and more. Request-body byte limits belong on `App` (or an outer ASGI/proxy layer), because `HttpMiddleware` runs after body parsing has begun.
 
 MicroPie apps can be deployed using any ASGI server. For example, using Uvicorn if our application is saved as `app.py` and our `App` subclass is assigned to the `app` variable we can run it with:
 ```bash

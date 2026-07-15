@@ -6,6 +6,11 @@ interface.  Different back‑ends may store session data in memory,
 databases, caches or external services.  A session is a dictionary of
 key/value pairs associated with a ``session_id`` cookie.
 
+The application owns identifier generation and validation.  Canonical
+UUIDv4 is the default; custom storage formats can be enabled with
+``App(session_id_factory=..., session_id_validator=...)``.  A storage
+back-end receives only IDs accepted by that policy.
+
 SessionBackend
 --------------
 

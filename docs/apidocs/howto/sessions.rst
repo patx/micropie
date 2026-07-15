@@ -98,3 +98,58 @@ production:
 .. code-block:: python
 
    app = MyApp(session_cookie_secure=False)
+
+Session fixation protection
+---------------------------
+
+MicroPie validates incoming session IDs as canonical UUIDv4 values before
+passing them to a back-end.  UUID validation is input hygiene; the primary
+fixation defense is ID rotation.  If a request loads an empty session and
+finishes with populated session data, MicroPie ignores the incoming cookie,
+generates a fresh ID (UUIDv4 under the default policy), and sends it in
+``Set-Cookie``.  A client-planted ID therefore cannot survive the transition
+into a new authenticated session.
+
+Applications should explicitly rotate an already populated session when
+its privilege level changes, such as re-authentication or elevation to an
+administrator role:
+
+.. code-block:: python
+
+   class MyApp(App):
+       async def reauthenticate(self):
+           await verify_credentials(self.request)
+           self.request.session["elevated"] = True
+           self.request.regenerate_session()
+           return "Privileges updated"
+
+``regenerate_session()`` preserves the session data, deletes the old
+back-end entry, and persists the data under a fresh ID.  It is synchronous
+and is available on HTTP requests only.
+
+Custom session ID formats
+-------------------------
+
+The UUIDv4 policy is the secure default, but a custom back-end may already
+use signed or otherwise structured IDs.  Configure both sides of that
+policy together:
+
+.. code-block:: python
+
+   def validate_signed_id(value: str):
+       return value if verify_and_parse_id(value) else None
+
+   app = MyApp(
+       session_backend=backend,
+       session_id_factory=create_signed_id,
+       session_id_validator=validate_signed_id,
+   )
+
+The validator must return a non-empty normalized string or ``None``; the
+returned string is used as both the cookie value and the storage key.  It is
+used for HTTP cookies and explicit IDs passed to
+:meth:`~micropie.WebSocket.accept`.  Keep custom IDs unguessable, bounded in
+length and safe for both cookies and back-end keys.  Passing
+``session_id_validator=None`` disables framework validation and is intended
+only when an outer trusted layer has already validated the value; ID
+rotation still applies.

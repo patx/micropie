@@ -43,14 +43,17 @@ of each request to avoid leaking state.
 Session management
 ------------------
 
-Sessions are stored in a pluggable back‑end and identified by a
-random ``session_id`` cookie.  The default in‑memory back‑end keeps
-session data in dictionaries keyed by session ID and updates a last
-access timestamp to implement expiration.  You can customise the
-back‑end by providing your own implementation of
-:class:`~micropie.SessionBackend`.  MicroPie saves sessions after a
-handler returns, only if ``self.request.session`` is non‑empty, to
-avoid creating unnecessary cookies.
+Sessions are stored in a pluggable back-end and identified by a
+random UUIDv4 ``session_id`` cookie by default.  Incoming IDs are validated
+before they reach the back-end; custom back-ends can supply a matching ID
+factory and validator.  When an empty session becomes populated,
+MicroPie rotates the ID so a client-provided cookie cannot be fixed across
+that state transition.  Applications can request another rotation with
+:meth:`~micropie.Request.regenerate_session` when an existing session gains
+privileges.  The default in-memory back-end keeps session data in
+dictionaries keyed by session ID and updates a last access timestamp to
+implement expiration.  You can customise the back-end by providing your
+own implementation of :class:`~micropie.SessionBackend`.
 
 Middleware pipeline
 -------------------
@@ -59,7 +62,10 @@ The middleware hooks allow you to intercept requests before and after
 handlers.  Middleware can modify the request object, provide early
 responses (useful for authentication), and alter the final response.
 For WebSockets, separate middleware hooks run before the connection
-handler starts and after it finishes.
+handler starts and after it finishes.  HTTP request bodies are parsed
+before ``before_request`` runs, so byte-counting upload limits belong in
+the :class:`~micropie.App` body-limit settings or in an outer ASGI/proxy
+layer rather than in :class:`~micropie.HttpMiddleware`.
 
 Streaming and SSE support
 -------------------------
@@ -101,8 +107,8 @@ MicroPie automatically handles common error cases.  Requests for
 unknown routes result in a ``404 Not Found``.  If a required
 parameter is missing, MicroPie responds with ``400 Bad Request``.
 Unhandled exceptions inside handlers produce a ``500 Internal Server
-Error`` and are printed to standard error.  You can override these
-behaviours via middleware.
+Error`` and are reported through the standard ``micropie`` logger.  You
+can override these behaviours via middleware.
 
 Extensibility
 -------------

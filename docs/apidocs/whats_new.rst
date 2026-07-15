@@ -11,6 +11,14 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
+* **Next release** – Adds request-body and multipart-field limits,
+  per-chunk timeouts for buffered and multipart bodies, deadlock-free
+  multi-file streaming, explicit multipart failure signaling, session
+  fixation protection, configurable session cookie/ID policies, isolated
+  session argument binding, native JSON argument values, and structured
+  framework logging.  It also fixes keyword-only/``**kwargs`` binding,
+  WebSocket session-cookie delivery, pending streaming receive tasks,
+  multipart sub-application handoff, and response-header encoding failures.
 * **0.31** – Hardens route lookup so non-callable public attributes and
   property-like descriptors are not treated as handlers. Descriptor-backed
   route methods such as ``functools.partialmethod`` continue to work after
@@ -59,6 +67,18 @@ Version highlights
 Upgrade tips
 ------------
 
+* **Review request parsing compatibility.** Query strings and URL-encoded form
+  bodies retain their earlier permissive behavior: empty and bare fields are
+  omitted and malformed encoding is tolerated. JSON objects now retain native
+  types and are no longer mirrored into ``body_params``; use ``Request.json()``
+  rather than ``Request.form()`` for JSON payloads.
+* **Review custom session IDs.** Session cookies and explicit WebSocket IDs
+  now require canonical UUIDv4 by default.  Back-ends using signed or custom
+  identifiers must configure matching ``session_id_factory`` and
+  ``session_id_validator`` callables.
+* **Handle aborted file streams.** Multipart file queues now raise
+  ``MultipartFileError`` when parsing fails instead of yielding a clean
+  ``None`` sentinel for truncated content.
 * **Check optional extras.** When upgrading, confirm that any optional
   dependencies you rely on (``jinja2``, ``multipart``, ``orjson``) are
   still installed, especially if you pin minimal environments.

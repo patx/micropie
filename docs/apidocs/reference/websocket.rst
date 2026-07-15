@@ -10,7 +10,7 @@ request and passes it as the first argument to your WebSocket handler.
 Constructor
 -----------
 
-.. class:: WebSocket(receive, send, *, session_cookie_secure=True)
+.. class:: WebSocket(receive, send, *, session_cookie_secure=True, session_id_validator=UUIDv4 validator)
 
    Create a new WebSocket wrapper around the ASGI ``receive`` and
    ``send`` callables.  You do not instantiate this class yourself;
@@ -25,8 +25,16 @@ Methods
 
    Accept the WebSocket connection.  You must call this method before
    sending or receiving messages.  If you provide a *session_id*,
-   MicroPie sets a ``session_id`` cookie during the handshake.  The
-   optional *subprotocol* argument specifies a negotiated subprotocol.
+   it must pass the owning application's session-ID validator and MicroPie
+   sets it as a cookie during the handshake.  The default policy requires
+   canonical UUIDv4; applications with custom back-ends can configure a
+   different factory and validator on :class:`~micropie.App`.  The optional
+   *subprotocol* argument specifies a negotiated subprotocol.
+
+   When no session cookie was presented, :meth:`accept` sends the fresh ID
+   allocated by the application so session data written by the handler can
+   be loaded on the next request.  An incoming ID whose session loads empty
+   is replaced during the handshake to prevent fixation.
 
 .. method:: receive_text()
 
@@ -65,7 +73,8 @@ Attributes
 
 .. attribute:: session_id
 
-   The session ID set during the handshake, or ``None`` if not set.
+   The validated session ID allocated or loaded for this connection.  When
+   the client did not present one, it is sent as a cookie by :meth:`accept`.
 
 Exceptions
 ----------

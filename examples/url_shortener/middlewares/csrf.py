@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -85,13 +84,6 @@ class CSRFMiddleware(HttpMiddleware):
                 return token
 
         lst = request.body_params.get(self.body_field)
-        if not lst and self._is_multipart(ct):
-            while not request.body_parsed:
-                lst = request.body_params.get(self.body_field)
-                if lst:
-                    break
-                await asyncio.sleep(0)
-
         if lst and isinstance(lst, list) and lst:
             return lst[0]
 
