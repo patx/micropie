@@ -67,11 +67,11 @@ Request class
 
    .. attribute:: body_params
 
-      A ``dict`` mapping form field names to lists of values.  For
-      JSON requests, body parameters are derived from the top-level
-      object; for ``application/x-www-form-urlencoded`` forms they are
-      parsed using :func:`urllib.parse.parse_qs`.  This is the raw
-      mapping used by MicroPie for argument binding.
+      A ``dict`` mapping URL-encoded and multipart form field names to
+      lists of string values.  JSON objects are not mirrored into this
+      mapping; use :meth:`json` for JSON access.  URL-encoded forms are
+      parsed strictly, preserving empty values and rejecting malformed
+      fields or encoding with ``400 Bad Request``.
 
       Use this raw attribute when you need all submitted values for a
       field, or when middleware needs to inspect parsed request fields:
@@ -82,13 +82,11 @@ Request class
 
    .. method:: form(name, default=None)
 
-      Return the first value for form/body field *name*, or *default*
-      if missing.
+      Return the first URL-encoded or multipart form value for *name*,
+      or *default* if missing.
 
       This helper reads from :attr:`body_params`, so it returns the
-      first parsed body value.  It is commonly used for HTML form fields,
-      but top-level JSON object keys are also mirrored into
-      :attr:`body_params` for argument binding.
+      first parsed form value.  It does not read JSON objects.
 
       .. code-block:: python
 
@@ -112,11 +110,15 @@ Request class
 
       Do not await this method.  MicroPie parses JSON before calling the
       route handler.  Invalid JSON requests receive ``400 Bad Request``.
+      Top-level JSON object keys can bind directly to handler arguments
+      and retain native JSON types; nested values are not stringified.
 
    .. attribute:: session
 
       A ``dict`` for storing per‑client data across requests.  See
-      :doc:`../howto/sessions`.
+      :doc:`../howto/sessions`.  Session values are deliberately excluded
+      from automatic handler argument binding; access them explicitly
+      through this attribute.
 
    .. attribute:: files
 

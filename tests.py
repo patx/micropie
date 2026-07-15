@@ -402,14 +402,14 @@ class TestFastPaths(MicroPieTestCase):
         )
 
     async def test_http_argument_binding_fast_path_matches_existing_sources(self):
-        """Path, query, body, session, and defaults should still bind in order."""
+        """Request inputs bind while trusted session state is read explicitly."""
 
-        async def combine(self, path_value, query_value, body_value, user, suffix="ok"):
+        async def combine(self, path_value, query_value, body_value, suffix="ok"):
             return {
                 "path": path_value,
                 "query": query_value,
                 "body": body_value,
-                "user": user,
+                "user": self.request.session["user"],
                 "suffix": suffix,
             }
 
@@ -449,6 +449,58 @@ class TestFastPaths(MicroPieTestCase):
             },
         )
 
+    async def test_session_values_do_not_bind_http_handler_parameters(self):
+        """A required request argument must not fall through to session state."""
+
+        async def transfer(self, amount, user_id):
+            return f"{user_id}:{amount}"
+
+        setattr(self.app, "transfer", transfer.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/transfer", query_string=b"amount=10"
+        )
+        scope["session"] = {"user_id": "trusted-user"}
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"400 Bad Request: Missing required parameter 'user_id'",
+                "more_body": False,
+            }
+        )
+
+    async def test_request_input_cannot_shadow_explicit_session_read(self):
+        """Extra query fields cannot replace session values read by the handler."""
+
+        async def transfer(self, amount):
+            return f"{self.request.session['user_id']}:{amount}"
+
+        setattr(self.app, "transfer", transfer.__get__(self.app, App))
+        scope = self.create_mock_scope(
+            path="/transfer", query_string=b"amount=10&user_id=attacker"
+        )
+        scope["session"] = {"user_id": "trusted-user"}
+        receive = AsyncMock(
+            return_value={"type": "http.request", "body": b"", "more_body": False}
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"trusted-user:10",
+                "more_body": False,
+            }
+        )
+
     async def test_websocket_argument_binding_uses_cached_metadata(self):
         """WebSocket path and query argument binding should be unchanged."""
 
@@ -468,6 +520,147 @@ class TestFastPaths(MicroPieTestCase):
         await self.app(scope, receive, send)
 
         send.assert_any_call({"type": "websocket.send", "text": "lobby:alice"})
+
+
+class TestRequestInputParsing(MicroPieTestCase):
+    """Tests for strict URL-encoded query and form parsing."""
+
+    async def test_blank_query_and_form_values_are_preserved(self):
+        """Valid empty values should bind instead of being silently dropped."""
+
+        async def query_value(self, value):
+            return f"query:<{value}>"
+
+        async def form_value(self, value):
+            return f"form:<{value}>"
+
+        setattr(self.app, "query_value", query_value.__get__(self.app, App))
+        setattr(self.app, "form_value", form_value.__get__(self.app, App))
+
+        query_send = AsyncMock()
+        await self.app(
+            self.create_mock_scope(path="/query_value", query_string=b"value="),
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": b"",
+                    "more_body": False,
+                }
+            ),
+            query_send,
+        )
+        query_send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"query:<>",
+                "more_body": False,
+            }
+        )
+
+        form_send = AsyncMock()
+        await self.app(
+            self.create_mock_scope(
+                path="/form_value",
+                method="POST",
+                headers=[
+                    (b"content-type", b"application/x-www-form-urlencoded")
+                ],
+            ),
+            AsyncMock(
+                return_value={
+                    "type": "http.request",
+                    "body": b"value=",
+                    "more_body": False,
+                }
+            ),
+            form_send,
+        )
+        form_send.assert_any_call(
+            {
+                "type": "http.response.body",
+                "body": b"form:<>",
+                "more_body": False,
+            }
+        )
+
+    async def test_malformed_query_strings_return_400(self):
+        """Malformed fields and percent encoding should be rejected."""
+        for query_string in (b"missing-equals", b"name=%ZZ", b"name=%FF"):
+            with self.subTest(query_string=query_string):
+                send = AsyncMock()
+                await self.app(
+                    self.create_mock_scope(
+                        path="/index", query_string=query_string
+                    ),
+                    AsyncMock(
+                        return_value={
+                            "type": "http.request",
+                            "body": b"",
+                            "more_body": False,
+                        }
+                    ),
+                    send,
+                )
+
+                send.assert_any_call(
+                    {
+                        "type": "http.response.start",
+                        "status": 400,
+                        "headers": [
+                            (b"Content-Type", b"text/html; charset=utf-8")
+                        ],
+                    }
+                )
+                send.assert_any_call(
+                    {
+                        "type": "http.response.body",
+                        "body": b"400 Bad Request: Malformed query string",
+                        "more_body": False,
+                    }
+                )
+
+    async def test_malformed_form_bodies_return_400(self):
+        """Malformed URL-encoded form fields should be rejected."""
+        for body in (b"missing-equals", b"name=%ZZ", b"name=%FF"):
+            with self.subTest(body=body):
+                send = AsyncMock()
+                await self.app(
+                    self.create_mock_scope(
+                        path="/index",
+                        method="POST",
+                        headers=[
+                            (
+                                b"content-type",
+                                b"application/x-www-form-urlencoded",
+                            )
+                        ],
+                    ),
+                    AsyncMock(
+                        return_value={
+                            "type": "http.request",
+                            "body": body,
+                            "more_body": False,
+                        }
+                    ),
+                    send,
+                )
+
+                send.assert_any_call(
+                    {
+                        "type": "http.response.start",
+                        "status": 400,
+                        "headers": [
+                            (b"Content-Type", b"text/html; charset=utf-8")
+                        ],
+                    }
+                )
+                send.assert_any_call(
+                    {
+                        "type": "http.response.body",
+                        "body": b"400 Bad Request: Malformed form body",
+                        "more_body": False,
+                    }
+                )
 
 
 class TestRequestBodyTimeouts(MicroPieTestCase):
@@ -1016,6 +1209,48 @@ class TestWebSocket(MicroPieTestCase):
             }
         )
 
+    async def test_session_values_do_not_bind_websocket_parameters(self):
+        """WebSocket arguments must not fall through to session state."""
+
+        async def ws_transfer(self, ws, user_id):
+            await ws.accept()
+
+        setattr(self.app, "ws_transfer", ws_transfer.__get__(self.app, App))
+        scope = self.create_mock_scope(path="/transfer", scope_type="websocket")
+        scope["session"] = {"user_id": "trusted-user"}
+        receive = AsyncMock(return_value={"type": "websocket.connect"})
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "websocket.close",
+                "code": 1008,
+                "reason": "Missing required parameter 'user_id'",
+            }
+        )
+
+    async def test_malformed_websocket_query_is_rejected(self):
+        """WebSocket requests should reject malformed query encoding."""
+        scope = self.create_mock_scope(
+            path="/echo",
+            query_string=b"missing-equals",
+            scope_type="websocket",
+        )
+        receive = AsyncMock(return_value={"type": "websocket.connect"})
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        send.assert_any_call(
+            {
+                "type": "websocket.close",
+                "code": 1008,
+                "reason": "Malformed query string",
+            }
+        )
+
     async def test_websocket_cookie_respects_secure_configuration(self):
         """WebSocket handshake cookies should use the App cookie policy."""
         self.app = App(session_cookie_secure=False)
@@ -1183,6 +1418,59 @@ class TestResponseHandling(MicroPieTestCase):
                     "more_body": False,
                 }
             )
+
+    async def test_json_arguments_keep_native_types_and_form_namespace(self):
+        """JSON binding should not stringify or mirror values into form data."""
+        captured = {}
+
+        async def json_native(self, profile, tags, enabled, count, nullable):
+            captured.update(
+                {
+                    "profile": profile,
+                    "tags": tags,
+                    "enabled": enabled,
+                    "count": count,
+                    "nullable": nullable,
+                    "body_params": self.request.body_params,
+                    "form_profile": self.request.form("profile", "not-form-data"),
+                }
+            )
+            return "OK"
+
+        setattr(self.app, "json_native", json_native.__get__(self.app, App))
+        payload = {
+            "profile": {"id": 7},
+            "tags": ["one", "two"],
+            "enabled": True,
+            "count": 3,
+            "nullable": None,
+        }
+        scope = self.create_mock_scope(
+            path="/json_native",
+            method="POST",
+            headers=[(b"content-type", b"application/json")],
+        )
+        receive = AsyncMock(
+            return_value={
+                "type": "http.request",
+                "body": std_json.dumps(payload).encode("utf-8"),
+                "more_body": False,
+            }
+        )
+        send = AsyncMock()
+
+        await self.app(scope, receive, send)
+
+        self.assertEqual(captured["profile"], {"id": 7})
+        self.assertEqual(captured["tags"], ["one", "two"])
+        self.assertIs(captured["enabled"], True)
+        self.assertEqual(captured["count"], 3)
+        self.assertIsNone(captured["nullable"])
+        self.assertEqual(captured["body_params"], {})
+        self.assertEqual(captured["form_profile"], "not-form-data")
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"OK", "more_body": False}
+        )
 
     async def test_invalid_json(self):
         """Test handling of invalid JSON in POST request."""

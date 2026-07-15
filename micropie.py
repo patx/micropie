@@ -58,6 +58,7 @@ _JSON_HEADER_BYTES = (b"Content-Type", b"application/json")
 _DEFAULT_HEADERS_BYTES = [_DEFAULT_HEADER_BYTES]
 _JSON_HEADERS_BYTES = [_JSON_HEADER_BYTES]
 _ROUTE_ATTR_MISSING = object()
+_INVALID_PERCENT_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 
 
 def _format_session_cookie(session_id: str, *, secure: bool) -> str:
@@ -70,6 +71,26 @@ def _format_session_cookie(session_id: str, *, secure: bool) -> str:
     if secure:
         attributes.append("Secure")
     return "; ".join(attributes) + ";"
+
+
+def _parse_urlencoded(data: bytes) -> Dict[str, List[str]]:
+    """Parse URL-encoded data without dropping blanks or malformed fields."""
+    try:
+        encoded = data.decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ValueError("URL-encoded input must be ASCII") from exc
+    if _INVALID_PERCENT_ESCAPE.search(encoded):
+        raise ValueError("Invalid percent escape in URL-encoded input")
+    try:
+        return parse_qs(
+            encoded,
+            keep_blank_values=True,
+            strict_parsing=True,
+            encoding="utf-8",
+            errors="strict",
+        )
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise ValueError("Malformed URL-encoded input") from exc
 
 
 class _HandlerParam(NamedTuple):
@@ -594,7 +615,7 @@ class App:
         query_string = scope.get("query_string", b"")
         if not query_string:
             return {}
-        return parse_qs(query_string.decode("utf-8", "ignore"))
+        return _parse_urlencoded(query_string)
 
     async def __call__(
         self,
@@ -715,7 +736,11 @@ class App:
 
         try:
             # Parse query/cookies/session
-            request.query_params = self._parse_query_string(scope)
+            try:
+                request.query_params = self._parse_query_string(scope)
+            except ValueError:
+                await _early_exit(400, "400 Bad Request: Malformed query string")
+                return
             cookie_header = request.headers.get("cookie", "")
             cookies = self._parse_cookies(cookie_header) if cookie_header else {}
             request.session = await self._load_session_from_scope(scope, cookies)
@@ -785,17 +810,17 @@ class App:
                     if "application/json" in content_type:
                         try:
                             request._json = json.loads(body_data)
-                            if isinstance(request._json, dict):
-                                request.body_params = {
-                                    k: [str(v)] for k, v in request._json.items()
-                                }
                         except Exception:
                             await _early_exit(400, "400 Bad Request: Bad JSON")
                             return
                     else:
-                        request.body_params = parse_qs(
-                            body_data.decode("utf-8", "ignore")
-                        )
+                        try:
+                            request.body_params = _parse_urlencoded(body_data)
+                        except ValueError:
+                            await _early_exit(
+                                400, "400 Bad Request: Malformed form body"
+                            )
+                            return
                     request.body_parsed = True
 
             # HTTP middlewares (before)
@@ -869,15 +894,16 @@ class App:
                     return
                 request.path_params = parts  # Pass all path parts to index handler
 
-            # Build handler args (query/body/files/session)
+            # Build handler args from untrusted request inputs only. Session
+            # state stays in request.session and is never part of this namespace.
             path_params = request.path_params
             path_param_index = 0
             path_param_count = len(path_params)
             is_multipart = "multipart/form-data" in content_type
             query_params = request.query_params
             body_params = request.body_params
+            json_params = request._json if isinstance(request._json, dict) else {}
             files = request.files
-            session = request.session
 
             for param in handler_info.params:
                 if param.kind == _VAR_POSITIONAL:
@@ -894,6 +920,8 @@ class App:
                     param_value = query_params[param.name][0]
                 elif param.name in body_params:
                     param_value = body_params[param.name][0]
+                elif param.name in json_params:
+                    param_value = json_params[param.name]
                 elif param.name in files:
                     param_value = files[param.name]
                 elif is_multipart:
@@ -906,8 +934,6 @@ class App:
                         return
                     if param_value is None:
                         param_value = param.default
-                elif param.name in session:
-                    param_value = session[param.name]
                 elif param.default is not _PARAM_EMPTY:
                     param_value = param.default
                 else:
@@ -1075,7 +1101,13 @@ class App:
         token = current_request.set(request)
         try:
             # Parse request details (query params, cookies, session)
-            request.query_params = self._parse_query_string(scope)
+            try:
+                request.query_params = self._parse_query_string(scope)
+            except ValueError:
+                await self._send_websocket_close(
+                    send, 1008, "Malformed query string"
+                )
+                return
             cookie_header = request.headers.get("cookie", "")
             cookies = self._parse_cookies(cookie_header) if cookie_header else {}
             request.session = await self._load_session_from_scope(scope, cookies)
@@ -1119,7 +1151,6 @@ class App:
             path_param_index = 0
             path_param_count = len(path_params)
             query_params = request.query_params
-            session = request.session
             ws = WebSocket(
                 receive,
                 send,
@@ -1139,8 +1170,6 @@ class App:
                     path_param_index += 1
                 elif param.name in query_params:
                     param_value = query_params[param.name][0]
-                elif param.name in session:
-                    param_value = session[param.name]
                 elif param.default is not _PARAM_EMPTY:
                     param_value = param.default
                 else:

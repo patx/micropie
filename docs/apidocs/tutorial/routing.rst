@@ -4,7 +4,7 @@ Routing and handlers
 MicroPie maps incoming HTTP requests to methods on your :class:`~micropie.App`
 subclass.  This section explains how the mapping works and how your
 handlers receive input from the URL path, query strings, form data and
-sessions.
+JSON bodies.  Session state is accessed explicitly through the request.
 
 URL to function mapping
 -----------------------
@@ -48,22 +48,34 @@ sources in the following order:
    ``/greet?name=Alice`` also passes ``"Alice"`` to the ``name``
    parameter.
 
-3. **Body/form data** – For POST, PUT and PATCH requests, form fields
-   populate handler arguments.  JSON bodies are decoded into a
-   dictionary of key/value pairs.
+3. **Body data** – For POST, PUT and PATCH requests, form fields populate
+   handler arguments as strings.  Keys from a top-level JSON object also
+   bind by name, retaining their native JSON types, including nested
+   objects, arrays, numbers, booleans and ``null``.
 
 4. **Files** – If the request is multipart/form‑data, uploaded files
    appear in :attr:`~micropie.Request.files`.  You can declare a file
    argument in your handler signature to receive a file object.
 
-5. **Session data** – Values stored in :attr:`~micropie.Request.session`
-   fill remaining parameters.  See :doc:`../howto/sessions` for details.
-
-6. **Default values** – If no other source provides a value, default
+5. **Default values** – If no request source provides a value, default
    values in your function signature are used.
 
 If MicroPie cannot determine a value for a required parameter, it
 returns a ``400 Bad Request``.
+
+Session values never participate in automatic argument binding.  This
+keeps untrusted request inputs and trusted session state in separate
+namespaces.  Read session values explicitly inside the handler:
+
+.. code-block:: python
+
+   class MyApp(App):
+       async def transfer(self, amount):
+           user_id = self.request.session["user_id"]
+           return await make_transfer(user_id, amount)
+
+An extra ``user_id`` query or body field cannot replace the value read
+from the session in this example.
 
 Choosing an input access style
 ------------------------------
@@ -110,8 +122,7 @@ simplest level that fits the handler.
    * ``self.request.query(name, default=None)``: first query-string
      value for ``name``.
    * ``self.request.form(name, default=None)``: first parsed body value
-     for ``name`` from form data, or from a top-level JSON object mirrored
-     into body parameters.
+     for ``name`` from URL-encoded or multipart form data.
    * ``self.request.json(name=None, default=None)``: full parsed JSON
      payload when called with no name, or one top-level JSON object value
      when ``name`` is provided.
@@ -124,8 +135,8 @@ simplest level that fits the handler.
    * ``self.request.query_params``: ``dict[str, list[str]]`` parsed from
      the query string.
    * ``self.request.body_params``: ``dict[str, list[str]]`` parsed from
-     form-urlencoded payloads, multipart text fields, or mirrored from
-     top-level JSON objects.
+     form-urlencoded payloads or multipart text fields.  JSON data is
+     available only through ``json()`` and native JSON argument binding.
    * ``self.request.session``: session dictionary.
    * ``self.request.files``: uploaded multipart files.
    * ``self.request.headers``: lower-case request header mapping.
@@ -138,6 +149,12 @@ simplest level that fits the handler.
           async def filter(self):
               tags = self.request.query_params.get("tag", [])
               return {"tags": tags}
+
+Query strings and URL-encoded forms are parsed strictly.  Empty values
+such as ``name=`` are preserved, while fields without ``=``, invalid
+percent escapes and invalid UTF-8 receive ``400 Bad Request``.  A
+WebSocket request with a malformed query string is closed with code
+``1008``.
 
 Do not await request helpers
 ----------------------------

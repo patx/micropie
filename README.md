@@ -115,9 +115,10 @@ MicroPie's route handlers map URLs to methods in your `App` subclass. Handler in
 - **Automatic Mapping**: URLs map to method names (e.g., `/greet` → `greet`, `/` → `index`).
 - **Private Methods**: Methods starting with `_` (e.g., `_private_method`) are private and inaccessible via URLs, returning 404. **Security Note**: Use `_` for sensitive methods to prevent external access.
 - **Automatic Argument Binding**: Handler args are populated from path/query/body data by parameter name.
+- **Session Isolation**: Session values never bind to handler arguments; read trusted state explicitly from `self.request.session`.
 - **Request Helpers**:
   - `self.request.query(name, default)` for query-string values.
-  - `self.request.form(name, default)` for form/body values.
+  - `self.request.form(name, default)` for URL-encoded or multipart form values.
   - `self.request.json()` for full JSON payloads, or `self.request.json(name, default)` for a key lookup.
 - **HTTP Methods**: Handlers support all methods (GET, POST, etc.). Check `self.request.method` to handle specific methods.
 - **Responses**:
@@ -146,6 +147,11 @@ class MyApp(App):
 - POST `application/x-www-form-urlencoded` to `/submit` with `username=bob` returns `Submitted by: bob`.
 - POST `application/json` to `/submit` with `{"username": "bob"}` also returns `Submitted by: bob`.
 
+Top-level JSON values retain their native types during binding. JSON objects
+are not mirrored into `body_params`, so `request.form()` only reads form data.
+Malformed query strings and URL-encoded forms return `400 Bad Request`; valid
+empty values such as `name=` are preserved.
+
 #### **Helper-Based Request Access**
 Use helper methods for query, form, and JSON payload access:
 ```python
@@ -170,7 +176,7 @@ class MyApp(App):
 
 Choose the simplest input style that fits the route:
 - Use handler arguments when you only need named path/query/body values.
-- Use helpers when you want to explicitly read one query value, one body value, or a JSON payload.
+- Use helpers when you want to explicitly read one query value, one form value, or a JSON payload.
 - Use raw attributes like `query_params`, `body_params`, `files`, `headers`, and `session` when you need repeated values, uploaded file streams, middleware-level inspection, or exact parsed structures.
 
 Do not `await` `self.request.query(...)`, `self.request.form(...)`, or `self.request.json(...)`. They are synchronous accessors over request data MicroPie has already parsed. Uploaded file content is the exception: file bodies are streamed through async queues in `self.request.files`.
@@ -215,7 +221,7 @@ MicroPie includes built-in support for WebSocket connections. WebSocket routes a
 
 #### MicroPie’s WebSocket support allows you to:
 - Define WebSocket handlers with the same intuitive automatic routing as HTTP (e.g., `/chat` maps to `ws_chat` method).
-- Access query parameters, path parameters, and session data in WebSocket handlers, consistent with HTTP requests.
+- Access query and path parameters through handler arguments, and session data explicitly through `self.request.session`.
 - Manage WebSocket connections using the WebSocket class, which provides methods like `accept`, `receive_text`, `send_text`, and `close`.
 
 Check out a basic example:
