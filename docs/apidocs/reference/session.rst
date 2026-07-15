@@ -42,12 +42,15 @@ InMemorySessionBackend
    .. method:: load(session_id)
 
       Return the session dictionary if it exists and has not expired
-      according to :data:`micropie.SESSION_TIMEOUT`, otherwise return
-      an empty dictionary.
+      according to the timeout supplied when it was saved, otherwise
+      return an empty dictionary.  Successful loads refresh the
+      inactivity timer.
 
    .. method:: save(session_id, data, timeout)
 
-      Store *data* under *session_id* and update the last access time.
+      Store *data* under *session_id*, retain *timeout* for that session,
+      and update the last access time.  Empty data or a non-positive
+      timeout deletes the session.
 
 SESSION_TIMEOUT
 ---------------
@@ -55,9 +58,10 @@ SESSION_TIMEOUT
 .. data:: SESSION_TIMEOUT
 
    The default session expiration time in seconds (eight hours).  You
-   can override this constant in your own code by assigning a new value
-   to ``micropie.SESSION_TIMEOUT`` or by using a custom back-end that
-   persists with a different timeout policy.
+   can select a different value per application with
+   ``App(session_timeout=...)``.  The constant supplies the default; it
+   is not consulted as mutable runtime policy by existing applications
+   or saved in-memory sessions.
 
 See also the :doc:`../howto/sessions` guide for examples of using and
 implementing session back‑ends.

@@ -10,11 +10,13 @@ request and passes it as the first argument to your WebSocket handler.
 Constructor
 -----------
 
-.. class:: WebSocket(receive, send)
+.. class:: WebSocket(receive, send, *, session_cookie_secure=True)
 
    Create a new WebSocket wrapper around the ASGI ``receive`` and
    ``send`` callables.  You do not instantiate this class yourself;
-   MicroPie does so internally.
+   MicroPie does so internally and supplies the owning application's
+   session-cookie policy.  Direct construction keeps secure cookies by
+   default.
 
 Methods
 -------

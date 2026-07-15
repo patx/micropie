@@ -68,10 +68,19 @@ Assign your back‑end when constructing your application:
 Expiring sessions
 -----------------
 
-The global constant :data:`micropie.SESSION_TIMEOUT` controls how long
-a session remains valid (in seconds).  The default is eight hours.
-Back‑ends may choose to enforce this timeout in whatever manner makes
-sense for their storage layer.
+Pass ``session_timeout`` to :class:`~micropie.App` to control how long
+sessions remain valid (in seconds).  Its default is the eight-hour
+:data:`micropie.SESSION_TIMEOUT` constant.  MicroPie passes the configured
+value to :meth:`~micropie.SessionBackend.save` for both HTTP and WebSocket
+sessions:
+
+.. code-block:: python
+
+   app = MyApp(session_timeout=30 * 60)  # 30 minutes
+
+The in-memory back-end applies the supplied value independently to each
+session as a sliding inactivity timeout.  Custom back-ends should likewise
+honour the value passed to ``save()`` according to their storage model.
 
 Security considerations
 -----------------------
@@ -79,6 +88,13 @@ Security considerations
 Sessions are sent to the client as cookies and should be treated as
 untrusted input.  Avoid storing sensitive information directly in the
 session.  If you implement your own back‑end, ensure that session
-identifiers are random, unique and that the cookie includes the
-``HttpOnly``, ``Secure`` and ``SameSite=Lax`` directives.  The
-in‑memory back‑end provided by MicroPie already issues these flags.
+identifiers are random and unique.  MicroPie generates cookies with
+``HttpOnly``, ``Secure`` and ``SameSite=Lax`` by default.
+
+Browsers do not send ``Secure`` cookies over plain HTTP.  For local HTTP
+development, disable that attribute explicitly while retaining it in
+production:
+
+.. code-block:: python
+
+   app = MyApp(session_cookie_secure=False)

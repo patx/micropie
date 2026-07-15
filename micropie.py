@@ -13,9 +13,9 @@ __license__ = "BSD3"
 import asyncio
 import contextvars
 import inspect
+import logging
 import re
 import time
-import traceback
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Tuple
@@ -41,6 +41,9 @@ except ImportError:
     MULTIPART_INSTALLED = False
 
 
+logger = logging.getLogger(__name__)
+
+
 _PARAM_EMPTY = inspect.Parameter.empty
 _VAR_POSITIONAL = inspect.Parameter.VAR_POSITIONAL
 _POSITIONAL_PARAM_KINDS = (
@@ -55,6 +58,18 @@ _JSON_HEADER_BYTES = (b"Content-Type", b"application/json")
 _DEFAULT_HEADERS_BYTES = [_DEFAULT_HEADER_BYTES]
 _JSON_HEADERS_BYTES = [_JSON_HEADER_BYTES]
 _ROUTE_ATTR_MISSING = object()
+
+
+def _format_session_cookie(session_id: str, *, secure: bool) -> str:
+    attributes = [
+        f"session_id={session_id}",
+        "Path=/",
+        "SameSite=Lax",
+        "HttpOnly",
+    ]
+    if secure:
+        attributes.append("Secure")
+    return "; ".join(attributes) + ";"
 
 
 class _HandlerParam(NamedTuple):
@@ -103,31 +118,37 @@ class InMemorySessionBackend(SessionBackend):
     def __init__(self):
         self.sessions: Dict[str, Dict[str, Any]] = {}
         self.last_access: Dict[str, float] = {}
+        self.timeouts: Dict[str, int] = {}
         self._next_cleanup: float = 0.0
         self._cleanup_interval: float = 60.0
 
     def _cleanup(self, now: Optional[float] = None, *, force: bool = False):
-        """Remove expired sessions based on SESSION_TIMEOUT."""
+        """Remove sessions whose configured inactivity timeout has elapsed."""
         if now is None:
             now = time.time()
         if not force and now < self._next_cleanup:
             return
         self._next_cleanup = now + self._cleanup_interval
         expired = [
-            sid for sid, ts in self.last_access.items() if now - ts >= SESSION_TIMEOUT
+            sid
+            for sid, ts in self.last_access.items()
+            if now - ts >= self.timeouts.get(sid, SESSION_TIMEOUT)
         ]
         for sid in expired:
             self.sessions.pop(sid, None)
             self.last_access.pop(sid, None)
+            self.timeouts.pop(sid, None)
 
     async def load(self, session_id: str) -> Dict[str, Any]:
         now = time.time()
         self._cleanup(now)
         last_access = self.last_access.get(session_id)
         if last_access is not None:
-            if now - last_access >= SESSION_TIMEOUT:
+            timeout = self.timeouts.get(session_id, SESSION_TIMEOUT)
+            if now - last_access >= timeout:
                 self.sessions.pop(session_id, None)
                 self.last_access.pop(session_id, None)
+                self.timeouts.pop(session_id, None)
                 return {}
             self.last_access[session_id] = now
             return self.sessions.get(session_id, {})
@@ -135,13 +156,15 @@ class InMemorySessionBackend(SessionBackend):
 
     async def save(self, session_id: str, data: Dict[str, Any], timeout: int) -> None:
         self._cleanup()
-        if not data:
+        if not data or timeout <= 0:
             # treat empty as delete
             self.sessions.pop(session_id, None)
             self.last_access.pop(session_id, None)
+            self.timeouts.pop(session_id, None)
         else:
             self.sessions[session_id] = data
             self.last_access[session_id] = time.time()
+            self.timeouts[session_id] = timeout
 
 
 # -----------------------------
@@ -231,6 +254,8 @@ class WebSocket:
         self,
         receive: Callable[[], Awaitable[Dict[str, Any]]],
         send: Callable[[Dict[str, Any]], Awaitable[None]],
+        *,
+        session_cookie_secure: bool = True,
     ) -> None:
         """
         Initialize a WebSocket instance.
@@ -238,11 +263,13 @@ class WebSocket:
         Args:
             receive: The ASGI receive callable.
             send: The ASGI send callable.
+            session_cookie_secure: Whether session cookies include the Secure flag.
         """
         self.receive = receive
         self.send = send
         self.accepted = False
         self.session_id: Optional[str] = None
+        self.session_cookie_secure = session_cookie_secure
 
     async def accept(
         self, subprotocol: Optional[str] = None, session_id: Optional[str] = None
@@ -265,7 +292,9 @@ class WebSocket:
             headers.append(
                 (
                     "Set-Cookie",
-                    f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;",
+                    _format_session_cookie(
+                        session_id, secure=self.session_cookie_secure
+                    ),
                 )
             )
             self.session_id = session_id
@@ -453,7 +482,18 @@ class App:
     and startup/shutdown handlers via 'startup_handlers' and 'shutdown_handlers'.
     """
 
-    def __init__(self, session_backend: Optional[SessionBackend] = None) -> None:
+    def __init__(
+        self,
+        session_backend: Optional[SessionBackend] = None,
+        *,
+        body_timeout: Optional[float] = 5.0,
+        session_timeout: int = SESSION_TIMEOUT,
+        session_cookie_secure: bool = True,
+    ) -> None:
+        if body_timeout is not None and body_timeout <= 0:
+            raise ValueError("body_timeout must be positive or None")
+        if session_timeout <= 0:
+            raise ValueError("session_timeout must be positive")
         if JINJA_INSTALLED:
             self.env = Environment(
                 loader=FileSystemLoader("templates"),
@@ -465,6 +505,9 @@ class App:
         self.session_backend: SessionBackend = (
             session_backend or InMemorySessionBackend()
         )
+        self.body_timeout = body_timeout
+        self.session_timeout = session_timeout
+        self.session_cookie_secure = session_cookie_secure
         self.middlewares: List[HttpMiddleware] = []
         self.ws_middlewares: List[WebSocketMiddleware] = []
         self.startup_handlers: List[Callable[[], Awaitable[None]]] = []
@@ -628,14 +671,20 @@ class App:
         parse_task: Optional[asyncio.Task] = (
             None  # background multipart task if started
         )
+        multipart_file_notifications: Optional[asyncio.Queue] = None
 
         async def _cancel_parse_task():
-            if parse_task is not None and not parse_task.done():
+            if parse_task is None:
+                return
+            if not parse_task.done():
                 parse_task.cancel()
-                try:
-                    await parse_task
-                except asyncio.CancelledError:
-                    pass
+            try:
+                await parse_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                # The parser runner logs the original exception.
+                pass
 
         async def _early_exit(
             code: int, body: Any, headers: Optional[List[Tuple[str, str]]] = None
@@ -651,14 +700,18 @@ class App:
             """
             if name in request.files:
                 return request.files[name]
-            if parse_task is None:
+            if parse_task is None or multipart_file_notifications is None:
                 return None
-            while True:
-                if name in request.files:
-                    return request.files[name]
+            while name not in request.files:
                 if parse_task.done():
-                    return None
-                await asyncio.sleep(0)
+                    try:
+                        await parse_task
+                    except Exception:
+                        # The parser runner logs the original exception.
+                        pass
+                    break
+                await multipart_file_notifications.get()
+            return request.files.get(name)
 
         try:
             # Parse query/cookies/session
@@ -676,32 +729,50 @@ class App:
             ):
                 if "multipart/form-data" in content_type:
                     if not MULTIPART_INSTALLED:
-                        print("For multipart form data support install 'multipart'.")
+                        logger.error(
+                            "Multipart form data requires the 'multipart' package"
+                        )
                         await _early_exit(500, "500 Internal Server Error")
                         return
                     boundary_match = re.search(r"boundary=([^;]+)", content_type)
                     if not boundary_match:
                         await _early_exit(400, "400 Bad Request: Missing boundary")
                         return
-                    # Start parsing in the background; do NOT await here so handlers/middleware can run concurrently.
-                    parse_task = asyncio.create_task(
-                        self._parse_multipart_into_request(
-                            receive,
-                            boundary_match.group(1).encode("utf-8"),
-                            request,
-                            file_queue_maxsize=2048,
-                        )
-                    )
+                    multipart_file_notifications = asyncio.Queue()
+
+                    async def _run_multipart_parser() -> None:
+                        try:
+                            await self._parse_multipart_into_request(
+                                receive,
+                                boundary_match.group(1).encode("utf-8"),
+                                request,
+                                file_notifications=multipart_file_notifications,
+                                file_queue_maxsize=2048,
+                            )
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            logger.exception("Failed to parse multipart request body")
+                            raise
+                        finally:
+                            multipart_file_notifications.put_nowait(None)
+
+                    # Parse in the background so handlers can drain file queues
+                    # while later upload chunks are still arriving.
+                    parse_task = asyncio.create_task(_run_multipart_parser())
                 else:
                     body_chunks: List[bytes] = []
                     try:
-                        async with asyncio.timeout(5):  # Timeout after 5 seconds
-                            while True:
+                        while True:
+                            if self.body_timeout is None:
                                 msg = await receive()
-                                if chunk := msg.get("body", b""):
-                                    body_chunks.append(chunk)
-                                if not msg.get("more_body"):
-                                    break
+                            else:
+                                async with asyncio.timeout(self.body_timeout):
+                                    msg = await receive()
+                            if chunk := msg.get("body", b""):
+                                body_chunks.append(chunk)
+                            if not msg.get("more_body"):
+                                break
                     except asyncio.TimeoutError:
                         await _early_exit(
                             408, "408 Request Timeout: Failed to receive body"
@@ -856,7 +927,9 @@ class App:
                     else handler(*func_args)
                 )
             except Exception:
-                traceback.print_exc()
+                logger.exception(
+                    "Unhandled exception in HTTP handler for %s", scope.get("path", "")
+                )
                 await _early_exit(500, "500 Internal Server Error")
                 return
 
@@ -866,7 +939,8 @@ class App:
                     await parse_task
                     request.body_parsed = True
                 except Exception:
-                    traceback.print_exc()
+                    # The parser runner logs the original exception.
+                    pass
 
             # Normalize response
             if isinstance(result, tuple):
@@ -899,11 +973,13 @@ class App:
                     extra_headers.append(
                         (
                             "Set-Cookie",
-                            f"session_id={session_id}; Path=/; SameSite=Lax; HttpOnly; Secure;",
+                            _format_session_cookie(
+                                session_id, secure=self.session_cookie_secure
+                            ),
                         )
                     )
                 await self.session_backend.save(
-                    session_id, request.session, SESSION_TIMEOUT
+                    session_id, request.session, self.session_timeout
                 )
             elif session_id:
                 # Empty session and existing cookie -> treat as logout/delete
@@ -1044,7 +1120,11 @@ class App:
             path_param_count = len(path_params)
             query_params = request.query_params
             session = request.session
-            ws = WebSocket(receive, send)
+            ws = WebSocket(
+                receive,
+                send,
+                session_cookie_secure=self.session_cookie_secure,
+            )
             func_args.append(ws)  # First non-self parameter is WebSocket object
             for param in handler_info.params:
                 if param.name == "ws":  # Skip the WebSocket parameter
@@ -1081,7 +1161,10 @@ class App:
             except ConnectionClosed:
                 pass  # Normal closure, no need to send another close message
             except Exception as e:
-                traceback.print_exc()
+                logger.exception(
+                    "Unhandled exception in WebSocket handler for %s",
+                    scope.get("path", ""),
+                )
                 await self._send_websocket_close(send, 1011, f"Handler error: {str(e)}")
                 return
 
@@ -1092,7 +1175,7 @@ class App:
             # Save / clear session after middlewares
             if request.session:
                 await self.session_backend.save(
-                    ws.session_id, request.session, SESSION_TIMEOUT
+                    ws.session_id, request.session, self.session_timeout
                 )
             elif had_session_id:
                 # Treat empty session as logout/delete
@@ -1126,6 +1209,7 @@ class App:
         boundary: bytes,
         request: "Request",
         *,
+        file_notifications: Optional[asyncio.Queue] = None,
         file_queue_maxsize: int = 2048,
     ) -> None:
         """
@@ -1178,6 +1262,8 @@ class App:
                                     or "application/octet-stream",
                                     "content": current_queue,
                                 }
+                                if file_notifications is not None:
+                                    file_notifications.put_nowait(current_field_name)
                             else:
                                 # Text field
                                 request.body_params.setdefault(current_field_name, [])
@@ -1224,7 +1310,9 @@ class App:
         has_content_type = False
         for k, v in extra_headers:
             if "\n" in k or "\r" in k or "\n" in v or "\r" in v:
-                print(f"Header injection attempt detected: {k}: {v}")
+                logger.warning(
+                    "Rejected response header containing a newline: %r: %r", k, v
+                )
                 continue
             if k.lower() == "content-type":
                 has_content_type = True
@@ -1333,7 +1421,7 @@ class App:
             The rendered template as a string.
         """
         if not JINJA_INSTALLED:
-            print("To use the `_render_template` method install 'jinja2'.")
+            logger.error("Template rendering requires the 'jinja2' package")
             return "500 Internal Server Error: Jinja2 not installed."
         assert self.env is not None
         template = await asyncio.to_thread(self.env.get_template, name)
