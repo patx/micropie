@@ -11,7 +11,7 @@ releases, consult the `GitHub releases page <https://github.com/patx/micropie/re
 Version highlights
 ------------------
 
-* **Next release** – Adds request-body and multipart-field limits,
+* **0.32** – Adds request-body and multipart-field limits,
   per-chunk timeouts for buffered and multipart bodies, deadlock-free
   multi-file streaming, explicit multipart failure signaling, session
   fixation protection, configurable session cookie/ID policies, isolated
@@ -64,21 +64,67 @@ Version highlights
 * **0.13** – Introduces built-in WebSocket support, opening the door to
   real-time applications without additional middleware.
 
+Breaking changes in 0.32
+------------------------
+
+Version 0.32 intentionally changes several public behaviours.  Review each
+item before upgrading an existing application.
+
+* **Session values no longer bind to handler arguments.** This applies to
+  both HTTP and WebSocket handlers.  A parameter such as ``user_id`` must
+  come from path, query, form, JSON or file input (as applicable), or have a
+  default.  Read trusted state explicitly instead:
+
+  .. code-block:: python
+
+     async def transfer(self, amount):
+         user_id = self.request.session["user_id"]
+         return await make_transfer(user_id, amount)
+
+* **Request.form() no longer reads JSON bodies.** JSON objects are no longer
+  copied into ``Request.body_params``; code using ``request.form(...)`` for
+  JSON must move to ``request.json(...)``.  Top-level JSON object keys still
+  bind to handler arguments, but values retain their native JSON types instead
+  of being converted with ``str()``.  The namespace change also applies to
+  middleware and mounted sub-applications that inspect ``body_params``.
+
+* **Session IDs use UUIDv4 validation by default.** Existing non-UUID session
+  cookies are rejected, and non-UUID values passed to
+  ``WebSocket.accept(session_id=...)`` raise ``ValueError``.  Custom session
+  back-ends must configure matching ``session_id_factory`` and
+  ``session_id_validator`` callables.  Session IDs also rotate when an empty
+  session becomes populated, so clients must honor the returned
+  ``Set-Cookie`` header.
+
+* **Request-body limits are enabled by default.** Bodies larger than 16 MiB
+  receive ``413 Payload Too Large``.  Each accumulated multipart text field
+  is additionally limited to 1 MiB.  Pass larger values—or ``None`` to
+  disable a limit—through ``max_body_size`` and ``max_form_field_size`` when
+  larger payloads are intentional.
+
+* **Aborted multipart file streams raise an exception.** A file queue yields
+  ``None`` only after a complete upload.  Parser failures, idle timeouts and
+  size-limit failures now raise :class:`~micropie.MultipartFileError` from
+  ``get()``.  Upload consumers must treat that exception as an incomplete
+  file and avoid persisting partial data.
+
+* **Python 3.11 or newer is required.** Package metadata now declares the
+  framework's actual interpreter requirement, including its use of
+  ``asyncio.timeout``.  Installers will reject older Python versions instead
+  of installing a package that cannot run correctly.
+
+* **Some error and middleware values are normalized.** JSON response bodies
+  passed to ``HttpMiddleware.after_request`` are now text regardless of
+  whether ``orjson`` is installed.  Unhandled WebSocket handler exceptions
+  close with code ``1011`` and the generic reason ``Internal server error``;
+  exception details are available only through server logging.
+
 Upgrade tips
 ------------
 
-* **Review request parsing compatibility.** Query strings and URL-encoded form
-  bodies retain their earlier permissive behavior: empty and bare fields are
-  omitted and malformed encoding is tolerated. JSON objects now retain native
-  types and are no longer mirrored into ``body_params``; use ``Request.json()``
-  rather than ``Request.form()`` for JSON payloads.
-* **Review custom session IDs.** Session cookies and explicit WebSocket IDs
-  now require canonical UUIDv4 by default.  Back-ends using signed or custom
-  identifiers must configure matching ``session_id_factory`` and
-  ``session_id_validator`` callables.
-* **Handle aborted file streams.** Multipart file queues now raise
-  ``MultipartFileError`` when parsing fails instead of yielding a clean
-  ``None`` sentinel for truncated content.
+* **URL-encoded parsing remains permissive.** Query strings and URL-encoded
+  form bodies retain their earlier behavior: empty and bare fields are omitted
+  and malformed encoding is tolerated.
 * **Check optional extras.** When upgrading, confirm that any optional
   dependencies you rely on (``jinja2``, ``multipart``, ``orjson``) are
   still installed, especially if you pin minimal environments.

@@ -4,7 +4,7 @@ Quick start
 This tutorial shows you how to install MicroPie and run a very simple
 application.  By the end you will be able to serve an HTTP
 endpoint that returns plain text.  This section assumes that you
-already have Python 3.8 or later installed.
+already have Python 3.11 or later installed.
 
 Installation
 ------------

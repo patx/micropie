@@ -1,7 +1,14 @@
 [![Logo](https://patx.github.io/micropie/logo.png)](https://patx.github.io/micropie)
 
 ## Releases Notes
-- **Unreleased** - Harden request parsing, multipart streaming, sessions, parameter binding, logging, and response streaming. This release retains consistent permissive URL-encoded query and form parsing, and introduces native JSON binding without `body_params` mirroring, UUIDv4 session validation by default, configurable custom session-ID policies, request-body limits, and `MultipartFileError` for aborted uploads; review the upgrade notes before deploying.
+- **[0.32](https://github.com/patx/micropie/releases/tag/v0.32)** - Harden request parsing, multipart streaming, sessions, parameter binding, logging, and response streaming. URL-encoded query and form parsing remain permissive and compatible with earlier releases.
+  - **Breaking — session binding:** HTTP and WebSocket handler arguments are no longer populated from session data. Read trusted state explicitly from `self.request.session`.
+  - **Breaking — `Request.form()` and JSON:** `Request.form()` no longer returns values from JSON bodies because JSON objects are no longer mirrored into `body_params`. Use `request.json(...)` instead. Top-level JSON keys still bind to handler arguments, now with native JSON types.
+  - **Breaking — session IDs:** Session cookies and explicit `WebSocket.accept(session_id=...)` values use canonical UUIDv4 validation by default. Custom backends must configure matching `session_id_factory` and `session_id_validator` callables; otherwise existing non-UUID sessions are rejected.
+  - **Breaking — request limits:** Requests now default to a 16 MiB total body limit and multipart text fields to 1 MiB. Configure larger values or `None` when an application intentionally accepts more.
+  - **Breaking — multipart failures:** An aborted upload now raises `MultipartFileError` from the file queue instead of yielding a clean `None` sentinel. Treat `None` as successful EOF and handle the exception as an incomplete upload.
+  - **Breaking — Python requirement:** Package metadata now requires Python 3.11 or newer, matching the framework's use of Python 3.11 asyncio APIs. Older interpreters are no longer accepted by installers.
+  - **Integration changes:** JSON response bodies passed to HTTP middleware are consistently text even when `orjson` is installed, and unhandled WebSocket handler failures now use a generic `1011` close reason while logging details server-side.
 - **[0.31](https://github.com/patx/micropie/releases/tag/v0.31)** - Security fix: route lookup now ignores non-callable public attributes and property-like descriptors, preventing internal App attributes from being treated as handlers while preserving descriptor-backed route methods.
 - **[0.30](https://github.com/patx/micropie/releases/tag/v0.30)** - Remove the public `Request.get_json` attribute. Use `Request.json()` or `Request.json(name, default)`.
 - **[0.29](https://github.com/patx/micropie/releases/tag/v0.29)** - Performance upgrades, no more per request signature inspections for routing. 24%-54% increase in req/sec.

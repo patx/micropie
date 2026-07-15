@@ -5,6 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "micropie"
 version = "0.32"
+requires-python = ">=3.11"
 description = "An ultra micro ASGI web framework"
 keywords = ["micropie", "asgi", "microframework", "http"]
 readme = "docs/README.md"
@@ -17,6 +18,7 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: WSGI",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "License :: OSI Approved :: BSD License",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
