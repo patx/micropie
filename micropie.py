@@ -923,12 +923,16 @@ class App:
                 if not content_length.isascii() or not content_length.isdigit():
                     await _early_exit(400, "400 Bad Request: Invalid Content-Length")
                     return
-                if (
-                    self.max_body_size is not None
-                    and int(content_length) > self.max_body_size
-                ):
-                    await _early_exit(413, "413 Payload Too Large")
-                    return
+                if self.max_body_size is not None:
+                    # Compare decimal strings without Python's integer digit limit.
+                    normalized_length = content_length.lstrip("0") or "0"
+                    limit = str(self.max_body_size)
+                    if len(normalized_length) > len(limit) or (
+                        len(normalized_length) == len(limit)
+                        and normalized_length > limit
+                    ):
+                        await _early_exit(413, "413 Payload Too Large")
+                        return
 
             # Body parsing setup
             if (
@@ -1159,7 +1163,7 @@ class App:
                 elif param.name in query_params:
                     param_value = query_params[param.name][0]
                     found = True
-                elif param.name in body_params:
+                elif body_params.get(param.name):
                     param_value = body_params[param.name][0]
                     found = True
                 elif param.name in json_params:

@@ -940,6 +940,23 @@ class TestRequestBodyTimeouts(MicroPieTestCase):
 class TestRequestBodyLimits(MicroPieTestCase):
     """Tests for declared and streamed request-body limits."""
 
+    async def test_content_length_beyond_integer_conversion_limit(self):
+        async def index():
+            return "ok"
+
+        self.app.index = index
+        for value, expected in ((b"9" * 5000, 413), (b"0" * 5000, 200)):
+            with self.subTest(value=value[:1]):
+                send = AsyncMock()
+                receive = AsyncMock()
+                await self.app(
+                    self.create_mock_scope(headers=[(b"content-length", value)]),
+                    receive,
+                    send,
+                )
+                self.assertEqual(send.call_args_list[0].args[0]["status"], expected)
+                receive.assert_not_awaited()
+
     async def test_content_length_rejects_oversized_body_before_receive(self):
         """An oversized declared body should be rejected without buffering it."""
         self.app = App(max_body_size=4)
@@ -1191,6 +1208,34 @@ class TestRequestBodyLimits(MicroPieTestCase):
 
 class TestMultipartCoordination(MicroPieTestCase):
     """Tests for notification-driven multipart file binding."""
+
+    @unittest.skipUnless(MULTIPART_INSTALLED, "multipart package is not installed")
+    async def test_binding_waits_for_incomplete_text_field_after_file(self):
+        async def upload(file, title):
+            return title
+
+        self.app.upload = upload
+        chunks = [
+            b'--test-boundary\r\nContent-Disposition: form-data; name="file"; '
+            b'filename="a.txt"\r\n\r\nx\r\n--test-boundary\r\n'
+            b'Content-Disposition: form-data; name="title"\r\n\r\n',
+            b'hello\r\n--test-boundary--\r\n',
+        ]
+
+        async def receive():
+            # Let argument binding run while title exists but has no value yet.
+            await asyncio.sleep(0.01)
+            return {
+                "type": "http.request",
+                "body": chunks.pop(0),
+                "more_body": bool(chunks),
+            }
+
+        send = AsyncMock()
+        await asyncio.wait_for(self.app(self.multipart_scope(), receive, send), 1)
+        send.assert_any_call(
+            {"type": "http.response.body", "body": b"hello", "more_body": False}
+        )
 
     def multipart_scope(self):
         return self.create_mock_scope(
@@ -2627,6 +2672,22 @@ class TestOptionalDependencies(MicroPieTestCase):
                     "more_body": False,
                 }
             )
+
+
+class TestCSRFExample(MicroPieTestCase):
+    async def test_submitted_token_validation(self):
+        from examples.middleware.csrf import CSRFMiddleware
+
+        token = "a" * 43
+        for submitted, expected in (("é", 403), ("b" * 43, 403), (token, None)):
+            with self.subTest(submitted=submitted):
+                request = Request(self.create_mock_scope(
+                    method="POST",
+                    headers=[(b"x-csrf-token", submitted.encode("latin-1"))],
+                ))
+                request.session = {"csrf_token": token}
+                result = await CSRFMiddleware().before_request(request)
+                self.assertEqual(result["status_code"] if result else None, expected)
 
 
 if __name__ == "__main__":

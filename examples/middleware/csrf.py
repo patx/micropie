@@ -162,6 +162,7 @@ class CSRFMiddleware(HttpMiddleware):
 
         if (
             not self._valid_session_token(session_token)
+            or not self._valid_session_token(submitted_token)
             or not secrets.compare_digest(submitted_token, session_token)
         ):
             return {
